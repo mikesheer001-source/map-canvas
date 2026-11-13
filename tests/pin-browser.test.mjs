@@ -20,11 +20,21 @@ async function verifyAnchors(label) {
     for(const zoom of [12,15.5,17.5]){
       for(const entry of sample) {
         map.jumpTo({center:[entry.lng,entry.lat],zoom});
-        await new Promise(done=>setTimeout(done,300));
-        const screen=map.project([entry.lng,entry.lat]);
-        const hits=map.queryRenderedFeatures(screen,{layers:["canvas-pin-dots"]});
+        // WebGL renders asynchronously, especially after network-backed tile changes.
+        // Assert against a rendered frame, not a fixed 300ms sleep.
+        const deadline=performance.now()+7000;
+        let hits=[],screen;
+        do {
+          await new Promise(done=>setTimeout(done,110));
+          map.triggerRepaint();
+          screen=map.project([entry.lng,entry.lat]);
+          hits=map.queryRenderedFeatures(screen,{layers:["canvas-pin-dots"]});
+          if(hits.some(f=>f.properties.id===entry.id))break;
+        } while(performance.now()<deadline);
         if(!hits.some(f=>f.properties.id===entry.id)){
-          throw Error(label+" zoom "+zoom+" failed for "+entry.id+" at "+JSON.stringify(screen));
+          throw Error(label+" zoom "+zoom+" failed for "+entry.id+
+            " at "+JSON.stringify(screen)+"; rendered="+hits.map(f=>f.properties.id).join(",")+
+            "; styleReady="+map.isStyleLoaded());
         }
         counts.push({id:entry.id,zoom});
       }
