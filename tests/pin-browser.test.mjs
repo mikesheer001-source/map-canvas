@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {chromium, webkit} from "playwright";
 const engineName = process.env.MAP_BROWSER_ENGINE === "webkit" ? "webkit" : "chromium";
 const engine = engineName === "webkit" ? webkit : chromium;
@@ -132,15 +133,22 @@ try {
   await page.locator("#detailPanel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
-  // The static site cannot fake global deletion without its shared backend.
-  // No local-only hide, no warning or confirmation modal.
+  // Delete immediately from local map, without a confirmation dialog.
   await page.locator("#entries .entry").first().click();
   assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
-  assert.equal(await page.locator("#deleteSelectedPin").isDisabled(),true);
-  assert.equal(await page.locator("#restoreHiddenPins").count(),0);
-  assert.equal(await page.locator("#entries .entry").count(),12);
-  assert.equal(await page.locator("#detailPanel .detail-actions .danger").count(),1);
-  await page.locator("#detailPanel .detail-head button").click();
+  assert.equal(await page.locator("#deleteSelectedPin").isEnabled(),true);
+  page.once("dialog",async dialog=>{throw Error("Unexpected delete warning: "+dialog.message());});
+  await page.locator("#deleteSelectedPin").click();
+  assert.equal(await page.locator("#entries .entry").count(),11);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:manual-map-v1")).length),11);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  assert.equal(await page.locator("#entries .entry").count(),11,"Deletion persists after reload");
+  await page.locator("#settingsButton").click();
+  page.once("dialog",dialog=>dialog.accept());
+  await page.locator("#resetMapBtn").click();
+  assert.equal(await page.locator("#entries .entry").count(),12,"Reset loads published map");
+  await page.locator("#settingsDone").click();
 
   // Dark interface and actual MapLibre dark basemap; both must survive reload.
   await page.locator("#themeToggle").click();
@@ -178,6 +186,33 @@ try {
   }
   await page.screenshot({path:`test-artifacts/${engineName}-picture-text-toolbar.png`});
 
+  // Add a pin without Sheets, then round-trip a full JSON export and Sheets CSV.
+  await page.locator("#addButton").click();
+  await page.locator("#map").click({position:{x:350,y:280}});
+  assert.ok(await page.locator("#editor").evaluate(el=>el.open));
+  await page.locator("#title").fill("Browser Saved Cafe");
+  await page.locator("#category").fill("Cafe");
+  await page.locator("#saveEntry").click();
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===13);
+  assert.equal(await page.locator("#entries .entry").count(),13);
+  const [fileDownload]=await Promise.all([
+    page.waitForEvent("download"),
+    page.locator("#exportFormat").selectOption("json").then(()=>
+      page.locator("#exportBtn").click())
+  ]);
+  assert.equal(fileDownload.suggestedFilename(),"map-canvas.json");
+  const exported=JSON.parse(readFileSync(await fileDownload.path(),"utf8"));
+  assert.equal(exported.length,13,"JSON backup includes all map entries");
+  await page.locator("#importMode").selectOption("merge");
+  await page.locator("#importFile").setInputFiles({
+    name:"google-sheet.csv",mimeType:"text/csv",
+    buffer:Buffer.from("title,lat,lng,category\\nImported Sheet Cafe,21.0345,105.851,Cafe\\n")
+  });
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===14);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  assert.equal(await page.locator("#entries .entry").count(),14,"CSV import persists on reload");
+
   // Settings: immediate application, persistence through reload, and reset.
   await page.locator("#settingsButton").click();
   assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
@@ -207,12 +242,12 @@ try {
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
   assert.ok(await page.locator(".searchwrap").isVisible());
 
-  // No sign-in, and writes must be disabled if the shared backend isn't configured.
+  // Standalone public map: browser edits are always enabled, no API connection.
   assert.equal(await page.locator("#editor").count(),1);
-  await page.waitForFunction(()=>document.querySelector("#syncState")?.textContent==="Sheet not connected");
-  assert.equal(await page.locator("#syncState").textContent(),"Sheet not connected");
+  assert.match(await page.locator("#syncState").textContent(),/Browser edits saved|Public map loaded/);
+  assert.equal(await page.locator("script[src*='config.js']").count(),0);
   assert.deepEqual(errors,[],"Browser JavaScript errors");
-  console.log(`PASS ${engineName}: 45 projection tests, 2 basemap switches, mobile geometry, actual drag, CSS and gesture handling`);
+  console.log(`PASS ${engineName}: projections, basemap switches, delete/save persistence, CSV import, JSON export, settings and mobile geometry`);
 } finally {
   await browser.close();
 }
