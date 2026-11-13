@@ -88,7 +88,7 @@ assert.match(app,/deleteButton\.disabled=!state\.sheetConnected/);
 assert.doesNotMatch(app,/confirm\(.+Delete this public entry/);
 const bridge=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
 assert.match(bridge,/RETIRED_SEED_IDS=\["hostel-4"\]/);
-assert.match(bridge,/deletedIds:.*\}/);
+assert.match(bridge,/\bdeletedIds\s*\}/);
 assert.match(bridge,/markDeleted_\(store\.book,entry\.id,"hostel"\)/);
 assert.match(bridge,/markDeleted_\(store\.book,entry\.id,"shared"\)/);
 assert.match(bridge,/body\.action==="delete"/);
