@@ -816,6 +816,7 @@ function wire() {
   $("addButton").addEventListener("click",()=>startPlacement("place"));
   $("cancelPlace").addEventListener("click",()=>{
     state.placing=null;$("placementBar").classList.add("hidden");
+    enhanced?.clearMeasurement();
   });
   $("zoomIn").addEventListener("click",()=>state.map?.zoomIn());
   $("zoomOut").addEventListener("click",()=>state.map?.zoomOut());
