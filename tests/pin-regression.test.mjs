@@ -30,7 +30,8 @@ class Element {
 }
 const dom = {
   getElementById(id){if(!this.nodes[id])this.nodes[id]=new Element();return this.nodes[id]},
-  createElement(tag){return new Element(tag)},nodes:{}
+  createElement(tag){return new Element(tag)},nodes:{},
+  documentElement:{dataset:{theme:"light",mapProvider:"openfreemap"}}
 };
 class Marker {
   constructor(options){this.options=options;Marker.created.push(this);}
