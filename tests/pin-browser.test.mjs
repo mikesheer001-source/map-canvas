@@ -39,6 +39,17 @@ async function verifyAnchors(label) {
             " at "+JSON.stringify(screen)+"; rendered="+hits.map(f=>f.properties.id).join(",")+
             "; styleReady="+map.isStyleLoaded());
         }
+        // Verify the visible emoji itself tracks the same projected coordinates.
+        const marker=[...document.querySelectorAll(".maplibregl-marker.emoji-pin")]
+          .find(el=>el.title===entry.title);
+        if(!marker)throw Error("Missing visible emoji for "+entry.id);
+        const box=marker.getBoundingClientRect();
+        const container=map.getContainer().getBoundingClientRect();
+        const visual={x:box.left+box.width/2-container.left,
+          y:box.top+box.height/2-container.top};
+        if(Math.hypot(visual.x-screen.x,visual.y-screen.y)>4)
+          throw Error("Emoji pin drift for "+entry.id+" at zoom "+zoom+
+            ": projected="+JSON.stringify(screen)+" visual="+JSON.stringify(visual));
         counts.push({id:entry.id,zoom});
       }
     }
