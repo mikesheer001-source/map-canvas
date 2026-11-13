@@ -159,3 +159,12 @@ delete any public pin, so a malicious visitor could destroy public map content.
 The owner should preserve backups. **Until the Apps Script web app is deployed
 and configured in `config.js`, the Delete button is disabled**; a static
 GitHub Pages site cannot accept shared writes by itself.
+
+The seed removal is already live via GitHub Pages. The per-pin Delete action
+for all other entries does not work yet because `config.js` has no Apps Script
+deployment URL. Enabling it requires deploying the current
+`sheets-bridge.gs` as a public web app, then setting that URL. The public
+delete endpoint deliberately has no confirmation step or ownership check, so
+**any visitor can erase any pin** once enabled. The change history remains
+available for recovery of shared entries; hostel deletions are retained as
+tombstones.

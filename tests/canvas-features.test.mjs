@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {parseCsvRows,parseImport,metersBetween,polygonAreaMeters,
-  FEATURE_DEFAULTS,FEATURE_GROUPS,FEATURE_STORAGE_KEY,readFeatureSettings,saveFeatureSettings,
-  HIDDEN_PINS_KEY,readHiddenPins,saveHiddenPins} from "../enhancements.js";
+  FEATURE_DEFAULTS,FEATURE_GROUPS,FEATURE_STORAGE_KEY,readFeatureSettings,saveFeatureSettings} from "../enhancements.js";
 const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
 const code=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
@@ -66,25 +65,31 @@ assert.ok(!FEATURE_GROUPS.some(g=>g.features.some(row=>row[0]==="measure")));
 
 // Regression: a stale cached enhancements module caused the startup crash
 // '$("measureFinish").addEventListener' after the Measure button was removed.
-assert.match(app,/enhancements\.js\?v=theme-delete-20261114/);
+assert.match(app,/enhancements\.js\?v=global-delete-20261114/);
 const toolSource=readFileSync(new URL("../enhancements.js",import.meta.url),"utf8");
 assert.ok(!toolSource.includes('$("measureFinish")'));
 assert.ok(!toolSource.includes('$("measureClear")'));
 assert.ok(!toolSource.includes('$("measureReadout")'));
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
 
-const hiddenStore={items:new Map(),getItem(key){return this.items.get(key)||null;},
-  setItem(key,value){this.items.set(key,value);}};
-assert.deepEqual([...readHiddenPins(hiddenStore)],[]);
-assert.equal(saveHiddenPins(new Set(["hostel-1","shared-a"]),hiddenStore),true);
-assert.deepEqual([...readHiddenPins(hiddenStore)],["hostel-1","shared-a"]);
-assert.equal(JSON.parse(hiddenStore.items.get(HIDDEN_PINS_KEY)).length,2);
-hiddenStore.setItem(HIDDEN_PINS_KEY,"invalid json");
-assert.equal(readHiddenPins(hiddenStore).size,0);
 assert.equal(FEATURE_DEFAULTS.darkTheme,false);
 assert.ok(FEATURE_GROUPS.some(g=>g.features.some(row=>row[0]==="darkTheme")));
 assert.ok(html.includes('id="themeToggle"'));
-assert.ok(html.includes('id="restoreHiddenPins"'));
+assert.ok(!html.includes('id="restoreHiddenPins"'));
 assert.match(app,/openFreeMapStyle\(\)/);
 assert.match(app,/https:\/\/tiles\.openfreemap\.org\/styles\/dark/);
-console.log("PASS: local-only pin removal/restoration and persisted dark theme controls");
+console.log("PASS: global deletion UI and persisted dark theme controls");
+
+const hotelData=JSON.parse(readFileSync(new URL("../data/hostels.json",import.meta.url),"utf8"));
+assert.equal(hotelData.length,12);
+assert.equal(hotelData.some(h=>h.title==="Rebel Rooster Hostel"),false);
+assert.match(app,/deletedIds\?\.includes\(entry\.id\)/);
+assert.match(app,/deleteButton\.disabled=!state\.sheetConnected/);
+assert.doesNotMatch(app,/confirm\(.+Delete this public entry/);
+const bridge=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
+assert.match(bridge,/RETIRED_SEED_IDS=\["hostel-4"\]/);
+assert.match(bridge,/deletedIds:.*\}/);
+assert.match(bridge,/markDeleted_\(store\.book,entry\.id,"hostel"\)/);
+assert.match(bridge,/markDeleted_\(store\.book,entry\.id,"shared"\)/);
+assert.match(bridge,/body\.action==="delete"/);
+console.log("PASS: retired hostel is globally absent; shared delete tombstones and UI backend gating");

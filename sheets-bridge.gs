@@ -13,6 +13,7 @@ const MAX_ROWS = 500;
 const EXTRA_HEADERS = ["Icon","Color","Canvas metadata"];
 const DELETED_TAB="Map Canvas Deleted";
 const DELETED_HEADERS=["ID","Deleted at","Source"];
+const RETIRED_SEED_IDS=["hostel-4"];
 const HISTORY_TAB="Map Canvas History";
 const HISTORY_HEADERS=["Timestamp","Action","ID","Before JSON","After JSON","Revision","Key fingerprint"];
 const MAX_HISTORY=10000;
@@ -69,7 +70,7 @@ function readHostels_(book) {
   const rich=rg.getRichTextValues();
   return rows.flatMap((row,i)=>{
     const title=String(row[0]||"").trim();
-    if(!title||title.startsWith("Booking.com"))return [];
+    if(!title||title.startsWith("Booking.com")||title.toLowerCase()==="rebel rooster hostel")return [];
     const link=rich[i][5]?.getLinkUrl()||rich[i][0]?.getLinkUrl()||"";
     const found=link.match(/!3d(-?[\d.]+)!4d(-?[\d.]+)/)||link.match(/@(-?[\d.]+),(-?[\d.]+)/);
     const ja=title.toLowerCase()==="ja costa hostel";
@@ -92,9 +93,10 @@ function deletedTab_(book,create) {
 }
 function deletedIds_(book) {
   const sh=deletedTab_(book,false);
-  if(!sh||sh.getLastRow()<2)return [];
-  return sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues()
-    .map(r=>r[0]).filter(Boolean);
+  if(!sh||sh.getLastRow()<2)return [...RETIRED_SEED_IDS];
+  return [...new Set([...RETIRED_SEED_IDS,
+    ...sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues()
+      .map(r=>r[0]).filter(Boolean)])];
 }
 function markDeleted_(book,id,source) {
   const sh=deletedTab_(book,true);
@@ -206,7 +208,8 @@ function doPost(e) {
       const incoming=body.entries;
       if(count+incoming.length>MAX_ROWS)throw new Error("Map has reached the 500-pin limit");
       const used=new Set(rows.map(r=>r[0]));
-      if(incoming.some(e=>used.has(e.id)))throw new Error("An imported pin already exists");
+      if(incoming.some(e=>used.has(e.id)||deletedIds_(store.book).includes(e.id)))
+        throw new Error("An imported pin already exists or was deleted");
       historyTab_(store.book);
       if(historyTab_(store.book).getLastRow()+incoming.length>MAX_HISTORY)
         throw new Error("History storage is full");
@@ -244,6 +247,8 @@ function doPost(e) {
       SpreadsheetApp.flush();
       return output_(JSON.stringify({ok:true}),ContentService.MimeType.JSON);
     }
+    if(deletedIds_(store.book).includes(entry.id))
+      throw new Error("This pin was deleted from the public map");
     historyTab_(store.book);
     if(existing&&(existing[11]!==hashed||existing[10]!==entry.version))throw new Error("Edit permission or version mismatch");
     if(!existing && entry.version)throw new Error("Entry has changed");

@@ -59,8 +59,9 @@ async function verifyAnchors(label) {
 try {
   await page.goto("http://127.0.0.1:8765/?test=1",{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:60000});
-  assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),13);
-  assert.equal(await page.locator(".maplibregl-marker.emoji-pin").count(),13,"Every hostel has a visible emoji");
+  assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),12);
+  assert.equal(await page.locator("#entries .entry").filter({hasText:"Rebel Rooster Hostel"}).count(),0);
+  assert.equal(await page.locator(".maplibregl-marker.emoji-pin").count(),12,"Every remaining hostel has a visible emoji");
   assert.equal(await page.locator(".maplibregl-marker.emoji-pin").first().textContent(),"🏨",
     "Hostel icons are thematic");
   let checks=await verifyAnchors("initial");
@@ -113,7 +114,7 @@ try {
     if(document.querySelectorAll(".maplibregl-marker.canvas-pin").length!==0)
       throw Error("DOM labels should not drift during a gesture");
     if(!map.getLayer("canvas-pin-dots"))throw Error("Pin hit layer disappeared while panning");
-    if(document.querySelectorAll(".maplibregl-marker.emoji-pin").length!==13)
+    if(document.querySelectorAll(".maplibregl-marker.emoji-pin").length!==12)
       throw Error("Emoji pins should remain visible while panning");
     map.fire("moveend");
   });
@@ -123,7 +124,7 @@ try {
   assert.equal(await page.locator("#entries .entry").count(),1,"Search narrows the list");
   await page.locator("#search").fill("");
   await page.locator("#categoryFilter").selectOption("Hostel");
-  assert.equal(await page.locator("#entries .entry").count(),13,"Category filter includes hostel entries");
+  assert.equal(await page.locator("#entries .entry").count(),12,"Category filter includes remaining hostels");
   await page.locator("#categoryFilter").selectOption("all");
   await page.locator("#entries .entry").first().click();
   await page.waitForURL(/pin=hostel-1/);
@@ -131,22 +132,15 @@ try {
   await page.locator("#detailPanel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
-  // Selected-pin removal: built-in hostels are hidden only on this browser.
+  // The static site cannot fake global deletion without its shared backend.
+  // No local-only hide, no warning or confirmation modal.
   await page.locator("#entries .entry").first().click();
-  assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Remove pin");
-  page.once("dialog",dialog=>dialog.accept());
-  await page.locator("#deleteSelectedPin").click();
-  assert.equal(await page.locator("#entries .entry").count(),12,"Removal hides a selected preset pin");
-  assert.ok(!(new URL(page.url()).searchParams.has("pin")));
-  assert.deepEqual(await page.evaluate(()=>window.__mapCanvasTest.getHiddenPins()),["hostel-1"]);
-  await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
-  assert.equal(await page.locator("#entries .entry").count(),12,"Hidden pins stay hidden after reload");
-  await page.locator("#settingsButton").click();
-  assert.equal(await page.locator("#restoreHiddenPins").textContent(),"Restore hidden pins (1)");
-  await page.locator("#restoreHiddenPins").click();
-  assert.equal(await page.locator("#entries .entry").count(),13,"Restore recovers locally hidden pin");
-  await page.locator("#settingsDone").click();
+  assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
+  assert.equal(await page.locator("#deleteSelectedPin").isDisabled(),true);
+  assert.equal(await page.locator("#restoreHiddenPins").count(),0);
+  assert.equal(await page.locator("#entries .entry").count(),12);
+  assert.equal(await page.locator("#detailPanel .detail-actions .danger").count(),1);
+  await page.locator("#detailPanel .detail-head button").click();
 
   // Dark interface and actual MapLibre dark basemap; both must survive reload.
   await page.locator("#themeToggle").click();
@@ -172,7 +166,7 @@ try {
   await hostelLayer.uncheck();
   assert.equal(await page.locator("#entries .entry").count(),0,"Layer toggle hides hostel pins");
   await hostelLayer.check();
-  assert.equal(await page.locator("#entries .entry").count(),13,"Layer toggle restores hostel pins");
+  assert.equal(await page.locator("#entries .entry").count(),12,"Layer toggle restores remaining hostels");
   assert.deepEqual(await page.locator("[data-canvas-tool]").evaluateAll(
     els=>els.map(el=>el.dataset.canvasTool)),["image","text"]);
   for(const [tool,layer] of [["image","Pictures"],["text","Drawings"]]){
