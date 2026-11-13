@@ -98,7 +98,7 @@ function csvCell(val){
 export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
-  addPins:true,canvasTools:true,measure:true,canvasObjects:true,galleries:true,undoRedo:true,
+  addPins:true,canvasTools:true,canvasObjects:true,galleries:true,undoRedo:true,
   labels:true,gps:true,basemaps:true,navigation:true,autoSync:true
 });
 export const FEATURE_GROUPS=[
@@ -111,8 +111,7 @@ export const FEATURE_GROUPS=[
   ]},
   {title:"Create & edit",features:[
     ["addPins","Add pin button","Show the button for adding places"],
-    ["canvasTools","Canvas editing tools","Pictures, floating text, lines, arrows and circles"],
-    ["measure","Distance & area measurement","Show the measuring tool"],
+    ["canvasTools","Canvas editing tools","Pictures and floating text"],
     ["galleries","Photo galleries","Show gallery controls and photo strips"],
     ["undoRedo","Undo & redo buttons","Show saved-change history controls"]
   ]},
@@ -377,19 +376,7 @@ export function createEnhancements(api){
       });
       objects.append(node);
     }
-    if(activeTool&&firstPoint&&hoverPoint&&["line","arrow","circle"].includes(activeTool))
-      drawing(svg,activeTool,firstPoint,hoverPoint,"#1b5b49");
-    if(measure.length){
-      const points=[...measure,...(!measureDone&&hoverPoint?[hoverPoint]:[])];
-      for(let i=1;i<points.length;i++)drawing(svg,"line",points[i-1],points[i],"#e09a24");
-      if(measureDone&&measure.length>2)drawing(svg,"line",measure[measure.length-1],measure[0],"#e09a24");
-      const line=points.slice(1).reduce((sum,p,i)=>sum+metersBetween(points[i],p),0);
-      const area=measureDone&&measure.length>2?polygonAreaMeters(measure):0;
-      const read=$("measureReadout");
-      read.textContent="Distance: "+fmt(line)+(area?" · Area: "+Math.round(area).toLocaleString()+" m²":"")+
-        (!measureDone&&measure.length>2?" · Finish area to calculate area":"");
-      read.classList.remove("hidden");
-    }
+
   }
   async function persist(entry,updates){
     if(!api.SHEETS_URL||!state.sheetConnected){notify("Shared saving needs the Google Sheets connection.",true);api.render();return;}
@@ -406,30 +393,9 @@ export function createEnhancements(api){
     }catch(e){notify("Could not save change: "+e.message,true);}
     finally{state.saving=false;api.render();}
   }
-  function handleTap(point){
-    if(!activeTool)return false;
-    if(activeTool==="measure"&&!state.features.measure)return false;
-    if(activeTool!=="measure"&&!state.features.canvasTools)return false;
-    if(["line","arrow","circle"].includes(activeTool)){
-      if(!firstPoint){firstPoint=[Number(point.lng),Number(point.lat)];hoverPoint=firstPoint;notify("Choose the second point.");}
-      else{
-        const kind=activeTool;activeTool=null;setActiveButton(null);
-        const start=firstPoint,end=[Number(point.lng),Number(point.lat)];firstPoint=null;hoverPoint=null;
-        const draft=makeDraft(kind==="circle"?"Circle":kind==="arrow"?"Arrow":"Line","note",point);
-        draft.canvas={type:kind,start,end,width:210};draft.layer="Drawings";
-        api.openEditor(draft);
-      }
-      renderOverlay();return true;
-    }
-    if(activeTool==="measure"){
-      if(measureDone){measure=[];measureDone=false;}
-      measure.push([Number(point.lng),Number(point.lat)]);hoverPoint=null;
-      $("measureFinish").classList.toggle("hidden",measure.length<3);
-      $("measureClear").classList.remove("hidden");
-      renderOverlay();return true;
-    }
-    return false;
-  }
+  // Line, Arrow, Circle and Measure tools were retired. Normal map clicks
+  // remain available to the Picture and Text placement flow.
+  function handleTap(){return false;}
   function makeDraft(title,kind,point){
     return {id:crypto.randomUUID(),title,kind,category:"",price:"",rating:"",
       notes:"",photo:"",version:"",icon:kind==="photo"?"📸":kind==="note"?"📝":"📍",
@@ -444,35 +410,19 @@ export function createEnhancements(api){
     if($("placementBar"))$("placementBar").classList.toggle("hidden",!tool&& !state.placing);
   }
   function useTool(tool){
-    if(tool==="measure"&&!state.features.measure)return;
-    if(tool!=="measure"&&!state.features.canvasTools)return;
+    if(!state.features.canvasTools || !["image","text"].includes(tool))return;
     activeTool=null;firstPoint=null;hoverPoint=null;measure=[];measureDone=false;
-    $("measureFinish").classList.add("hidden");$("measureClear").classList.add("hidden");
-    $("measureReadout").classList.add("hidden");
-    if(tool==="image"||tool==="text"){
-      const draft=makeDraft(tool==="image"?"Picture":"Text",""+(tool==="image"?"photo":"note"),{lng:105,lat:21});
-      draft.canvas={type:tool,width:210};
-      draft.layer=tool==="image"?"Pictures":"Drawings";
-      api.startPlacement(draft.kind,draft);
-      $("placementBar").firstChild.textContent="Tap map to place "+tool+" ";
-    }else{
-      if(state.placing){state.placing=null;$("placementBar").classList.add("hidden");}
-      activeTool=tool;setActiveButton(tool);
-      $("placementBar").firstChild.textContent=tool==="measure"?"Tap points to measure · ":"Tap two points for "+tool+" · ";
-      $("placementBar").classList.remove("hidden");
-      $("measureClear").classList.remove("hidden");
-    }
+    const isPicture=tool==="image";
+    const draft=makeDraft(isPicture?"Picture":"Text",isPicture?"photo":"note",{lng:105,lat:21});
+    draft.canvas={type:tool,width:210};
+    draft.layer=isPicture?"Pictures":"Drawings";
+    api.startPlacement(draft.kind,draft);
+    $("placementBar").firstChild.textContent="Tap map to place "+tool+" ";
     renderOverlay();
   }
-  function endMeasurement(){
-    if(measure.length<3){notify("Mark at least three points to calculate area.",true);return;}
-    measureDone=true;activeTool=null;hoverPoint=null;setActiveButton(null);
-    $("measureFinish").classList.add("hidden");renderOverlay();
-  }
   function clearMeasurement(){
-    measure=[];measureDone=false;firstPoint=null;hoverPoint=null;activeTool=null;
-    setActiveButton(null);$("measureReadout").classList.add("hidden");
-    $("measureClear").classList.add("hidden");$("measureFinish").classList.add("hidden");
+    activeTool=null;firstPoint=null;hoverPoint=null;measure=[];measureDone=false;
+    setActiveButton(null);
     renderOverlay();
   }
   function galleryDetail(entry,detail){
@@ -603,7 +553,7 @@ export function createEnhancements(api){
     download("map-canvas.csv","\uFEFF"+columns.join(",")+"\n"+
       entries.map(e=>columns.map(c=>csvCell(e[c])).join(",")).join("\n"),"text/csv;charset=utf-8");
   }
-  function isDrawing(){return !!activeTool;}
+  function isDrawing(){return false;}
   function consumeDragClick(){if(suppressPinClick){suppressPinClick=false;return true;}return false;}
   function attachPinDrag(map,layer){
     const startDrag=(e)=>{
@@ -656,8 +606,6 @@ export function createEnhancements(api){
     $("exportBtn").addEventListener("click",exportPins);
     for(const b of document.querySelectorAll("[data-canvas-tool]"))
       b.addEventListener("click",()=>useTool(b.dataset.canvasTool));
-    $("measureFinish").addEventListener("click",endMeasurement);
-    $("measureClear").addEventListener("click",clearMeasurement);
     $("canvasWidth").addEventListener("input",e=>$("canvasWidthValue").textContent=e.target.value+" px");
     $("galleryUpload").addEventListener("click",()=>$("galleryFile").click());
     $("galleryFile").addEventListener("change",e=>{addGalleryFiles(e.target.files||[]);e.target.value="";});
@@ -678,10 +626,7 @@ export function createEnhancements(api){
     });
     selections();
   }
-  function updateHover(point){
-    if(!point||!(firstPoint||measure.length))return;
-    hoverPoint=[point.lng,point.lat];renderOverlay();
-  }
+  function updateHover(){ /* no in-progress drawing or measurement overlays */ }
   function startPolling(){
     if(!api.SHEETS_URL)return;
     const refresh=async()=>{

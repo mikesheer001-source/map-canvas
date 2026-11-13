@@ -6,10 +6,13 @@ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
 const code=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
 for(const id of ["layerFilter","groupFilter","layerToggles","entryLayer","entryGroup","importBtn",
- "exportBtn","exportFormat","galleryUrls","canvasWidth","canvasOverlay","canvasDrawing",
- "measureFinish","measureClear","measureReadout"])assert.match(html,new RegExp('id="'+id+'"'));
-for(const tool of ["image","text","line","arrow","circle","measure"])
+ "exportBtn","exportFormat","galleryUrls","canvasWidth","canvasOverlay","canvasDrawing"])assert.match(html,new RegExp('id="'+id+'"'));
+for(const tool of ["image","text"])
  assert.ok(html.includes('data-canvas-tool="'+tool+'"'));
+for(const retired of ["line","arrow","circle","measure"])
+ assert.ok(!html.includes('data-canvas-tool="'+retired+'"'),"Retired tool should be absent: "+retired);
+for(const retiredControl of ["measureFinish","measureClear","measureReadout"])
+ assert.ok(!html.includes('id="'+retiredControl+'"'),"Retired control should be absent: "+retiredControl);
 assert.ok(app.includes('createEnhancements('));
 assert.ok(app.includes('enhanced.startPolling()'));
 assert.ok(app.includes('enhanced?.attachPinDrag'));
@@ -38,10 +41,10 @@ const fakeStore={db:new Map(),getItem(k){return this.db.get(k)||null;},setItem(k
 const pref=readFeatureSettings(fakeStore);
 assert.deepEqual(pref,{...FEATURE_DEFAULTS});
 assert.equal(FEATURE_GROUPS.flatMap(x=>x.features).length,Object.keys(FEATURE_DEFAULTS).length);
-pref.search=false;pref.measure=false;
+pref.search=false;pref.canvasTools=false;
 assert.equal(saveFeatureSettings(pref,fakeStore),true);
 assert.equal(JSON.parse(fakeStore.getItem(FEATURE_STORAGE_KEY)).search,false);
-assert.equal(readFeatureSettings(fakeStore).measure,false);
+assert.equal(readFeatureSettings(fakeStore).canvasTools,false);
 assert.equal(readFeatureSettings(fakeStore).autoSync,true);
 fakeStore.setItem(FEATURE_STORAGE_KEY,JSON.stringify({search:false,autoSync:"false",rogue:false}));
 assert.equal(readFeatureSettings(fakeStore).search,false);
@@ -56,3 +59,6 @@ assert.match(app,/applyFeatureSettings\(/);
 assert.match(app,/renderEmojiMarkers/);
 assert.equal("clustering" in FEATURE_DEFAULTS,false);
 console.log("PASS: settings defaults, persistence, invalid storage, feature switches and reset controls");
+
+assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"measure"));
+assert.ok(!FEATURE_GROUPS.some(g=>g.features.some(row=>row[0]==="measure")));

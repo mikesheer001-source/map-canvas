@@ -84,12 +84,12 @@ The public map now includes nine more features:
 
 - **Drag pins:** existing shared pins can be repositioned on MapLibre or Leaflet by the browser holding their original edit key. Save is verified against the shared sheet.
 - **Movable pictures:** choose Picture from the canvas toolbar, tap the map and upload or paste an image. At close zoom, drag the image or use the lower-right handle to resize it. Uploaded images are highly compressed for Sheets.
-- **Notes and shapes:** choose Text, Line, Arrow or Circle; tap a location (or two points for shapes). Finish the entry editor to save. Shapes and pictures are geographically anchored, not fixed to screen pixels.
+- **Floating text:** choose Text and tap a location, then finish the entry editor to save. Pictures and text are geographically anchored. Previously saved line, arrow, and circle objects remain visible but cannot be newly created from the toolbar.
 - **Bulk import/export:** CSV, JSON, GeoJSON (point features). Export the current filtered results as CSV, GeoJSON or JSON. Bulk import processes up to 25 pins per network request and verifies each group; the shared tab holds up to 500 pins.
 - **Toggle layers and browse nested groups:** use sidebar layer checkboxes, layer filter, group path filter, and the editor's Layer / Group fields (for example `Travel/Hanoi/Cafes`). Hiding a parent group hides nested subgroups.
 - **Shared live refresh:** when the Apps Script URL is configured, visible browsers check for remote changes every 20 seconds, with a refresh on tab activation. This is polling, not instantaneous websocket collaboration.
 - **Photo galleries:** add up to 12 images per pin using HTTPS URLs, including up to 4 uploaded compressed small thumbnails; browse pictures in the detail panel.
-- **Measure:** tap consecutive points to measure path distance. Tap "Finish area" after 3+ points for an approximate local-area measurement. Measurement overlays are temporary and are not saved to the sheet.
+- **Simplified canvas toolbar:** only Picture and Text remain. Line, Arrow, Circle and Measure are removed at the owner's request.
 
 The bridge now stores Canvas metadata in Google Sheet column **O**. An existing deployment must be updated with the *current* `sheets-bridge.gs` code to support galleries, layers and bulk import; older deployments do not support these new fields. Public saving, image placement edits, and live collaboration remain inactive until the owner deploys the Apps Script web app and places its `/exec` URL into `config.js`.
 
@@ -98,7 +98,7 @@ There is no spam throttling, per the map owner's instruction; anonymous uploads 
 ## Personal feature settings (November 2026)
 
 The **gear button (Settings)** in the header opens switches for map display,
-canvas tools, measurement, GPS, search, layers, import/export, galleries,
+Picture/Text tools, GPS, search, layers, import/export, galleries,
 automatic shared refresh and more. Changes apply immediately, are saved to
 `localStorage` as `map-canvas:feature-settings-v1`, and are restored after a
 reload or browser restart. **Restore defaults** turns every feature back on.
@@ -114,3 +114,7 @@ polling, not a manual refresh. The clustering setting has been removed; pins alw
 ## Individual thematic emoji pins
 
 Nearby pins no longer cluster or merge into numbered bubbles. Each pin displays its own emoji at all zoom levels. Common categories and titles such as hostels 🏨, cafés ☕, restaurants 🍽️, gyms 🏋️, shopping 🛍️, parks 🌳, museums 🎨, and stations 🚆 map automatically to appropriate emojis. Unrecognized categories use 📍. A manually selected non-default pin emoji takes priority. The visual emoji markers are map-anchored, while underlying near-transparent native MapLibre features handle click and drag reliably; Leaflet uses emoji divIcon markers. The old clustering toggle was removed from Settings. Other collection filters and named folders remain unchanged.
+
+## Simplified mobile canvas toolbar
+
+Only **Picture** and **Text** remain as creation tools on the map. Line, Arrow, Circle and Measure buttons and the measuring controls were removed. The Settings dialog no longer advertises measurement; the Canvas editing tools switch controls Picture and Text together. Existing saved line, arrow and circle elements are retained and still render to avoid losing map data.

@@ -844,9 +844,7 @@ const FEATURE_TARGETS={
   search:[".searchwrap"],filters:[".filters","#categoryFilter","#sort"],
   layers:[".collection-selects",".layers-panel"],
   importExport:[".io-actions"],addPins:["#addButton"],
-  canvasTools:['[data-canvas-tool="image"]','[data-canvas-tool="text"]',
-    '[data-canvas-tool="line"]','[data-canvas-tool="arrow"]','[data-canvas-tool="circle"]'],
-  measure:['[data-canvas-tool="measure"]'],
+  canvasTools:['[data-canvas-tool="image"]','[data-canvas-tool="text"]'],
   canvasObjects:[],galleries:["#galleryControls"],
   undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
   gps:["#locateButton"],
@@ -863,7 +861,7 @@ function applyFeatureSettings(changedKey=null){
     $("basemapSwitch").classList.add("hidden");
     $("basemapButton").setAttribute("aria-expanded","false");
   }
-  if(!state.features.measure || !state.features.canvasTools)
+  if(!state.features.canvasTools)
     enhanced?.clearMeasurement();
   if(!state.features.gps && state.gpsMarker){
     state.gpsMarker.remove();state.gpsMarker=null;
