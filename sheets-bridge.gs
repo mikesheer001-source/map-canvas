@@ -11,6 +11,9 @@ const PINS_TAB = "Map Canvas";
 const HEADERS = ["ID","Title","Type","Category","Latitude","Longitude","Notes","Photo URL","Price","Rating","Version","Edit key hash"];
 const MAX_ROWS = 500;
 const EXTRA_HEADERS = ["Icon","Color"];
+const HISTORY_TAB="Map Canvas History";
+const HISTORY_HEADERS=["Timestamp","Action","ID","Before JSON","After JSON","Revision","Key fingerprint"];
+const MAX_HISTORY=10000;
 function mapTab_() {
   const book = SpreadsheetApp.openById(WORKBOOK_ID);
   const sheet = book.getSheetByName(PINS_TAB);
@@ -92,13 +95,31 @@ function escaped_(string) {
   const value=String(string||"");
   return /^[=+\-@]/.test(value)?"'"+value:value;
 }
-function controlBurst_() {
-  const props=PropertiesService.getScriptProperties();
-  const hour=Math.floor(Date.now()/3600000),key="writes:"+hour;
-  const n=Number(props.getProperty(key)||"0");
-  if(n>=100)throw new Error("Map has hit its hourly write limit. Try again later.");
-  props.setProperty(key,String(n+1));
+function historyTab_(book){
+  let sh=book.getSheetByName(HISTORY_TAB);
+  if(!sh){sh=book.insertSheet(HISTORY_TAB);sh.getRange(1,1,1,7).setValues([HISTORY_HEADERS]);sh.setFrozenRows(1);}
+  if(sh.getLastRow()>=MAX_HISTORY)throw new Error("History is full. Contact map owner.");
+  return sh;
 }
+function audit_(book,action,id,before,after,revision,hashed){
+  historyTab_(book).appendRow([new Date().toISOString(),action,id,
+    before?JSON.stringify(before):"",after?JSON.stringify(after):"",
+    revision||"",String(hashed||"").slice(0,12)]);
+}
+function controlBurst_(hash,creating){
+  const props=PropertiesService.getScriptProperties(),now=Date.now();
+  const hour=Math.floor(now/3600000),minute=Math.floor(now/60000),day=Math.floor(now/86400000);
+  const quotas=[["all:"+hour,100],["minute:"+minute,12],["key:"+hash+":"+hour,12]];
+  if(creating)quotas.push(["creates:"+hash+":"+day,20]);
+  const last=Number(props.getProperty("last:"+hash)||0);
+  if(now-last<4000)throw new Error("Wait four seconds before another edit.");
+  for(const [key,max] of quotas)
+    if(Number(props.getProperty("count:"+key)||0)>=max)throw new Error("Rate limit reached.");
+  for(const [key] of quotas)
+    props.setProperty("count:"+key,String(Number(props.getProperty("count:"+key)||0)+1));
+  props.setProperty("last:"+hash,String(now));
+}
+
 function doPost(e) {
   const lock=LockService.getScriptLock();
   if(!lock.tryLock(10000))return output_(JSON.stringify({ok:false,error:"Busy"}),ContentService.MimeType.JSON);
@@ -109,7 +130,6 @@ function doPost(e) {
     if(!body.key||!/^[a-f0-9]{64}$/.test(body.key))throw new Error("Edit key is missing");
     if(!["save","delete"].includes(body.action))throw new Error("Invalid action");
     check_(entry);
-    controlBurst_();
     const store=mapTab_();
     const sheet=store.sheet;
     const count=Math.max(0,sheet.getLastRow()-1);
@@ -118,22 +138,62 @@ function doPost(e) {
     const i=rows.findIndex((r)=>r[0]===entry.id);
     const existing=i===-1?null:rows[i];
     const hashed=sha256_(body.key);
+    controlBurst_(hashed,body.action==="save"&&!existing);
+    historyTab_(store.book);
     if(existing&&(existing[11]!==hashed||existing[10]!==entry.version))throw new Error("Edit permission or version mismatch");
     if(!existing && (body.action==="delete"||entry.version))throw new Error("Entry has changed");
+    let after=null,revision="";
     if(body.action==="delete"){
       sheet.deleteRow(i+2);
     }else{
-      const revision=Utilities.getUuid();
+      revision=Utilities.getUuid();
       const values=[entry.id,escaped_(entry.title),entry.kind,escaped_(entry.category),
         Number(entry.lat),Number(entry.lng),escaped_(entry.notes),entry.photo||"",
         escaped_(entry.price),escaped_(entry.rating),revision,hashed,escaped_(entry.icon),entry.color];
       const target=existing?i+2:sheet.getLastRow()+1;
       if(target>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
       sheet.getRange(target,1,1,14).setValues([values]);
+      after=values;
     }
+    audit_(store.book,body.action,entry.id,existing,after,revision,hashed);
     SpreadsheetApp.flush();
     return output_(JSON.stringify({ok:true}),ContentService.MimeType.JSON);
   }catch(error){
     return output_(JSON.stringify({ok:false,error:String(error.message||error)}),ContentService.MimeType.JSON);
+  }finally{lock.releaseLock();}
+}
+
+/* OWNER ONLY: run manually in Apps Script editor; never expose via doGet/doPost.
+   The history tab contains full snapshots, including ownership hashes.
+   Keep the workbook private and back it up before restoring. */
+function mapCanvasPreviewHistory_(row){
+  const book=SpreadsheetApp.openById(WORKBOOK_ID),sh=book.getSheetByName(HISTORY_TAB);
+  if(!sh||!Number.isInteger(row)||row<2||row>sh.getLastRow())throw new Error("Invalid history row");
+  const r=sh.getRange(row,1,1,7).getValues()[0];
+  return {timestamp:r[0],action:r[1],id:r[2],
+    before:r[3]?JSON.parse(r[3]):null,after:r[4]?JSON.parse(r[4]):null};
+}
+function mapCanvasRestoreBefore_(row){
+  const lock=LockService.getScriptLock();
+  if(!lock.tryLock(10000))throw new Error("Busy");
+  try{
+    const e=mapCanvasPreviewHistory_(row),store=mapTab_(),sh=store.sheet;
+    const n=Math.max(0,sh.getLastRow()-1),rows=n?sh.getRange(2,1,n,14).getValues():[];
+    const i=rows.findIndex(r=>r[0]===e.id),current=i<0?null:rows[i];
+    if(e.after&&(!current||current[10]!==e.after[10]))
+      throw new Error("Newer revision exists. Review manually.");
+    if(!e.after&&current)throw new Error("Pin recreated. Review manually.");
+    if(e.before){
+      const restored=[...e.before];restored[10]=Utilities.getUuid();
+      const target=i<0?sh.getLastRow()+1:i+2;
+      if(target>sh.getMaxRows())sh.insertRowsAfter(sh.getMaxRows(),1);
+      sh.getRange(target,1,1,14).setValues([restored]);
+      audit_(store.book,"owner-restore",e.id,current,restored,restored[10],restored[11]);
+    }else if(i>=0){
+      sh.deleteRow(i+2);
+      audit_(store.book,"owner-restore",e.id,current,null,"",current[11]);
+    }
+    SpreadsheetApp.flush();
+    return "Restored "+e.id;
   }finally{lock.releaseLock();}
 }
