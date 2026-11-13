@@ -33,7 +33,7 @@ Photos can be uploaded/pasted as compressed thumbnails (small enough to store in
 - **OpenFreeMap**: MapLibre vector map with OpenFreeMap Liberty style.
 - **OpenStreetMap**: raster street tiles rendered by MapLibre.
 - An OpenStreetMap/Leaflet fallback is attempted if MapLibre cannot initialize.
-- Pins show as dots until zoom level **16.8**; labels, prices, ratings, and photo thumbnails appear above that threshold.
+- Pins show individual category-matched emojis at every zoom; labels, prices, ratings and photo thumbnails appear from zoom **16.8**.
 - Shared data is visible on one public URL, independent of devices. No login is needed to view or contribute after the Sheets bridge is deployed.
 - Data from the source hostel sheet is a snapshot until the bridge is connected, after which the site refreshes it from the workbook.
 - Because Google Sheets is a simple backend, this public collaboration setup does not provide large-file media storage, user accounts, or rich multiuser conflict resolution.
@@ -44,14 +44,14 @@ Vanilla JavaScript, HTML, CSS, [MapLibre GL JS](https://maplibre.org/), [OpenFre
 
 ## Pin tracking and testing (November 2026)
 
-Previously, custom HTML pin dots could shift independently of the map while zooming or panning, and a CSS rule overrode MapLibre marker positioning. This was corrected by rendering all pin dots as native MapLibre GeoJSON circle layers (and native Leaflet circle markers in fallback mode); HTML note/photo cards are shown only at close zoom and hidden while the map is moving. Switching base styles restores the native pin layers.
+Previously, custom HTML pin dots could shift independently of the map while zooming or panning, and a CSS rule overrode MapLibre marker positioning. Pin locations now use native map-anchored MapLibre emoji markers with transparent native GeoJSON hit areas, or Leaflet emoji markers in fallback mode. HTML note/photo cards appear only at close zoom and are hidden while the map is moving. Switching base styles restores pin layers.
 
 Automated regression checks: `node tests/pin-regression.test.mjs`. A GitHub Actions workflow also runs Playwright tests in Chromium and WebKit, checking 45 map-coordinate projections per engine across zoom, pan, style toggles and mobile-size viewports, plus real pointer drags. Four screenshots are uploaded as workflow artifacts for visual review. These tests represent browser engine coverage, not a physical iPhone test.
 
 ## New map features (November 2026)
 
 - Search by title, category, notes, price or rating; filter by type and category; sort by price/rating/title.
-- Custom icon and hex color on new public entries. MapLibre-native clustering groups nearby pins at low zoom, expanding on click; detailed photo/label cards appear from zoom 16.8.
+- Custom icon and color on new public entries. All pins remain individual emojis (no clustering); detailed photo/label cards appear from zoom 16.8.
 - GPS location button uses browser geolocation only with consent. It never uploads the visitor's location.
 - Share pin links using `?pin=ID`, including deep-link navigation on load.
 - Undo/redo up to 30 successful writes in the current tab session. Each action is persisted to Sheets and uses version checks; conflicting external edits will prevent unsafe rollback.
@@ -109,8 +109,7 @@ Settings are saved **per browser/device**, not to the shared Sheet, because the
 site deliberately requires no account and the Sheets backend isn't activated.
 Clearing browser site data or using private browsing removes the preferences.
 Other visitors are unaffected. The auto-refresh switch affects background
-polling, not a manual refresh. Clustering toggles MapLibre's GeoJSON source
-without losing pin coordinates.
+polling, not a manual refresh. The clustering setting has been removed; pins always remain separate at every zoom.
 
 ## Individual thematic emoji pins
 
