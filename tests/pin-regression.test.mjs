@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import { FEATURE_DEFAULTS } from "../enhancements.js";
 const app = readFileSync(new URL("../app.js",import.meta.url),"utf8");
 const css = readFileSync(new URL("../style.css",import.meta.url),"utf8");
 assert.match(css, /\.canvas-pin\{position:absolute/);
@@ -41,8 +42,8 @@ Marker.created=[];
 const fakeWindow={maplibregl:{Marker},L:null};
 const appForTest=app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
 assert.notEqual(appForTest.length,app.length,"test runner must suppress the startup sequence");
-const api=new Function("document","window","location",appForTest+
-  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"});
+const api=new Function("document","window","location","FEATURE_DEFAULTS",appForTest+
+  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"},FEATURE_DEFAULTS);
 const {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider}=api;
 const hostels=[
   {id:"hostel-1",title:"North",kind:"place",lat:21.0342937,lng:105.8526123,price:"$4.25",rating:"4.6"},
