@@ -5,7 +5,8 @@ const DETAIL_ZOOM = 16.8;
 const state = {
   hostels: [], entries: [], query: "", filter: "all", sort: "default",
   provider: "openfreemap", map: null, library: null, markers: [],
-  leafletGroup: null, current: null, draft: null, placing: null,
+  leafletGroup: null, current: null, draft: null, placing: null, visiblePins: [],
+  labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
@@ -158,14 +159,45 @@ function render() {
   renderMarkers(shown);
 }
 
-function makeMarker(entry) {
+// Pin dots are native map features. Rendering them in the same renderer as the
+// streets makes their coordinates exact throughout pan, pinch-zoom, and rotation.
+const PIN_SOURCE = "canvas-geo-pins";
+const PIN_HALO = "canvas-pin-halo";
+const PIN_DOTS = "canvas-pin-dots";
+const PIN_TOUCH = "canvas-pin-touch-targets";
+function pinColor(kind) {
+  return kind === "note" ? "#b77c27" : kind === "photo" ? "#845cac" : "#245c48";
+}
+function pinGeoJSON(entries) {
+  return {
+    type: "FeatureCollection",
+    features: entries.filter((e) => Number.isFinite(Number(e.lat)) &&
+      Number.isFinite(Number(e.lng)) && Math.abs(Number(e.lat)) <= 85 &&
+      Math.abs(Number(e.lng)) <= 180).map((e) => ({
+      type: "Feature",
+      id: e.id,
+      geometry: { type: "Point", coordinates: [Number(e.lng), Number(e.lat)] },
+      properties: { id: e.id, kind: e.kind || "place" }
+    }))
+  };
+}
+function clearLabelMarkers() {
+  for (const marker of state.labelMarkers || []) {
+    try { marker.remove(); } catch {}
+  }
+  state.labelMarkers = [];
+}
+function makeCard(entry) {
   const root = document.createElement("div");
-  root.className = "canvas-pin " + entry.kind;
-  const dot = text("span", "", "pin-dot");
+  root.className = "canvas-pin map-detail-card";
+  root.style.pointerEvents = "none";
   const label = text("span", "", "pin-label");
   if (entry.photo) {
     const img = document.createElement("img");
-    img.alt = ""; img.referrerPolicy = "no-referrer"; img.src = entry.photo; label.append(img);
+    img.src = entry.photo;
+    img.referrerPolicy = "no-referrer";
+    img.alt = "";
+    label.append(img);
   }
   const lines = document.createElement("span");
   lines.append(text("strong", entry.title));
@@ -173,50 +205,112 @@ function makeMarker(entry) {
   if (extra) lines.append(text("small", extra));
   else if (entry.kind === "note" && entry.notes) lines.append(text("small", entry.notes.slice(0, 55)));
   label.append(lines);
-  root.append(dot, label);
-  root.addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (state.placing) placeAt({lng:Number(entry.lng),lat:Number(entry.lat)});
-    else choose(entry, true);
-  });
+  root.append(label);
   return root;
 }
 function updateLabels() {
-  const zoom = mapZoom();
-  const expanded = state.showLabels && zoom >= DETAIL_ZOOM;
-  for (const m of state.markers) {
-    const card = m.node.querySelector(".pin-label");
-    if (card) card.classList.toggle("no-label", !expanded);
-    m.node.classList.toggle("active", state.current?.id === m.entry.id);
-    const name = expanded ? m.entry.title : "Map pin, zoom in for details";
-    attr(m.node, "aria-label", name);
+  clearLabelMarkers();
+  const expanded = state.showLabels && mapZoom() >= DETAIL_ZOOM &&
+    !state.mapMoving;
+  if (expanded && state.map && state.library === "maplibre") {
+    for (const entry of state.visiblePins || []) {
+      if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
+      const root = makeCard(entry);
+      const marker = new window.maplibregl.Marker({
+        element: root,
+        anchor: "center",
+        subpixelPositioning: true
+      }).setLngLat([Number(entry.lng),Number(entry.lat)]).addTo(state.map);
+      state.labelMarkers.push(marker);
+    }
+  }
+  if (expanded && state.map && state.library === "leaflet") {
+    for (const entry of state.visiblePins || []) {
+      if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
+      const label = makeCard(entry).querySelector(".pin-label");
+      const icon = window.L.divIcon({
+        className: "canvas-label-leaflet",
+        html: label.outerHTML,
+        iconSize: [0,0],
+        iconAnchor: [0,0]
+      });
+      state.labelMarkers.push(window.L.marker([entry.lat,entry.lng],{
+        icon,interactive:false,keyboard:false
+      }).addTo(state.map));
+    }
   }
   attr($("toggleLabels"), "aria-pressed", state.showLabels);
   $("mapSub").textContent = filterEntries().length + " pins · " +
-    (zoom < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
+    (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
+}
+function attachMapPinClicks(map) {
+  if (state.pinEventsAttached) return;
+  state.pinEventsAttached = true;
+  map.on("click", PIN_TOUCH, (event) => {
+    const id = event.features?.[0]?.properties?.id;
+    const entry = allEntries().find((item) => item.id === id);
+    if (!entry) return;
+    if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
+    else choose(entry,false);
+  });
+  map.on("mouseenter", PIN_TOUCH, () => { map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", PIN_TOUCH, () => { map.getCanvas().style.cursor = ""; });
 }
 function renderMarkers(entries) {
-  for (const m of state.markers) { try { m.marker.remove(); } catch {} }
-  state.markers = [];
+  state.visiblePins = entries;
+  clearLabelMarkers();
   if (!state.map) return;
-  for (const entry of entries) {
-    if (!Number.isFinite(Number(entry.lng)) || !Number.isFinite(Number(entry.lat))) continue;
-    const node = makeMarker(entry);
-    let marker;
-    if (state.library === "maplibre") {
-      marker = new window.maplibregl.Marker({element:node,anchor:"center"})
-        .setLngLat([Number(entry.lng),Number(entry.lat)]).addTo(state.map);
+  if (state.library === "maplibre") {
+    if (!state.styleReady) return;
+    const data = pinGeoJSON(entries);
+    const source = state.map.getSource(PIN_SOURCE);
+    if (source) {
+      source.setData(data);
     } else {
-      marker = window.L.marker([Number(entry.lat),Number(entry.lng)], {
-        icon:window.L.divIcon({html:node.outerHTML,className:"",iconSize:[0,0]})
-      }).addTo(state.map);
-      const live = marker.getElement();
-      if (live) {
-        live.replaceChildren(node);
-        window.L.DomEvent.disableClickPropagation(live);
-      }
+      state.map.addSource(PIN_SOURCE, {type:"geojson",data});
     }
-    state.markers.push({entry, marker, node});
+    if (!state.map.getLayer(PIN_HALO)) {
+      state.map.addLayer({
+        id:PIN_HALO,source:PIN_SOURCE,type:"circle",
+        paint:{"circle-radius":11,"circle-color":"#ffffff",
+          "circle-opacity":0.97,"circle-blur":0.1}
+      });
+    }
+    if (!state.map.getLayer(PIN_DOTS)) {
+      state.map.addLayer({
+        id:PIN_DOTS,source:PIN_SOURCE,type:"circle",
+        paint:{
+          "circle-radius": ["case", ["==",["get","id"],state.current?.id || ""],9,7],
+          "circle-color":["match",["get","kind"],"note","#b77c27","photo","#845cac","#245c48"],
+          "circle-stroke-color":"#ffffff","circle-stroke-width":1.2
+        }
+      });
+    } else {
+      state.map.setPaintProperty(PIN_DOTS,"circle-radius",
+        ["case", ["==",["get","id"],state.current?.id || ""],9,7]);
+    }
+    if (!state.map.getLayer(PIN_TOUCH)) {
+      state.map.addLayer({
+        id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",
+        paint:{"circle-radius":18,"circle-color":"#ffffff","circle-opacity":0.005}
+      });
+    }
+    attachMapPinClicks(state.map);
+  } else if (state.library === "leaflet") {
+    for (const marker of state.markers) { try { marker.remove(); }catch {} }
+    state.markers = [];
+    for (const entry of entries) {
+      if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
+      const marker = window.L.circleMarker([Number(entry.lat),Number(entry.lng)],{
+        radius:8,color:"#ffffff",weight:3,fillColor:pinColor(entry.kind),
+        fillOpacity:1,bubblingMouseEvents:false
+      }).addTo(state.map);
+      marker.on("click",()=>{
+        if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});
+        else choose(entry,false);
+      });
+      state.markers.push(marker);
+    }
   }
   updateLabels();
 }
@@ -239,6 +333,8 @@ function changeProvider(provider) {
   attr($("basemapButton"),"aria-expanded",false);
   if (state.library === "maplibre") {
     clearNotice();
+    state.styleReady = false;
+    clearLabelMarkers();
     state.map.setStyle(provider === "openfreemap"
       ? "https://tiles.openfreemap.org/styles/liberty" : osmStyle);
   } else if (provider === "openfreemap") {
@@ -282,8 +378,11 @@ async function fallbackLeaflet(reason) {
     attribution:"© OpenStreetMap contributors",maxZoom:19
   }).addTo(state.map);
   state.map.on("click",(e)=>{if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});});
+  state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
+  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();});
   state.map.on("zoomend",updateLabels);
   state.library="leaflet";
+  state.styleReady=true;
   state.provider="openstreetmap";
   paintProvider();renderMarkers(filterEntries());updateLabels();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
@@ -301,7 +400,10 @@ async function initMap() {
     state.map=map;state.library="maplibre";
     map.addControl(new lib.NavigationControl({showCompass:false}),"bottom-right");
     let started=false;
-    map.on("load",()=>{started=true;clearNotice();renderMarkers(filterEntries());updateLabels();});
+    map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
+    map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
+    map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
+    map.on("moveend",()=>{state.mapMoving=false;updateLabels();});
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{ if(state.placing)placeAt(event.lngLat); });
     map.on("error",(event)=>{
@@ -559,5 +661,14 @@ async function main() {
   await initMap();
   render();
   await reloadShared(true);
+}
+// Read-only development inspection. Unavailable on public GitHub Pages.
+if (["127.0.0.1","localhost"].includes(location.hostname)) {
+  window.__mapCanvasTest = {
+    getMap: () => state.map,
+    getLibrary: () => state.library,
+    getEntries: () => allEntries(),
+    getPins: () => state.visiblePins
+  };
 }
 main().catch((error)=>notify(error.message,true));
