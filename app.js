@@ -68,7 +68,8 @@ function pinEmoji(entry){
   // An explicitly selected non-default icon wins over automatic categorization.
   const custom=String(entry?.icon||"");
   if(custom!=="📍"&&ICONS.includes(custom))return custom;
-  const theme=[entry?.category,entry?.layer,entry?.title].filter(Boolean).join(" ");
+  const theme=[entry?.category,entry?.layer,entry?.title].filter(Boolean)
+    .join(" ").normalize("NFD").replace(/\p{M}/gu,"");
   for(const [pattern,emoji] of THEME_EMOJIS)if(pattern.test(theme))return emoji;
   if(entry?.source==="hostel")return "🏨";
   return "📍";
