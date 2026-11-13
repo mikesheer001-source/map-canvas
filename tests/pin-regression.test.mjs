@@ -12,7 +12,7 @@ const css = readFileSync(new URL("../style.css",import.meta.url),"utf8");
 assert.match(css, /\.canvas-pin\{position:absolute/);
 assert.match(css, /\.maplibregl-marker\.canvas-pin\{position:absolute/);
 assert.ok(app.includes('style.load'));
-assert.ok(app.includes('circleMarker'));
+assert.ok(app.includes('renderEmojiMarkers'));
 assert.ok(app.includes('type:"geojson",data'));
 
 class Element {
@@ -80,14 +80,17 @@ renderMarkers(hostels);
 assert.equal(map.layers.store.size,0,"No layers before style ready");
 state.styleReady=true;
 renderMarkers(hostels);
-assert.deepEqual([...map.layers.store.keys()],["canvas-clusters","canvas-cluster-count","canvas-pin-halo","canvas-pin-dots","canvas-pin-touch-targets"]);
+assert.deepEqual([...map.layers.store.keys()],["canvas-pin-dots","canvas-pin-touch-targets"]);
 assert.equal(map.getSource("canvas-geo-pins").data.features.length,4);
-assert.equal(map.getSource("canvas-geo-pins").cluster,true,"Map source enables clustering");
+assert.equal(map.getSource("canvas-geo-pins").cluster,false,"Individual pins are never clustered");
+assert.equal(state.emojiMarkers.length,4,"Every point gets a theme emoji marker");
+assert.deepEqual(state.emojiMarkers.map(x=>x.ll),hostels.map(e=>[e.lng,e.lat]));
 assert.equal(map.events.filter(x=>x[0]==="click" && x[1]==="canvas-pin-touch-targets").length,1,"Only one delegated click handler");
 renderMarkers(hostels.slice(0,2));
 assert.equal(map.getSource("canvas-geo-pins").data.features.length,2);
 assert.equal(map.events.filter(x=>x[0]==="click" && x[1]==="canvas-pin-touch-targets").length,1,"No duplicate click handlers");
-assert.equal(Marker.created.length,0,"No DOM markers for overview dots");
+assert.equal(state.emojiMarkers.length,2,"Two visible emojis after filtering");
+assert.ok(Marker.created.some(x=>x.removed),"Previous emoji markers cleaned up");
 map.zoom=17.2;
 renderMarkers(hostels);
 assert.equal(state.labelMarkers.length,4,"Text/photos visible when zoomed in");
@@ -105,7 +108,8 @@ changeProvider("openstreetmap");
 assert.equal(state.styleReady,false);
 assert.equal(map.layers.store.size,0);
 state.styleReady=true;renderMarkers(hostels);
-assert.equal(map.layers.store.size,5,"Native pins and clusters restored after style switch");
+assert.equal(map.layers.store.size,2,"Unclustered hit layers restored after style switch");
+assert.equal(state.emojiMarkers.length,4,"Emoji markers restored after style switch");
 changeProvider("openfreemap");
 state.styleReady=true;renderMarkers(hostels);
 assert.equal(map.getSource("canvas-geo-pins").data.features.length,4);
@@ -117,7 +121,10 @@ const leaflet={
       on(_,cb){this.click=cb;return this;},remove(){this.removed=true}};
     return m;
   },
-  marker(latlng,options){return {addTo(){return this},remove(){}};},
+  marker(latlng,options){return {
+    latlng,options,addTo(){leaf.push(this);return this;},
+    on(_,cb){this.click=cb;return this;},remove(){this.removed=true}
+  };},
   divIcon(args){return args}
 };
 fakeWindow.L=leaflet;state.library="leaflet";state.markers=[];state.map={getZoom:()=>14};
@@ -126,4 +133,5 @@ assert.equal(leaf.length,4);
 assert.deepEqual(leaf[0].latlng,[hostels[0].lat,hostels[0].lng],
   "Leaflet uses [latitude, longitude]");
 assert.ok(leaf.every(x=>x.options.bubblingMouseEvents===false));
-console.log("PASS: coordinates, clustering, styles, label zoom gating, gestures, fallback");
+assert.ok(leaf.every(x=>x.options.icon.html.includes("emoji-pin-inner")));
+console.log("PASS: coordinates, individual emoji pins, styles, label zoom gating, gestures, fallback");
