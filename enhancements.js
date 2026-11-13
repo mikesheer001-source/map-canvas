@@ -99,10 +99,11 @@ export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasTools:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,gps:true,basemaps:true,navigation:true,autoSync:true
+  labels:true,gps:true,basemaps:true,navigation:true,autoSync:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
+    ["darkTheme","Dark theme","Dark interface and a matching dark map"],
     ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
@@ -143,7 +144,23 @@ export function saveFeatureSettings(settings,store=globalThis.localStorage){
     return !!store;
   }catch{return false;}
 }
-export function createSettingsControls({state,onChange}){
+
+export const HIDDEN_PINS_KEY="map-canvas:hidden-pins-v1";
+export function readHiddenPins(store=globalThis.localStorage){
+  try{
+    const ids=JSON.parse(store?.getItem(HIDDEN_PINS_KEY)||"[]");
+    if(!Array.isArray(ids))return new Set();
+    return new Set(ids.filter(x=>typeof x==="string"&&x.length<=180).slice(0,1500));
+  }catch{return new Set();}
+}
+export function saveHiddenPins(ids,store=globalThis.localStorage){
+  try{
+    store?.setItem(HIDDEN_PINS_KEY,JSON.stringify([...ids].filter(x=>typeof x==="string").slice(0,1500)));
+    return !!store;
+  }catch{return false;}
+}
+
+export function createSettingsControls({state,onChange,onRestoreHidden,getHiddenCount}){
   const $=id=>document.getElementById(id);
   const dialog=$("settingsDialog");
   function fill(){
@@ -172,10 +189,11 @@ export function createSettingsControls({state,onChange}){
   }
   function init(){
     fill();
-    $("settingsButton").addEventListener("click",()=>{sync();dialog.showModal();});
+    $("settingsButton").addEventListener("click",()=>{sync();updateHiddenCount();dialog.showModal();});
     const close=()=>dialog.close();
     $("settingsClose").addEventListener("click",close);
     $("settingsDone").addEventListener("click",close);
+    $("restoreHiddenPins").addEventListener("click",()=>{onRestoreHidden();updateHiddenCount();});
     $("settingsReset").addEventListener("click",()=>{
       for(const key of Object.keys(FEATURE_DEFAULTS))onChange(key,FEATURE_DEFAULTS[key],false);
       saveFeatureSettings(state.features);
@@ -184,10 +202,16 @@ export function createSettingsControls({state,onChange}){
     });
     dialog.addEventListener("click",event=>{if(event.target===dialog)close();});
   }
+  function updateHiddenCount(){
+    const count=getHiddenCount();
+    const button=$("restoreHiddenPins");
+    button.textContent="Restore hidden pins ("+count+")";
+    button.disabled=count===0;
+  }
   function status(saved){
     $("settingsStatus").textContent=saved?"Saved on this browser":"Could not save: browser storage blocked";
   }
-  return {init,sync,status};
+  return {init,sync,status,updateHiddenCount};
 }
 
 export function createEnhancements(api){

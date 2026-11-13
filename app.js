@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=canvasfix-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings, HIDDEN_PINS_KEY, readHiddenPins, saveHiddenPins } from "./enhancements.js?v=theme-delete-20261114";
 const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
@@ -15,7 +15,7 @@ const state = {
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
   pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false,
-  features: {...FEATURE_DEFAULTS}
+  features: {...FEATURE_DEFAULTS}, hiddenPinIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -94,7 +94,7 @@ function renderEmojiMarkers(entries){
   }
 }
 
-const allEntries = () => state.entries.concat(state.hostels);
+const allEntries = () => state.entries.concat(state.hostels).filter(e=>!state.hiddenPinIds.has(e.id));
 const coord = (n) => Number.isFinite(Number(n)) ? Number(n) : null;
 const safeImage = (value) => {
   if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{20,38000}$/.test(value)) return value;
@@ -432,9 +432,15 @@ function paintProvider() {
     attr(el,"aria-pressed",el.dataset.basemap === state.provider);
   }
 }
+function openFreeMapStyle(){
+  return state.features.darkTheme
+    ?"https://tiles.openfreemap.org/styles/dark"
+    :"https://tiles.openfreemap.org/styles/liberty";
+}
 function changeProvider(provider) {
   if (!["openfreemap","openstreetmap"].includes(provider)) return;
   state.provider = provider;
+  document.documentElement.dataset.mapProvider=provider;
   paintProvider();
   $("basemapSwitch").classList.add("hidden");
   attr($("basemapButton"),"aria-expanded",false);
@@ -443,7 +449,7 @@ function changeProvider(provider) {
     state.styleReady = false;
     clearLabelMarkers();
     state.map.setStyle(provider === "openfreemap"
-      ? "https://tiles.openfreemap.org/styles/liberty" : osmStyle);
+      ? openFreeMapStyle() : osmStyle);
   } else if (provider === "openfreemap") {
     announce("OpenFreeMap needs WebGL. This browser is using the OpenStreetMap fallback.");
     state.provider = "openstreetmap"; paintProvider();
@@ -496,6 +502,7 @@ async function fallbackLeaflet(reason) {
   state.library="leaflet";
   state.styleReady=true;
   state.provider="openstreetmap";
+  document.documentElement.dataset.mapProvider="openstreetmap";
   paintProvider();renderMarkers(filterEntries());updateLabels();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
 }
@@ -506,7 +513,7 @@ async function initMap() {
     window.maplibregl=lib;
     const map=new lib.Map({
       container:"map",center:[105.8503,21.0345],zoom:15.5,
-      style:"https://tiles.openfreemap.org/styles/liberty",
+      style:openFreeMapStyle(),
       attributionControl:true,maxZoom:19
     });
     state.map=map;state.library="maplibre";
@@ -566,10 +573,17 @@ function choose(entry, focus) {
   }
   actions.append(button("Share link",()=>sharePin(entry),"secondary"));
   const ownerKey=getKey(entry.id);
-  if (entry.source!=="hostel" && ownerKey) {
+  if (entry.source!=="hostel" && ownerKey && state.sheetConnected) {
     actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
-    actions.append(button("Delete",()=>removeEntry(entry),"secondary"));
   }
+  const canDeleteFromShared=entry.source!=="hostel" && !!ownerKey && state.sheetConnected;
+  const deleteButton=button(canDeleteFromShared?"Delete pin":"Remove pin",
+    ()=>removeEntry(entry),"danger");
+  deleteButton.id="deleteSelectedPin";
+  deleteButton.title=canDeleteFromShared
+    ?"Delete this pin from the shared map for everyone"
+    :"Hide this pin on this browser; it will remain on the public map";
+  actions.append(deleteButton);
   detail.append(actions);
   $("overlay").classList.remove("hidden");
   detail.classList.remove("hidden");
@@ -688,11 +702,40 @@ async function saveEntry(event) {
   finally{state.saving=false;$("saveEntry").textContent="Save to shared map";$("saveEntry").disabled=!SHEETS_URL;}
 }
 async function removeEntry(entry) {
-  if (!confirm("Delete this public entry?"))return;
+  if(state.saving)return;
   const key=getKey(entry.id);
-  if (!key){notify("Only the browser that added this entry can delete it.",true);return;}
-  try {await submitChange("delete",entry,key);recordChange({before:entry,after:null});hideDetail();notify("Entry removed.");}
-  catch(error){notify(error.message,true);}
+  const sharedDelete=entry.source!=="hostel" && !!key && state.sheetConnected;
+  if(sharedDelete){
+    if(!confirm('Permanently delete "'+entry.title+'" from the shared map for everyone?'))return;
+    state.saving=true;
+    const control=$("deleteSelectedPin");
+    if(control)control.disabled=true;
+    try{
+      await submitChange("delete",entry,key);
+      recordChange({before:entry,after:null});
+      hideDetail();
+      notify("Pin deleted from the shared map.");
+    }catch(error){notify("Deletion failed: "+error.message,true);}
+    finally{
+      state.saving=false;
+      if(control)control.disabled=false;
+    }
+    return;
+  }
+  if(!confirm('Hide "'+entry.title+'" on this browser only? You can restore it in Settings.'))return;
+  state.hiddenPinIds.add(entry.id);
+  const saved=saveHiddenPins(state.hiddenPinIds);
+  hideDetail();
+  settingsUI?.updateHiddenCount();
+  notify(saved?"Pin hidden on this browser. Restore it in Settings.":"Pin hidden, but browser storage is unavailable; it may return after reload.",!saved);
+}
+function restoreHiddenPins(){
+  if(!state.hiddenPinIds.size)return;
+  state.hiddenPinIds.clear();
+  const saved=saveHiddenPins(state.hiddenPinIds);
+  settingsUI?.updateHiddenCount();
+  render();
+  notify(saved?"Hidden pins restored.":"Pins restored, but browser storage did not save.",!saved);
 }
 async function shrinkPhoto(file) {
   if (!file?.type.startsWith("image/"))throw new Error("Choose an image.");
@@ -866,6 +909,25 @@ function applyFeatureSettings(changedKey=null){
   if(!state.features.gps && state.gpsMarker){
     state.gpsMarker.remove();state.gpsMarker=null;
   }
+  const dark=!!state.features.darkTheme;
+  const requestedTheme=dark?"dark":"light";
+  const oldTheme=document.documentElement.dataset.theme||"light";
+  document.documentElement.dataset.theme=requestedTheme;
+  document.documentElement.dataset.mapProvider=state.provider;
+  const themeButton=$("themeToggle");
+  if(themeButton){
+    themeButton.textContent=dark?"☀":"☾";
+    themeButton.title=dark?"Switch to light theme":"Switch to dark theme";
+    themeButton.setAttribute("aria-pressed",String(dark));
+    themeButton.setAttribute("aria-label",dark?"Light mode":"Dark mode");
+  }
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.content=dark?"#121c1b":"#f9faf7";
+  if(oldTheme!==requestedTheme && state.map && state.library==="maplibre" && state.provider==="openfreemap"){
+    state.styleReady=false;
+    clearLabelMarkers();
+    state.map.setStyle(openFreeMapStyle());
+  }
   updateLabels();
   render();
 }
@@ -880,6 +942,7 @@ function setFeatureSetting(key,value,persist=true){
 
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
+  $("themeToggle").addEventListener("click",()=>setFeatureSetting("darkTheme",!state.features.darkTheme));
   $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
   $("locateButton").addEventListener("click",locateUser);
   $("undoBtn").addEventListener("click",()=>replayHistory("undo"));
@@ -944,6 +1007,7 @@ function wire() {
 }
 async function main() {
   state.features=readFeatureSettings();
+  state.hiddenPinIds=readHiddenPins();
   enhanced=createEnhancements({state,SHEETS_URL,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
@@ -954,14 +1018,21 @@ async function main() {
     console.error("Canvas tools could not initialize:",error);
     notify("Some map tools failed to load. Refresh to get the newest version.",true);
   }
-  settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
+  settingsUI=createSettingsControls({state,onChange:setFeatureSetting,
+    onRestoreHidden:restoreHiddenPins,getHiddenCount:()=>state.hiddenPinIds.size});
   settingsUI.init();
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
-    if(event.key!==FEATURE_STORAGE_KEY)return;
-    state.features=readFeatureSettings();
-    applyFeatureSettings();
-    settingsUI.sync();
+    if(event.key===FEATURE_STORAGE_KEY){
+      state.features=readFeatureSettings();
+      applyFeatureSettings();
+      settingsUI.sync();
+    }else if(event.key===HIDDEN_PINS_KEY){
+      state.hiddenPinIds=readHiddenPins();
+      settingsUI.updateHiddenCount();
+      if(state.current && state.hiddenPinIds.has(state.current.id))hideDetail();
+      render();
+    }
   });
   setupOffline();
   try {await loadHostels();}catch(error){notify(error.message,true);}
@@ -979,7 +1050,8 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getLibrary: () => state.library,
     getEntries: () => allEntries(),
     getPins: () => state.visiblePins,
-    getFeatures: () => ({...state.features})
+    getFeatures: () => ({...state.features}),
+    getHiddenPins: () => [...state.hiddenPinIds]
   };
 }
 main().catch((error)=>notify(error.message,true));

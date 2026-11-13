@@ -126,3 +126,20 @@ offline service-worker cache. This prevents older iOS/Safari cached scripts from
 trying to initialize buttons removed by a newer page. Online page assets are
 fetched with `cache: "no-store"`, with offline fallback to the versioned shell.
 The map also continues to initialize if a nonessential canvas feature throws.
+
+## Selected-pin removal and dark mode
+
+Selecting any pin now displays a removal action. For a user-owned shared pin
+when the Sheets backend is connected, **Delete pin** deletes that entry from
+the shared map (after confirmation). Built-in hostel pins and shared pins
+without this browser's edit key use **Remove pin**, which hides them **only on
+this browser**; the pin is still present for other visitors. Hidden IDs are
+saved in `localStorage` under `map-canvas:hidden-pins-v1` and can be
+restored with **Settings → Restore hidden pins**. This is deliberately
+different from deleting someone else's shared content.
+
+The header moon/sun control and **Settings → Dark theme** toggle the site's
+color scheme. MapLibre's OpenFreeMap basemap uses the published OpenFreeMap dark
+style; OpenStreetMap raster/fallback tiles are color-adjusted for night mode.
+The setting is per browser, saved with the existing feature preferences,
+and restored after refresh. No sign-in or Sheets connection is required.
