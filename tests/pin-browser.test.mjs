@@ -113,6 +113,30 @@ try {
   await page.locator("#detailPanel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
+  // Browser-level canvas tools: layers, two-click drawing and area measurement.
+  await page.locator(".layers-panel summary").click();
+  const hostelLayer=page.locator('#layerToggles label').filter({hasText:"Hostels"}).locator("input");
+  await hostelLayer.uncheck();
+  assert.equal(await page.locator("#entries .entry").count(),0,"Layer toggle hides hostel pins");
+  await hostelLayer.check();
+  assert.equal(await page.locator("#entries .entry").count(),13,"Layer toggle restores hostel pins");
+  await page.locator('[data-canvas-tool="line"]').click();
+  await page.locator("#map").click({position:{x:250,y:255}});
+  await page.locator("#map").click({position:{x:350,y:300}});
+  assert.ok(await page.locator("#editor").evaluate(d=>d.open),"Line tool opens shared entry editor");
+  assert.equal(await page.locator("#entryLayer").inputValue(),"Drawings");
+  await page.locator("#cancelEdit").click();
+  await page.locator('[data-canvas-tool="measure"]').click();
+  await page.locator("#map").click({position:{x:230,y:330}});
+  await page.locator("#map").click({position:{x:320,y:360}});
+  await page.locator("#map").click({position:{x:310,y:415}});
+  assert.match(await page.locator("#measureReadout").textContent(),/Distance:/);
+  await page.locator("#measureFinish").click();
+  assert.match(await page.locator("#measureReadout").textContent(),/Area:/);
+  await page.locator("#measureClear").click();
+  assert.ok(await page.locator("#measureReadout").isHidden());
+  await page.screenshot({path:`test-artifacts/${engineName}-canvas-tools-desktop.png`});
+
   // No sign-in, and writes must be disabled if the shared backend isn't configured.
   assert.equal(await page.locator("#editor").count(),1);
   assert.equal(await page.locator("#syncState").textContent(),"Sheet not connected");
