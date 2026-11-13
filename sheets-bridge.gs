@@ -106,19 +106,6 @@ function audit_(book,action,id,before,after,revision,hashed){
     before?JSON.stringify(before):"",after?JSON.stringify(after):"",
     revision||"",String(hashed||"").slice(0,12)]);
 }
-function controlBurst_(hash,creating){
-  const props=PropertiesService.getScriptProperties(),now=Date.now();
-  const hour=Math.floor(now/3600000),minute=Math.floor(now/60000),day=Math.floor(now/86400000);
-  const quotas=[["all:"+hour,100],["minute:"+minute,12],["key:"+hash+":"+hour,12]];
-  if(creating)quotas.push(["creates:"+hash+":"+day,20]);
-  const last=Number(props.getProperty("last:"+hash)||0);
-  if(now-last<4000)throw new Error("Wait four seconds before another edit.");
-  for(const [key,max] of quotas)
-    if(Number(props.getProperty("count:"+key)||0)>=max)throw new Error("Rate limit reached.");
-  for(const [key] of quotas)
-    props.setProperty("count:"+key,String(Number(props.getProperty("count:"+key)||0)+1));
-  props.setProperty("last:"+hash,String(now));
-}
 
 function doPost(e) {
   const lock=LockService.getScriptLock();
@@ -138,7 +125,6 @@ function doPost(e) {
     const i=rows.findIndex((r)=>r[0]===entry.id);
     const existing=i===-1?null:rows[i];
     const hashed=sha256_(body.key);
-    controlBurst_(hashed,body.action==="save"&&!existing);
     historyTab_(store.book);
     if(existing&&(existing[11]!==hashed||existing[10]!==entry.version))throw new Error("Edit permission or version mismatch");
     if(!existing && (body.action==="delete"||entry.version))throw new Error("Entry has changed");
