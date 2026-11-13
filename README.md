@@ -94,3 +94,20 @@ The public map now includes nine more features:
 The bridge now stores Canvas metadata in Google Sheet column **O**. An existing deployment must be updated with the *current* `sheets-bridge.gs` code to support galleries, layers and bulk import; older deployments do not support these new fields. Public saving, image placement edits, and live collaboration remain inactive until the owner deploys the Apps Script web app and places its `/exec` URL into `config.js`.
 
 There is no spam throttling, per the map owner's instruction; anonymous uploads and writes can be misused or exhaust the Google Apps Script quotas. The audit history continues to support owner-only recovery.
+
+## Personal feature settings (November 2026)
+
+The **gear button (Settings)** in the header opens switches for map display,
+canvas tools, measurement, GPS, search, layers, import/export, galleries,
+automatic shared refresh and more. Changes apply immediately, are saved to
+`localStorage` as `map-canvas:feature-settings-v1`, and are restored after a
+reload or browser restart. **Restore defaults** turns every feature back on.
+Disabled features are hidden and stopped in this browser; they are not removed
+from shared map data. The controls are *preferences*, not permissions.
+
+Settings are saved **per browser/device**, not to the shared Sheet, because the
+site deliberately requires no account and the Sheets backend isn't activated.
+Clearing browser site data or using private browsing removes the preferences.
+Other visitors are unaffected. The auto-refresh switch affects background
+polling, not a manual refresh. Clustering toggles MapLibre's GeoJSON source
+without losing pin coordinates.

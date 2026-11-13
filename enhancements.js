@@ -92,6 +92,106 @@ function csvCell(val){
   const escaped=/^[=+@-]/.test(str)&&!/^-[0-9.]+$/.test(str)?"'"+str:str;
   return '"'+escaped.replace(/"/g,'""')+'"';
 }
+
+// User-facing feature switches. Only boolean keys declared here can be persisted.
+// All switches are personal display/interaction preferences, not access permissions.
+export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
+export const FEATURE_DEFAULTS=Object.freeze({
+  search:true,filters:true,layers:true,importExport:true,
+  addPins:true,canvasTools:true,measure:true,canvasObjects:true,galleries:true,undoRedo:true,
+  labels:true,clustering:true,gps:true,basemaps:true,navigation:true,autoSync:true
+});
+export const FEATURE_GROUPS=[
+  {title:"Map appearance",features:[
+    ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
+    ["clustering","Combine nearby pins","Group nearby map pins when zoomed out"],
+    ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
+    ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
+    ["gps","Find my location","Show the GPS location button"],
+    ["basemaps","Map style selector","Switch between OpenFreeMap and OpenStreetMap"]
+  ]},
+  {title:"Create & edit",features:[
+    ["addPins","Add pin button","Show the button for adding places"],
+    ["canvasTools","Canvas editing tools","Pictures, floating text, lines, arrows and circles"],
+    ["measure","Distance & area measurement","Show the measuring tool"],
+    ["galleries","Photo galleries","Show gallery controls and photo strips"],
+    ["undoRedo","Undo & redo buttons","Show saved-change history controls"]
+  ]},
+  {title:"Browse & organize",features:[
+    ["search","Search","Show the pin search box"],
+    ["filters","Filters and sorting","Category, type, and sorting controls"],
+    ["layers","Layers and groups","Show layer toggles and nested groups"],
+    ["importExport","Import & export","Show CSV, JSON and GeoJSON controls"]
+  ]},
+  {title:"Shared updates",features:[
+    ["autoSync","Automatic shared refresh","Check for changes every 20 seconds when connected"]
+  ]}
+];
+export function readFeatureSettings(store=globalThis.localStorage){
+  const defaults={...FEATURE_DEFAULTS};
+  try{
+    const stored=JSON.parse(store?.getItem(FEATURE_STORAGE_KEY)||"null");
+    if(!stored||typeof stored!=="object"||Array.isArray(stored))return defaults;
+    for(const key of Object.keys(defaults))
+      if(typeof stored[key]==="boolean")defaults[key]=stored[key];
+  }catch{}
+  return defaults;
+}
+export function saveFeatureSettings(settings,store=globalThis.localStorage){
+  try{
+    const filtered=Object.fromEntries(Object.keys(FEATURE_DEFAULTS)
+      .map(k=>[k,settings[k]===true]));
+    store?.setItem(FEATURE_STORAGE_KEY,JSON.stringify(filtered));
+    return !!store;
+  }catch{return false;}
+}
+export function createSettingsControls({state,onChange}){
+  const $=id=>document.getElementById(id);
+  const dialog=$("settingsDialog");
+  function fill(){
+    const groups=$("settingsGroups");groups.replaceChildren();
+    for(const group of FEATURE_GROUPS){
+      const section=document.createElement("section");section.className="settings-section";
+      const h=document.createElement("h3");h.textContent=group.title;section.append(h);
+      for(const [key,title,description] of group.features){
+        const label=document.createElement("label");label.className="settings-switch-row";
+        const copy=document.createElement("span");copy.className="settings-copy";
+        const name=document.createElement("strong");name.textContent=title;
+        const info=document.createElement("small");info.textContent=description;
+        copy.append(name,info);
+        const box=document.createElement("input");
+        box.type="checkbox";box.className="settings-checkbox";box.dataset.feature=key;
+        box.checked=!!state.features[key];box.setAttribute("aria-label",title);
+        box.addEventListener("change",()=>onChange(key,box.checked));
+        label.append(copy,box);section.append(label);
+      }
+      groups.append(section);
+    }
+  }
+  function sync(){
+    for(const box of dialog.querySelectorAll("input[data-feature]"))
+      box.checked=!!state.features[box.dataset.feature];
+  }
+  function init(){
+    fill();
+    $("settingsButton").addEventListener("click",()=>{sync();dialog.showModal();});
+    const close=()=>dialog.close();
+    $("settingsClose").addEventListener("click",close);
+    $("settingsDone").addEventListener("click",close);
+    $("settingsReset").addEventListener("click",()=>{
+      for(const key of Object.keys(FEATURE_DEFAULTS))onChange(key,FEATURE_DEFAULTS[key],false);
+      saveFeatureSettings(state.features);
+      onChange(null,null,true);
+      sync();
+    });
+    dialog.addEventListener("click",event=>{if(event.target===dialog)close();});
+  }
+  function status(saved){
+    $("settingsStatus").textContent=saved?"Saved on this browser":"Could not save: browser storage blocked";
+  }
+  return {init,sync,status};
+}
+
 export function createEnhancements(api){
   const {state,notify,safeImage}=api;
   const $=id=>document.getElementById(id);
@@ -106,6 +206,7 @@ export function createEnhancements(api){
     ["arrow","line","circle","text"].includes(e.canvas?.type)?"Drawings":
     e.kind==="photo"?"Pictures":e.kind==="note"?"Notes":"Places";
   function visible(entries){
+    if(!state.features.layers)return entries;
     return entries.filter(e=>{
       const layer=e.layer||defaultLayer(e),group=e.group||"";
       return !hiddenLayers.has(layer)&&(selectedLayer==="all"||selectedLayer===layer)
@@ -241,8 +342,8 @@ export function createEnhancements(api){
     objects.replaceChildren();svg.replaceChildren();
     const rect=$("map").getBoundingClientRect();
     svg.setAttribute("viewBox","0 0 "+Math.max(1,rect.width)+" "+Math.max(1,rect.height));
-    const expanded=api.mapZoom()>=api.DETAIL_ZOOM&&state.showLabels;
-    for(const entry of api.filterEntries()){
+    const expanded=api.mapZoom()>=api.DETAIL_ZOOM && state.features.canvasObjects;
+    for(const entry of state.features.canvasObjects?api.filterEntries():[]){
       const c=entry.canvas;
       if(!c||!expanded)continue;
       if(["line","arrow","circle"].includes(c.type)){
@@ -308,6 +409,8 @@ export function createEnhancements(api){
   }
   function handleTap(point){
     if(!activeTool)return false;
+    if(activeTool==="measure"&&!state.features.measure)return false;
+    if(activeTool!=="measure"&&!state.features.canvasTools)return false;
     if(["line","arrow","circle"].includes(activeTool)){
       if(!firstPoint){firstPoint=[Number(point.lng),Number(point.lat)];hoverPoint=firstPoint;notify("Choose the second point.");}
       else{
@@ -342,6 +445,8 @@ export function createEnhancements(api){
     if($("placementBar"))$("placementBar").classList.toggle("hidden",!tool&& !state.placing);
   }
   function useTool(tool){
+    if(tool==="measure"&&!state.features.measure)return;
+    if(tool!=="measure"&&!state.features.canvasTools)return;
     activeTool=null;firstPoint=null;hoverPoint=null;measure=[];measureDone=false;
     $("measureFinish").classList.add("hidden");$("measureClear").classList.add("hidden");
     $("measureReadout").classList.add("hidden");
@@ -372,6 +477,7 @@ export function createEnhancements(api){
     renderOverlay();
   }
   function galleryDetail(entry,detail){
+    if(!state.features.galleries)return;
     const imgs=[entry.photo,...(entry.gallery||[])].filter(x=>safeImage(x));
     if(imgs.length<2)return;
     const main=detail.querySelector(".detail-photo")||document.createElement("img");
@@ -560,6 +666,7 @@ export function createEnhancements(api){
       if([...e.dataTransfer?.types||[]].includes("Files"))e.preventDefault();
     });
     $("mapArea").addEventListener("drop",async e=>{
+      if(!state.features.canvasTools)return;
       const file=[...e.dataTransfer?.files||[]].find(f=>f.type.startsWith("image/"));
       if(!file)return;e.preventDefault();
       const [x,y]=viewPoint(e),[lng,lat]=unproject(x,y);
@@ -579,7 +686,7 @@ export function createEnhancements(api){
   function startPolling(){
     if(!api.SHEETS_URL)return;
     const refresh=async()=>{
-      if(refreshBusy||state.saving||state.historyBusy||document.hidden||!navigator.onLine)return;
+      if(!state.features.autoSync||refreshBusy||state.saving||state.historyBusy||document.hidden||!navigator.onLine)return;
       refreshBusy=true;
       const before=state.entries.map(e=>e.id+":"+e.version).join("|");
       try{

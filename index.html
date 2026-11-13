@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=canvas-20261114b">
+<link rel="stylesheet" href="./style.css?v=settings-20261114">
 </head>
 <body>
 <div id="app">
@@ -17,6 +17,7 @@
  <div class="top-actions">
   <span class="storage-state" id="syncState" title="Connection status">Loading…</span>
   <span id="offlineState" class="offline-state hidden" role="status"></span><button id="undoBtn" class="icon-button" title="Undo saved change" aria-label="Undo saved change" disabled>↶</button><button id="redoBtn" class="icon-button" title="Redo saved change" aria-label="Redo saved change" disabled>↷</button><button id="refreshBtn" class="icon-button" aria-label="Reload shared pins" title="Reload shared pins">↻</button>
+  <button id="settingsButton" type="button" class="icon-button" title="Feature settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsDialog">⚙</button>
   <button id="addButton" class="primary">＋ <span>Add to map</span></button>
  </div>
 </header>
@@ -67,6 +68,12 @@
 </div>
 <div id="overlay" class="overlay hidden"></div>
 <aside id="detailPanel" class="side-panel hidden" aria-label="Entry details"></aside>
+<dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
+ <div class="settings-header"><div><div class="eyebrow">YOUR MAP · YOUR CONTROLS</div><h2 id="settingsTitle">Settings</h2></div><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">✕</button></div>
+ <p class="settings-note">Choose which tools and details appear. Preferences are saved automatically <strong>on this browser</strong> and remain after refreshing. They don't change anyone else's settings.</p>
+ <div id="settingsGroups" class="settings-groups"></div>
+ <div class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this device</span><button type="button" class="primary" id="settingsDone">Done</button></div>
+</dialog>
 <dialog id="editor">
  <form id="editForm">
   <div class="dialog-heading"><div><div class="eyebrow">ADD TO CANVAS</div><h2 id="editorTitle">New map entry</h2></div><button type="button" id="closeEditor" class="icon-button" aria-label="Close editor">✕</button></div>
@@ -81,11 +88,13 @@
     <input id="imageUrl" type="url" placeholder="https://example.com/photo.jpg">
    </label>
    <button id="uploadPhoto" type="button" class="secondary">▧ Upload or paste photo</button>
+   <div id="galleryControls" class="gallery-controls">
    <label>Additional gallery photos (HTTPS URLs, one per line)<textarea id="galleryUrls" rows="3" placeholder="https://example.com/second-photo.jpg"></textarea></label>
    <button id="galleryUpload" type="button" class="secondary">Upload more gallery photos</button>
    <input id="galleryFile" type="file" accept="image/*" multiple hidden>
    <div id="galleryPreview" class="gallery-preview"></div>
    <small class="muted">Uploaded gallery photos are compressed thumbnails. Use HTTPS links for larger images.</small>
+   </div>
    <label class="canvas-width-label">Picture / text width <input id="canvasWidth" type="range" min="100" max="420" step="10" value="210"><output id="canvasWidthValue">210 px</output></label>
    <input id="photoFile" type="file" accept="image/*" hidden>
    <img class="preview-photo hidden" id="photoPreview" alt="Selected image preview">
@@ -99,6 +108,6 @@
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
 <script src="./config.js"></script>
-<script type="module" src="./app.js?v=canvas-20261114b"></script>
+<script type="module" src="./app.js?v=settings-20261114"></script>
 </body>
 </html>

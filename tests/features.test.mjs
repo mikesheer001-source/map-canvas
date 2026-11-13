@@ -6,7 +6,7 @@ const gs=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
 const sw=readFileSync(new URL("../sw.js",import.meta.url),"utf8");
 for(const id of ["categoryFilter","locateButton","undoBtn","redoBtn","pinIcon","pinColor"])
   assert.match(html,new RegExp('id="'+id+'"'));
-assert.match(app,/cluster:true,clusterRadius:54/);
+assert.match(app,/cluster:state\.features\.clustering,clusterRadius:54/);
 assert.match(app,/getClusterExpansionZoom/);
 assert.match(app,/new URLSearchParams\(location.search\)\.get\("pin"\)/);
 assert.match(app,/getCurrentPosition/);

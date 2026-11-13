@@ -1,4 +1,4 @@
-import { createEnhancements } from "./enhancements.js";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js";
 const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
@@ -7,6 +7,7 @@ const CLUSTER_MAX_ZOOM = 16;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 let enhanced = null;
+let settingsUI = null;
 const state = {
   hostels: [], entries: [], query: "", filter: "all", sort: "default",
   provider: "openfreemap", map: null, library: null, markers: [],
@@ -14,7 +15,8 @@ const state = {
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
-  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false
+  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false,
+  features: {...FEATURE_DEFAULTS}
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -141,17 +143,17 @@ async function reloadShared(silent) {
   }
 }
 function filterEntries() {
-  const needle = state.query.toLowerCase().trim();
+  const needle = (state.features.search?state.query:"").toLowerCase().trim();
   const shown = allEntries().filter((e) =>
-    (state.category === "all" || e.category === state.category)
-    && (state.filter === "all" || state.filter === e.kind)
+    (!state.features.filters || state.category === "all" || e.category === state.category)
+    && (!state.features.filters || state.filter === "all" || state.filter === e.kind)
     && [e.title, e.notes, e.category, e.price, e.rating]
       .some((x) => String(x || "").toLowerCase().includes(needle)));
-  if (state.sort === "price") shown.sort((a,b) =>
+  if (state.features.filters && state.sort === "price") shown.sort((a,b) =>
     (Number(String(a.price).replace(/[^\d.]/g, "")) || Infinity)
     - (Number(String(b.price).replace(/[^\d.]/g, "")) || Infinity));
-  if (state.sort === "title") shown.sort((a,b) => a.title.localeCompare(b.title));
-  if (state.sort === "rating") shown.sort((a,b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+  if (state.features.filters && state.sort === "title") shown.sort((a,b) => a.title.localeCompare(b.title));
+  if (state.features.filters && state.sort === "rating") shown.sort((a,b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
   return enhanced ? enhanced.visible(shown) : shown;
 }
 function render() {
@@ -246,7 +248,7 @@ function makeCard(entry) {
 }
 function updateLabels() {
   clearLabelMarkers();
-  const expanded = state.showLabels && mapZoom() >= DETAIL_ZOOM &&
+  const expanded = state.showLabels && state.features.labels && mapZoom() >= DETAIL_ZOOM &&
     !state.mapMoving;
   if (expanded && state.map && state.library === "maplibre") {
     for (const entry of state.visiblePins || []) {
@@ -275,7 +277,7 @@ function updateLabels() {
       }).addTo(state.map));
     }
   }
-  attr($("toggleLabels"), "aria-pressed", state.showLabels);
+  attr($("toggleLabels"), "aria-pressed", state.showLabels && state.features.labels);
   $("mapSub").textContent = filterEntries().length + " pins · " +
     (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
 }
@@ -303,9 +305,14 @@ function renderMarkers(entries) {
     const data = pinGeoJSON(entries);
     const source = state.map.getSource(PIN_SOURCE);
     if (source) {
+      if(source.getClusterOptions && source.setClusterOptions &&
+          source.getClusterOptions().cluster!==state.features.clustering)
+        Promise.resolve(source.setClusterOptions({cluster:state.features.clustering}))
+          .catch(error=>console.warn("Could not change clustering",error));
       source.setData(data);
     } else {
-      state.map.addSource(PIN_SOURCE, {type:"geojson",data,cluster:true,clusterRadius:54,clusterMaxZoom:CLUSTER_MAX_ZOOM});
+      state.map.addSource(PIN_SOURCE,{type:"geojson",data,
+        cluster:state.features.clustering,clusterRadius:54,clusterMaxZoom:CLUSTER_MAX_ZOOM});
     }
     if (!state.map.getLayer("canvas-clusters")) {
       state.map.addLayer({id:"canvas-clusters",source:PIN_SOURCE,type:"circle",
@@ -804,6 +811,54 @@ function setupOffline() {
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
 
+
+const FEATURE_TARGETS={
+  search:[".searchwrap"],filters:[".filters","#categoryFilter","#sort"],
+  layers:[".collection-selects",".layers-panel"],
+  importExport:[".io-actions"],addPins:["#addButton"],
+  canvasTools:['[data-canvas-tool="image"]','[data-canvas-tool="text"]',
+    '[data-canvas-tool="line"]','[data-canvas-tool="arrow"]','[data-canvas-tool="circle"]'],
+  measure:['[data-canvas-tool="measure"]'],
+  canvasObjects:[],galleries:["#galleryControls"],
+  undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
+  clustering:[],gps:["#locateButton"],
+  basemaps:["#basemapButton"],navigation:["#zoomIn","#zoomOut","#fitPins"],
+  autoSync:[]
+};
+function applyFeatureSettings(changedKey=null){
+  for(const [key,selectors] of Object.entries(FEATURE_TARGETS)){
+    for(const selector of selectors)
+      document.querySelectorAll(selector).forEach(node=>
+        node.classList.toggle("feature-hidden",!state.features[key]));
+  }
+  if(!state.features.basemaps){
+    $("basemapSwitch").classList.add("hidden");
+    $("basemapButton").setAttribute("aria-expanded","false");
+  }
+  if(!state.features.measure || !state.features.canvasTools)
+    enhanced?.clearMeasurement();
+  if(!state.features.gps && state.gpsMarker){
+    state.gpsMarker.remove();state.gpsMarker=null;
+  }
+  if(changedKey==="clustering" || changedKey===null){
+    const source=state.library==="maplibre"&&state.map?.getSource(PIN_SOURCE);
+    if(source?.setClusterOptions && source.getClusterOptions &&
+       source.getClusterOptions().cluster!==state.features.clustering)
+      Promise.resolve(source.setClusterOptions({cluster:state.features.clustering}))
+        .catch(error=>console.warn("Could not update clustering",error));
+  }
+  updateLabels();
+  render();
+}
+function setFeatureSetting(key,value,persist=true){
+  if(key && Object.hasOwn(FEATURE_DEFAULTS,key))state.features[key]=value===true;
+  if(persist)settingsUI?.status(saveFeatureSettings(state.features));
+  if(persist || key===null){
+    applyFeatureSettings(key);
+    settingsUI?.sync();
+  }
+}
+
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
   $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
@@ -822,7 +877,7 @@ function wire() {
   $("zoomIn").addEventListener("click",()=>state.map?.zoomIn());
   $("zoomOut").addEventListener("click",()=>state.map?.zoomOut());
   $("fitPins").addEventListener("click",fitPins);
-  $("toggleLabels").addEventListener("click",()=>{state.showLabels=!state.showLabels;updateLabels();});
+  $("toggleLabels").addEventListener("click",()=>setFeatureSetting("labels",!state.features.labels));
   $("basemapButton").addEventListener("click",()=>{
     const open=$("basemapSwitch").classList.toggle("hidden")===false;
     attr($("basemapButton"),"aria-expanded",open);
@@ -854,6 +909,7 @@ function wire() {
     }
   }));
   window.addEventListener("paste",(event)=>{
+    if(!state.features.canvasTools)return;
     if(event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;
     const file=Array.from(event.clipboardData?.items||[])
       .find((x)=>x.type.startsWith("image/"))?.getAsFile();
@@ -868,12 +924,22 @@ function wire() {
   });
 }
 async function main() {
+  state.features=readFeatureSettings();
   enhanced=createEnhancements({state,SHEETS_URL,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
     reloadShared,sheetRequest,mapZoom});
   wire();
   enhanced.init();
+  settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
+  settingsUI.init();
+  applyFeatureSettings();
+  window.addEventListener("storage",event=>{
+    if(event.key!==FEATURE_STORAGE_KEY)return;
+    state.features=readFeatureSettings();
+    applyFeatureSettings();
+    settingsUI.sync();
+  });
   setupOffline();
   try {await loadHostels();}catch(error){notify(error.message,true);}
   render();
@@ -889,7 +955,8 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getMap: () => state.map,
     getLibrary: () => state.library,
     getEntries: () => allEntries(),
-    getPins: () => state.visiblePins
+    getPins: () => state.visiblePins,
+    getFeatures: () => ({...state.features})
   };
 }
 main().catch((error)=>notify(error.message,true));
