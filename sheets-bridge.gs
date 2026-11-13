@@ -11,6 +11,8 @@ const PINS_TAB = "Map Canvas";
 const HEADERS = ["ID","Title","Type","Category","Latitude","Longitude","Notes","Photo URL","Price","Rating","Version","Edit key hash"];
 const MAX_ROWS = 500;
 const EXTRA_HEADERS = ["Icon","Color","Canvas metadata"];
+const DELETED_TAB="Map Canvas Deleted";
+const DELETED_HEADERS=["ID","Deleted at","Source"];
 const HISTORY_TAB="Map Canvas History";
 const HISTORY_HEADERS=["Timestamp","Action","ID","Before JSON","After JSON","Revision","Key fingerprint"];
 const MAX_HISTORY=10000;
@@ -79,6 +81,27 @@ function readHostels_(book) {
     }];
   });
 }
+function deletedTab_(book,create) {
+  let sh=book.getSheetByName(DELETED_TAB);
+  if(!sh&&create){
+    sh=book.insertSheet(DELETED_TAB);
+    sh.getRange(1,1,1,DELETED_HEADERS.length).setValues([DELETED_HEADERS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function deletedIds_(book) {
+  const sh=deletedTab_(book,false);
+  if(!sh||sh.getLastRow()<2)return [];
+  return sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues()
+    .map(r=>r[0]).filter(Boolean);
+}
+function markDeleted_(book,id,source) {
+  const sh=deletedTab_(book,true);
+  if(sh.getLastRow()>10000)throw new Error("Deletion history is full");
+  const existing=deletedIds_(book);
+  if(!existing.includes(id))sh.appendRow([id,new Date().toISOString(),source]);
+}
 function output_(body,mime) {
   return ContentService.createTextOutput(body).setMimeType(mime);
 }
@@ -87,7 +110,12 @@ function doGet(e) {
   if(!/^mapCanvasCb_[a-z0-9]{8,32}$/.test(cb))return output_("Invalid callback",ContentService.MimeType.TEXT);
   try{
     const store=mapTab_();
-    const result={ok:true,entries:readPins_(store.sheet),hostels:readHostels_(store.book)};
+    const deletedIds=deletedIds_(store.book);
+    const removed=new Set(deletedIds);
+    const result={ok:true,
+      entries:readPins_(store.sheet).filter(p=>!removed.has(p.id)),
+      hostels:readHostels_(store.book).filter(p=>!removed.has(p.id)),
+      deletedIds};
     return output_(cb+"("+JSON.stringify(result).replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029")+");",ContentService.MimeType.JAVASCRIPT);
   }catch(error){
     return output_(cb+"("+JSON.stringify({ok:false,error:String(error.message||error)})+");",ContentService.MimeType.JAVASCRIPT);
@@ -155,7 +183,8 @@ function doPost(e) {
     if(!e?.postData?.contents||e.postData.contents.length>125000)throw new Error("Request too large");
     const body=JSON.parse(e.postData.contents);
     const entry=body.entry;
-    if(!body.key||!/^[a-f0-9]{64}$/.test(body.key))throw new Error("Edit key is missing");
+    if(body.action!=="delete"&&(!body.key||!/^[a-f0-9]{64}$/.test(body.key)))
+      throw new Error("Edit key is missing");
     if(!["save","delete","bulk"].includes(body.action))throw new Error("Invalid action");
     if(body.action==="bulk"){
       if(!Array.isArray(body.entries)||!body.entries.length||body.entries.length>25)
@@ -163,6 +192,10 @@ function doPost(e) {
       body.entries.forEach(check_);
       if(body.entries.some(e=>e.version))throw new Error("Bulk import only creates new pins");
       if(new Set(body.entries.map(e=>e.id)).size!==body.entries.length)throw new Error("Duplicate import IDs");
+    }else if(body.action==="delete"){
+      if(!entry||typeof entry.id!=="string"||
+         !(/^[a-f0-9-]{36}$/.test(entry.id)||/^hostel-[0-9]{1,4}$/.test(entry.id)))
+        throw new Error("Invalid pin ID");
     }else check_(entry);
     const store=mapTab_();
     const sheet=store.sheet;
@@ -193,13 +226,30 @@ function doPost(e) {
     }
     const i=rows.findIndex((r)=>r[0]===entry.id);
     const existing=i===-1?null:rows[i];
-    const hashed=sha256_(body.key);
+    const hashed=sha256_(String(body.key||""));
+    // Public deletion is intentionally anonymous. Any visitor may remove
+    // any pin, including seeded hostels; the deletion is global.
+    if(body.action==="delete"){
+      if(/^hostel-[0-9]{1,4}$/.test(entry.id)){
+        markDeleted_(store.book,entry.id,"hostel");
+        return output_(JSON.stringify({ok:true}),ContentService.MimeType.JSON);
+      }
+      if(existing){
+        if(entry.version!==existing[10])throw new Error("Pin was updated. Refresh and retry.");
+        historyTab_(store.book);
+        sheet.deleteRow(i+2);
+        audit_(store.book,"delete",entry.id,existing,null,"",hashed);
+      }
+      markDeleted_(store.book,entry.id,"shared");
+      SpreadsheetApp.flush();
+      return output_(JSON.stringify({ok:true}),ContentService.MimeType.JSON);
+    }
     historyTab_(store.book);
     if(existing&&(existing[11]!==hashed||existing[10]!==entry.version))throw new Error("Edit permission or version mismatch");
-    if(!existing && (body.action==="delete"||entry.version))throw new Error("Entry has changed");
+    if(!existing && entry.version)throw new Error("Entry has changed");
     let after=null,revision="";
     if(body.action==="delete"){
-      sheet.deleteRow(i+2);
+      throw new Error("Unexpected delete flow");
     }else{
       revision=Utilities.getUuid();
       const values=rowValues_(entry,revision,hashed);

@@ -145,22 +145,7 @@ export function saveFeatureSettings(settings,store=globalThis.localStorage){
   }catch{return false;}
 }
 
-export const HIDDEN_PINS_KEY="map-canvas:hidden-pins-v1";
-export function readHiddenPins(store=globalThis.localStorage){
-  try{
-    const ids=JSON.parse(store?.getItem(HIDDEN_PINS_KEY)||"[]");
-    if(!Array.isArray(ids))return new Set();
-    return new Set(ids.filter(x=>typeof x==="string"&&x.length<=180).slice(0,1500));
-  }catch{return new Set();}
-}
-export function saveHiddenPins(ids,store=globalThis.localStorage){
-  try{
-    store?.setItem(HIDDEN_PINS_KEY,JSON.stringify([...ids].filter(x=>typeof x==="string").slice(0,1500)));
-    return !!store;
-  }catch{return false;}
-}
-
-export function createSettingsControls({state,onChange,onRestoreHidden,getHiddenCount}){
+export function createSettingsControls({state,onChange}){
   const $=id=>document.getElementById(id);
   const dialog=$("settingsDialog");
   function fill(){
@@ -189,11 +174,10 @@ export function createSettingsControls({state,onChange,onRestoreHidden,getHidden
   }
   function init(){
     fill();
-    $("settingsButton").addEventListener("click",()=>{sync();updateHiddenCount();dialog.showModal();});
+    $("settingsButton").addEventListener("click",()=>{sync();dialog.showModal();});
     const close=()=>dialog.close();
     $("settingsClose").addEventListener("click",close);
     $("settingsDone").addEventListener("click",close);
-    $("restoreHiddenPins").addEventListener("click",()=>{onRestoreHidden();updateHiddenCount();});
     $("settingsReset").addEventListener("click",()=>{
       for(const key of Object.keys(FEATURE_DEFAULTS))onChange(key,FEATURE_DEFAULTS[key],false);
       saveFeatureSettings(state.features);
@@ -202,16 +186,10 @@ export function createSettingsControls({state,onChange,onRestoreHidden,getHidden
     });
     dialog.addEventListener("click",event=>{if(event.target===dialog)close();});
   }
-  function updateHiddenCount(){
-    const count=getHiddenCount();
-    const button=$("restoreHiddenPins");
-    button.textContent="Restore hidden pins ("+count+")";
-    button.disabled=count===0;
-  }
   function status(saved){
     $("settingsStatus").textContent=saved?"Saved on this browser":"Could not save: browser storage blocked";
   }
-  return {init,sync,status,updateHiddenCount};
+  return {init,sync,status};
 }
 
 export function createEnhancements(api){

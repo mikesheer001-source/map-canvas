@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings, HIDDEN_PINS_KEY, readHiddenPins, saveHiddenPins } from "./enhancements.js?v=theme-delete-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=theme-delete-20261114";
 const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
@@ -15,7 +15,7 @@ const state = {
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
   pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false,
-  features: {...FEATURE_DEFAULTS}, hiddenPinIds: new Set()
+  features: {...FEATURE_DEFAULTS}, remotelyDeletedIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -94,7 +94,7 @@ function renderEmojiMarkers(entries){
   }
 }
 
-const allEntries = () => state.entries.concat(state.hostels).filter(e=>!state.hiddenPinIds.has(e.id));
+const allEntries = () => state.entries.concat(state.hostels).filter(e=>!state.remotelyDeletedIds.has(e.id));
 const coord = (n) => Number.isFinite(Number(n)) ? Number(n) : null;
 const safeImage = (value) => {
   if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{20,38000}$/.test(value)) return value;
@@ -164,7 +164,8 @@ async function reloadShared(silent) {
   $("syncState").textContent = "Syncing…";
   try {
     const result = await sheetRequest();
-    if (Array.isArray(result.hostels) && result.hostels.length) state.hostels = result.hostels;
+    if (Array.isArray(result.hostels)) state.hostels = result.hostels;
+    state.remotelyDeletedIds=new Set(Array.isArray(result.deletedIds)?result.deletedIds:[]);
     const items = result.entries;
     state.entries = items.filter((e) => e && typeof e.id === "string"
       && Number.isFinite(coord(e.lat)) && Number.isFinite(coord(e.lng)))
@@ -576,13 +577,12 @@ function choose(entry, focus) {
   if (entry.source!=="hostel" && ownerKey && state.sheetConnected) {
     actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
   }
-  const canDeleteFromShared=entry.source!=="hostel" && !!ownerKey && state.sheetConnected;
-  const deleteButton=button(canDeleteFromShared?"Delete pin":"Remove pin",
-    ()=>removeEntry(entry),"danger");
+  const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.id="deleteSelectedPin";
-  deleteButton.title=canDeleteFromShared
-    ?"Delete this pin from the shared map for everyone"
-    :"Hide this pin on this browser; it will remain on the public map";
+  deleteButton.disabled=!state.sheetConnected;
+  deleteButton.title=state.sheetConnected
+    ?"Permanently delete this pin for every visitor"
+    :"Connect the shared Google Sheets backend to enable global deletion";
   actions.append(deleteButton);
   detail.append(actions);
   $("overlay").classList.remove("hidden");
@@ -669,7 +669,7 @@ async function submitChange(action,entry,key) {
     last=data;
     const found=data.entries.find((row)=>row.id===entry.id);
     if ((action==="save" && found && found.version!==entry.version)||
-        (action==="delete" && !found)) {
+        (action==="delete" && (data.deletedIds?.includes(entry.id) || !found && entry.source!=="hostel"))) {
       await reloadShared(true);
       return;
     }
@@ -702,40 +702,27 @@ async function saveEntry(event) {
   finally{state.saving=false;$("saveEntry").textContent="Save to shared map";$("saveEntry").disabled=!SHEETS_URL;}
 }
 async function removeEntry(entry) {
+  // This is never a local-only hide. Deletions must be confirmed by the shared
+  // backend before the UI reports success; no modal or confirmation popup.
   if(state.saving)return;
-  const key=getKey(entry.id);
-  const sharedDelete=entry.source!=="hostel" && !!key && state.sheetConnected;
-  if(sharedDelete){
-    if(!confirm('Permanently delete "'+entry.title+'" from the shared map for everyone?'))return;
-    state.saving=true;
-    const control=$("deleteSelectedPin");
-    if(control)control.disabled=true;
-    try{
-      await submitChange("delete",entry,key);
-      recordChange({before:entry,after:null});
-      hideDetail();
-      notify("Pin deleted from the shared map.");
-    }catch(error){notify("Deletion failed: "+error.message,true);}
-    finally{
-      state.saving=false;
-      if(control)control.disabled=false;
-    }
+  if(!SHEETS_URL || !state.sheetConnected){
+    notify("Global deletion needs the shared Google Sheets connection.",true);
     return;
   }
-  if(!confirm('Hide "'+entry.title+'" on this browser only? You can restore it in Settings.'))return;
-  state.hiddenPinIds.add(entry.id);
-  const saved=saveHiddenPins(state.hiddenPinIds);
-  hideDetail();
-  settingsUI?.updateHiddenCount();
-  notify(saved?"Pin hidden on this browser. Restore it in Settings.":"Pin hidden, but browser storage is unavailable; it may return after reload.",!saved);
-}
-function restoreHiddenPins(){
-  if(!state.hiddenPinIds.size)return;
-  state.hiddenPinIds.clear();
-  const saved=saveHiddenPins(state.hiddenPinIds);
-  settingsUI?.updateHiddenCount();
-  render();
-  notify(saved?"Hidden pins restored.":"Pins restored, but browser storage did not save.",!saved);
+  state.saving=true;
+  const control=$("deleteSelectedPin");
+  if(control){control.disabled=true;control.textContent="Deleting…";}
+  try{
+    await submitChange("delete",entry,randomKey());
+    if(entry.source!=="hostel")recordChange({before:entry,after:null});
+    hideDetail();
+    notify("Pin deleted for everyone.");
+  }catch(error){
+    notify("Could not delete pin: "+error.message,true);
+  }finally{
+    state.saving=false;
+    if(control){control.disabled=false;control.textContent="Delete pin";}
+  }
 }
 async function shrinkPhoto(file) {
   if (!file?.type.startsWith("image/"))throw new Error("Choose an image.");
@@ -1007,7 +994,6 @@ function wire() {
 }
 async function main() {
   state.features=readFeatureSettings();
-  state.hiddenPinIds=readHiddenPins();
   enhanced=createEnhancements({state,SHEETS_URL,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
@@ -1018,8 +1004,7 @@ async function main() {
     console.error("Canvas tools could not initialize:",error);
     notify("Some map tools failed to load. Refresh to get the newest version.",true);
   }
-  settingsUI=createSettingsControls({state,onChange:setFeatureSetting,
-    onRestoreHidden:restoreHiddenPins,getHiddenCount:()=>state.hiddenPinIds.size});
+  settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
   settingsUI.init();
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
@@ -1027,11 +1012,6 @@ async function main() {
       state.features=readFeatureSettings();
       applyFeatureSettings();
       settingsUI.sync();
-    }else if(event.key===HIDDEN_PINS_KEY){
-      state.hiddenPinIds=readHiddenPins();
-      settingsUI.updateHiddenCount();
-      if(state.current && state.hiddenPinIds.has(state.current.id))hideDetail();
-      render();
     }
   });
   setupOffline();
@@ -1051,7 +1031,7 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getEntries: () => allEntries(),
     getPins: () => state.visiblePins,
     getFeatures: () => ({...state.features}),
-    getHiddenPins: () => [...state.hiddenPinIds]
+    getDeletedPins: () => [...state.remotelyDeletedIds]
   };
 }
 main().catch((error)=>notify(error.message,true));

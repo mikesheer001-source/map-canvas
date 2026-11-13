@@ -48,22 +48,6 @@
     "source": "hostel"
   },
   {
-    "id": "hostel-4",
-    "kind": "place",
-    "category": "Hostel",
-    "title": "Rebel Rooster Hostel",
-    "lat": 21.0295722,
-    "lng": 105.8441379,
-    "price": "$5.06",
-    "rating": "4.6 (176 reviews)",
-    "bookingRating": "8.6",
-    "breakfast": "Yes",
-    "link": "https://www.google.com/maps/place/Rebel+Rooster+Hostel+Hanoi/@21.0295722,105.8441379,17z/data=!4m9!3m8!1s0x3135ab2777fd78a5:0xe9b76eafc3ea11f8!5m2!4m1!1i2!8m2!3d21.0295722!4d105.8441379!16s%2Fg%2F11xdwz6d1z?entry=ttu&g_ep=EgoyMDI2MTEwOC4wIKXMDSoASAFQAw%3D%3D",
-    "notes": "Guests liked: Friendly staff, clean dorms and a convenient Train Street location.\nConcerns: Some guests found the beds firm or reported limited A/C hours.",
-    "photo": "",
-    "source": "hostel"
-  },
-  {
     "id": "hostel-5",
     "kind": "place",
     "category": "Hostel",

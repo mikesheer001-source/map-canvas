@@ -143,3 +143,19 @@ color scheme. MapLibre's OpenFreeMap basemap uses the published OpenFreeMap dark
 style; OpenStreetMap raster/fallback tiles are color-adjusted for night mode.
 The setting is per browser, saved with the existing feature preferences,
 and restored after refresh. No sign-in or Sheets connection is required.
+
+## Shared deletion (replaces device-only hiding)
+
+**Rebel Rooster Hostel (`hostel-4`) was removed from the public seed file.**
+The UI no longer offers a device-only hide or a confirmation popup. The
+selected-pin **Delete pin** action now requires an active shared Sheets
+connection and applies to *everyone*. The backend records deleted IDs in a
+**Map Canvas Deleted** tab (tombstones), including preset hostels, and
+returns `deletedIds` in its public read endpoint. Shared entries are deleted
+from the Map Canvas tab, with audit history, and deletions are confirmed by
+a subsequent read before reporting success. Editing ownership keys are not
+required for deletion: this deliberately makes it possible for anyone to
+delete any public pin, so a malicious visitor could destroy public map content.
+The owner should preserve backups. **Until the Apps Script web app is deployed
+and configured in `config.js`, the Delete button is disabled**; a static
+GitHub Pages site cannot accept shared writes by itself.
