@@ -111,3 +111,7 @@ Clearing browser site data or using private browsing removes the preferences.
 Other visitors are unaffected. The auto-refresh switch affects background
 polling, not a manual refresh. Clustering toggles MapLibre's GeoJSON source
 without losing pin coordinates.
+
+## Individual thematic emoji pins
+
+Nearby pins no longer cluster or merge into numbered bubbles. Each pin displays its own emoji at all zoom levels. Common categories and titles such as hostels 🏨, cafés ☕, restaurants 🍽️, gyms 🏋️, shopping 🛍️, parks 🌳, museums 🎨, and stations 🚆 map automatically to appropriate emojis. Unrecognized categories use 📍. A manually selected non-default pin emoji takes priority. The visual emoji markers are map-anchored, while underlying near-transparent native MapLibre features handle click and drag reliably; Leaflet uses emoji divIcon markers. The old clustering toggle was removed from Settings. Other collection filters and named folders remain unchanged.

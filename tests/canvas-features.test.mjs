@@ -38,7 +38,7 @@ const fakeStore={db:new Map(),getItem(k){return this.db.get(k)||null;},setItem(k
 const pref=readFeatureSettings(fakeStore);
 assert.deepEqual(pref,{...FEATURE_DEFAULTS});
 assert.equal(FEATURE_GROUPS.flatMap(x=>x.features).length,Object.keys(FEATURE_DEFAULTS).length);
-pref.search=false;pref.measure=false;pref.clustering=false;
+pref.search=false;pref.measure=false;
 assert.equal(saveFeatureSettings(pref,fakeStore),true);
 assert.equal(JSON.parse(fakeStore.getItem(FEATURE_STORAGE_KEY)).search,false);
 assert.equal(readFeatureSettings(fakeStore).measure,false);
@@ -53,5 +53,6 @@ for(const id of ["settingsButton","settingsDialog","settingsGroups","settingsRes
   assert.ok(html.includes('id="'+id+'"'));
 assert.match(app,/readFeatureSettings\(\)/);
 assert.match(app,/applyFeatureSettings\(/);
-assert.match(app,/setClusterOptions/);
+assert.match(app,/renderEmojiMarkers/);
+assert.equal("clustering" in FEATURE_DEFAULTS,false);
 console.log("PASS: settings defaults, persistence, invalid storage, feature switches and reset controls");

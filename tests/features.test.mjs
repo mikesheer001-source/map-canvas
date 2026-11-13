@@ -7,8 +7,8 @@ const gs=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
 const sw=readFileSync(new URL("../sw.js",import.meta.url),"utf8");
 for(const id of ["categoryFilter","locateButton","undoBtn","redoBtn","pinIcon","pinColor"])
   assert.match(html,new RegExp('id="'+id+'"'));
-assert.match(app,/cluster:state\.features\.clustering,clusterRadius:54/);
-assert.match(app,/getClusterExpansionZoom/);
+assert.match(app,/cluster:false/);
+assert.doesNotMatch(app,/getClusterExpansionZoom|canvas-clusters|canvas-cluster-count/);
 assert.match(app,/new URLSearchParams\(location.search\)\.get\("pin"\)/);
 assert.match(app,/getCurrentPosition/);
 assert.match(app,/recordChange\(/);
@@ -21,7 +21,7 @@ assert.ok(!sw.includes("tile.openstreetmap.org"),"Do not pre-cache OSM tiles");
 assert.match(app,/localStorage\.setItem\(SNAPSHOT_KEY/);
 assert.match(app,/state\.category === "all"/);
 const api = new Function("document","window","location","navigator","FEATURE_DEFAULTS",app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
-  "\nreturn {pinGeoJSON,validColor,pinUrl,state,filterEntries};")(
+  "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries};")(
   {},{MAP_CANVAS_CONFIG:{}},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
   {onLine:true},FEATURE_DEFAULTS);
 assert.equal(api.validColor("#ffaa22"),true);
@@ -39,4 +39,10 @@ api.state.category="all";api.state.query="hostel";
 assert.deepEqual(api.filterEntries().map(x=>x.id),["b"]);
 assert.equal(api.pinGeoJSON(api.state.hostels).features[0].properties.color,"#ff1122");
 assert.equal(api.pinGeoJSON(api.state.hostels).features[1].properties.color,"#245c48");
-console.log("PASS: search, category, icons/colors, cluster config, GPS, links, undo/redo, Sheets columns, offline shell");
+assert.equal(api.pinEmoji({category:"Café",icon:"📍"}),"☕");
+assert.equal(api.pinEmoji({category:"Hostel",title:"Guesthouse"}),"🏨");
+assert.equal(api.pinEmoji({title:"Gym Fitness Club"}),"🏋️");
+assert.equal(api.pinEmoji({category:"Restaurant"}),"🍽️");
+assert.equal(api.pinEmoji({category:"Unknown category"}),"📍");
+assert.equal(api.pinEmoji({category:"Restaurant",icon:"🏖️"}),"🏖️");
+console.log("PASS: search, category, icons/colors, individual emoji pins, GPS, links, undo/redo, Sheets columns, offline shell");

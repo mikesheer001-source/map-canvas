@@ -99,12 +99,11 @@ export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasTools:true,measure:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,clustering:true,gps:true,basemaps:true,navigation:true,autoSync:true
+  labels:true,gps:true,basemaps:true,navigation:true,autoSync:true
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
     ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
-    ["clustering","Combine nearby pins","Group nearby map pins when zoomed out"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
     ["gps","Find my location","Show the GPS location button"],

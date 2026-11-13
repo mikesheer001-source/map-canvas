@@ -92,3 +92,9 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
  .settings-switch-row{min-height:57px;padding:8px 10px}
  .settings-footer{padding:10px}
 }
+
+/* Every location is a separate emoji pin; no clustering or numbered bubbles. */
+.maplibregl-marker.emoji-pin,.emoji-pin{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#fffffff2;border:1px solid #bfd0c3;box-shadow:0 2px 8px #163d3059;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif;font-size:23px;line-height:1;pointer-events:none;user-select:none}
+.maplibregl-marker.emoji-pin{position:absolute;top:0;left:0}
+.leaflet-emoji-marker{border:0!important;background:none!important}
+.leaflet-emoji-marker .emoji-pin-inner{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#fffffff2;border:1px solid #bfd0c3;box-shadow:0 2px 8px #163d3059;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif;font-size:23px;line-height:1}

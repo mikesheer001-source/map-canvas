@@ -3,7 +3,6 @@ const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
 const DETAIL_ZOOM = 16.8;
-const CLUSTER_MAX_ZOOM = 16;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 let enhanced = null;
@@ -11,7 +10,7 @@ let settingsUI = null;
 const state = {
   hostels: [], entries: [], query: "", filter: "all", sort: "default",
   provider: "openfreemap", map: null, library: null, markers: [],
-  leafletGroup: null, current: null, draft: null, placing: null, visiblePins: [],
+  leafletGroup: null, current: null, draft: null, placing: null, visiblePins: [], emojiMarkers: [],
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
@@ -30,6 +29,70 @@ const button = (label, action, klass) => {
   el.type = "button"; el.addEventListener("click", action);
   return el;
 };
+
+const THEME_EMOJIS=[
+  [/\\b(hostel|hotel|guest\\s?house|homestay|accommodation|lodging|inn|resort|motel)\\b/i,"🏨"],
+  [/\\b(caf[eé]|coffee|espresso|latte|tea\\s?house|coffeehouse)\\b/i,"☕"],
+  [/\\b(ice\\s?cream|gelato|dessert|bakery|cake|pastry|donut|doughnut)\\b/i,"🍰"],
+  [/\\b(pizza|pizzeria)\\b/i,"🍕"],
+  [/\\b(burger|hamburger|sandwich)\\b/i,"🍔"],
+  [/\\b(ph[oở]|ramen|noodle|sushi|asian food|vietnamese food)\\b/i,"🍜"],
+  [/\\b(restaurant|food|eatery|diner|bistro|buffet|grill|steakhouse)\\b/i,"🍽️"],
+  [/\\b(gym|fitness|workout|exercise|weightlifting|bodybuilding)\\b/i,"🏋️"],
+  [/\\b(yoga|pilates|meditation)\\b/i,"🧘"],
+  [/\\b(stadium|football|soccer|sport|tennis|basketball|badminton|volleyball)\\b/i,"⚽"],
+  [/\\b(swim|pool|waterpark|aquatic)\\b/i,"🏊"],
+  [/\\b(museum|gallery|exhibition|art)\\b/i,"🎨"],
+  [/\\b(monument|historic|history|heritage|temple|pagoda|shrine|church|cathedral)\\b/i,"🏛️"],
+  [/\\b(park|garden|forest|nature|botanical|hiking|trail)\\b/i,"🌳"],
+  [/\\b(beach|island|coast|seaside)\\b/i,"🏖️"],
+  [/\\b(lake|river|waterfall|viewpoint|scenic|lookout)\\b/i,"🏞️"],
+  [/\\b(shop|shopping|store|mall|market|boutique|supermarket)\\b/i,"🛍️"],
+  [/\\b(pharmacy|drugstore|chemist)\\b/i,"💊"],
+  [/\\b(hospital|clinic|doctor|medical|dentist|dental)\\b/i,"🏥"],
+  [/\\b(salon|haircut|barber|spa|massage|beauty)\\b/i,"💇"],
+  [/\\b(bar|pub|cocktail|nightclub|club|nightlife|karaoke)\\b/i,"🎵"],
+  [/\\b(cinema|movie|theater|theatre|film)\\b/i,"🎬"],
+  [/\\b(bookstore|bookshop|library|books)\\b/i,"📚"],
+  [/\\b(school|university|college|education|class)\\b/i,"🎓"],
+  [/\\b(airport|flight|airline)\\b/i,"✈️"],
+  [/\\b(train|railway|metro|subway|station)\\b/i,"🚆"],
+  [/\\b(bus|coach|shuttle)\\b/i,"🚌"],
+  [/\\b(ferry|boat|pier|marina|harbor|harbour)\\b/i,"⛴️"],
+  [/\\b(motorbike|motorcycle|scooter|bicycle|bike|rental)\\b/i,"🛵"],
+  [/\\b(bank|atm|exchange|finance)\\b/i,"🏦"],
+  [/\\b(photo|photography|camera)\\b/i,"📸"],
+  [/\\b(note|memo|reminder)\\b/i,"📝"]
+];
+function pinEmoji(entry){
+  // An explicitly selected non-default icon wins over automatic categorization.
+  const custom=String(entry?.icon||"");
+  if(custom!=="📍"&&ICONS.includes(custom))return custom;
+  const theme=[entry?.category,entry?.layer,entry?.title].filter(Boolean).join(" ");
+  for(const [pattern,emoji] of THEME_EMOJIS)if(pattern.test(theme))return emoji;
+  if(entry?.source==="hostel")return "🏨";
+  return "📍";
+}
+function clearEmojiMarkers(){
+  for(const marker of state.emojiMarkers){try{marker.remove();}catch{}}
+  state.emojiMarkers=[];
+}
+function renderEmojiMarkers(entries){
+  clearEmojiMarkers();
+  if(!state.map||state.library!=="maplibre")return;
+  for(const entry of entries){
+    if(!Number.isFinite(Number(entry.lat))||!Number.isFinite(Number(entry.lng)))continue;
+    const el=text("div",pinEmoji(entry),"emoji-pin");
+    el.setAttribute("aria-hidden","true");
+    el.title=entry.title||"Map pin";
+    el.style.pointerEvents="none";
+    const marker=new window.maplibregl.Marker({
+      element:el,anchor:"center",subpixelPositioning:true
+    }).setLngLat([Number(entry.lng),Number(entry.lat)]).addTo(state.map);
+    state.emojiMarkers.push(marker);
+  }
+}
+
 const allEntries = () => state.entries.concat(state.hostels);
 const coord = (n) => Number.isFinite(Number(n)) ? Number(n) : null;
 const safeImage = (value) => {
@@ -175,7 +238,7 @@ function render() {
   for (const entry of shown) {
     const row = document.createElement("button");
     row.type = "button"; row.className = "entry" + (state.current?.id === entry.id ? " is-active" : "");
-    const ico = text("span", entry.icon || (entry.kind === "note" ? "📝" : entry.kind === "photo" ? "📸" : "📍"), "entry-ico");
+    const ico = text("span", pinEmoji(entry), "entry-ico");
     ico.style.color = validColor(entry.color) ? entry.color : pinColor(entry.kind);
     if (entry.kind === "photo" && entry.photo) {
       const img = document.createElement("img"); img.alt = "";
@@ -238,7 +301,7 @@ function makeCard(entry) {
     label.append(img);
   }
   const lines = document.createElement("span");
-  lines.append(text("strong", (entry.icon || "📍") + " " + entry.title));
+  lines.append(text("strong", pinEmoji(entry) + " " + entry.title));
   const extra = [entry.price, entry.rating ? "★ " + entry.rating : ""].filter(Boolean).join(" · ");
   if (extra) lines.append(text("small", extra));
   else if (entry.kind === "note" && entry.notes) lines.append(text("small", entry.notes.slice(0, 55)));
@@ -299,88 +362,52 @@ function attachMapPinClicks(map) {
 function renderMarkers(entries) {
   state.visiblePins = entries;
   clearLabelMarkers();
+  clearEmojiMarkers();
   if (!state.map) return;
   if (state.library === "maplibre") {
     if (!state.styleReady) return;
     const data = pinGeoJSON(entries);
     const source = state.map.getSource(PIN_SOURCE);
-    if (source) {
-      if(source.getClusterOptions && source.setClusterOptions &&
-          source.getClusterOptions().cluster!==state.features.clustering)
-        Promise.resolve(source.setClusterOptions({cluster:state.features.clustering}))
-          .catch(error=>console.warn("Could not change clustering",error));
-      source.setData(data);
-    } else {
-      state.map.addSource(PIN_SOURCE,{type:"geojson",data,
-        cluster:state.features.clustering,clusterRadius:54,clusterMaxZoom:CLUSTER_MAX_ZOOM});
-    }
-    if (!state.map.getLayer("canvas-clusters")) {
-      state.map.addLayer({id:"canvas-clusters",source:PIN_SOURCE,type:"circle",
-        filter:["has","point_count"],
-        paint:{"circle-color":"#174f42","circle-radius":["step",["get","point_count"],19,10,24,30,30],
-          "circle-stroke-width":3,"circle-stroke-color":"#ffffff"}});
-      state.map.addLayer({id:"canvas-cluster-count",source:PIN_SOURCE,type:"symbol",
-        filter:["has","point_count"],layout:{"text-field":["get","point_count_abbreviated"],
-          "text-size":13},paint:{"text-color":"#ffffff"}});
-    }
-    if (!state.map.getLayer(PIN_HALO)) {
-      state.map.addLayer({
-        id:PIN_HALO,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
-        paint:{"circle-radius":11,"circle-color":"#ffffff",
-          "circle-opacity":0.97,"circle-blur":0.1}
-      });
-    }
+    // Every feature stays separate at every zoom. Native GeoJSON remains
+    // underneath emoji markers for precise hit-testing and pin dragging.
+    if (source) source.setData(data);
+    else state.map.addSource(PIN_SOURCE,{type:"geojson",data,cluster:false});
     if (!state.map.getLayer(PIN_DOTS)) {
       state.map.addLayer({
-        id:PIN_DOTS,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
+        id:PIN_DOTS,source:PIN_SOURCE,type:"circle",
         paint:{
-          "circle-radius": ["case", ["==",["get","id"],state.current?.id || ""],9,7],
+          "circle-radius":["case",["==",["get","id"],state.current?.id||""],10,8],
           "circle-color":["get","color"],
-          "circle-stroke-color":"#ffffff","circle-stroke-width":1.2
+          "circle-opacity":0.008
         }
       });
     } else {
       state.map.setPaintProperty(PIN_DOTS,"circle-radius",
-        ["case", ["==",["get","id"],state.current?.id || ""],9,7]);
+        ["case",["==",["get","id"],state.current?.id||""],10,8]);
     }
     if (!state.map.getLayer(PIN_TOUCH)) {
       state.map.addLayer({
-        id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
-        paint:{"circle-radius":18,"circle-color":"#ffffff","circle-opacity":0.005}
+        id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",
+        paint:{"circle-radius":20,"circle-color":"#fff","circle-opacity":0.005}
       });
     }
     attachMapPinClicks(state.map);
-    if (!state.clusterClickAttached) {
-      state.clusterClickAttached = true;
-      state.map.on("click","canvas-clusters",(event)=>{
-        const feature=event.features?.[0];
-        if (!feature) return;
-        state.map.getSource(PIN_SOURCE).getClusterExpansionZoom(
-          feature.properties.cluster_id,(err,zoom)=>{
-            if (!err) state.map.easeTo({center:feature.geometry.coordinates,zoom:Math.min(zoom,19)});
-          });
-      });
-      state.map.on("mouseenter","canvas-clusters",()=>{state.map.getCanvas().style.cursor="pointer";});
-      state.map.on("mouseleave","canvas-clusters",()=>{state.map.getCanvas().style.cursor="";});
-    }
+    renderEmojiMarkers(entries);
   } else if (state.library === "leaflet") {
     for (const marker of state.markers) { try { marker.remove(); }catch {} }
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
       const owned=!!getKey(entry.id)&&state.sheetConnected;
-      const color=validColor(entry.color)?entry.color:pinColor(entry.kind);
-      const marker = owned
-        ?window.L.marker([Number(entry.lat),Number(entry.lng)],{
-          draggable:true,
-          icon:window.L.divIcon({className:"draggable-leaflet-pin",
-            html:'<span class="leaflet-dot" style="background:'+color+'"></span>',
-            iconSize:[24,24],iconAnchor:[12,12]})
-        }).addTo(state.map)
-        :window.L.circleMarker([Number(entry.lat),Number(entry.lng)],{
-          radius:8,color:"#ffffff",weight:3,fillColor:color,
-          fillOpacity:1,bubblingMouseEvents:false
-        }).addTo(state.map);
+      const emoji=pinEmoji(entry);
+      const marker=window.L.marker([Number(entry.lat),Number(entry.lng)],{
+        draggable:owned,keyboard:true,bubblingMouseEvents:false,
+        icon:window.L.divIcon({
+          className:"leaflet-emoji-marker",
+          html:'<span class="emoji-pin-inner">'+emoji+'</span>',
+          iconSize:[34,34],iconAnchor:[17,17]
+        })
+      }).addTo(state.map);
       if(owned)enhanced?.leafletDrag(marker,entry);
       marker.on("click",()=>{
         if(enhanced?.isDrawing())return;
@@ -821,7 +848,7 @@ const FEATURE_TARGETS={
   measure:['[data-canvas-tool="measure"]'],
   canvasObjects:[],galleries:["#galleryControls"],
   undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
-  clustering:[],gps:["#locateButton"],
+  gps:["#locateButton"],
   basemaps:["#basemapButton"],navigation:["#zoomIn","#zoomOut","#fitPins"],
   autoSync:[]
 };
@@ -839,13 +866,6 @@ function applyFeatureSettings(changedKey=null){
     enhanced?.clearMeasurement();
   if(!state.features.gps && state.gpsMarker){
     state.gpsMarker.remove();state.gpsMarker=null;
-  }
-  if(changedKey==="clustering" || changedKey===null){
-    const source=state.library==="maplibre"&&state.map?.getSource(PIN_SOURCE);
-    if(source?.setClusterOptions && source.getClusterOptions &&
-       source.getClusterOptions().cluster!==state.features.clustering)
-      Promise.resolve(source.setClusterOptions({cluster:state.features.clustering}))
-        .catch(error=>console.warn("Could not update clustering",error));
   }
   updateLabels();
   render();
