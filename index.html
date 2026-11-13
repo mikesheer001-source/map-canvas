@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f9faf7">
+<meta name="description" content="A shared public map canvas for places, notes and photos. No sign-in needed.">
+<title>Map Canvas · Hanoi</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+ <a class="brand" href="./" aria-label="Map Canvas home"><span class="brand-symbol">◎</span><span>Map<span class="brand-heavy">Canvas</span></span></a>
+ <div class="top-actions">
+  <span class="storage-state" id="syncState" title="Connection status">Loading…</span>
+  <button id="refreshBtn" class="icon-button" aria-label="Reload shared pins" title="Reload shared pins">↻</button>
+  <button id="addButton" class="primary">＋ <span>Add to map</span></button>
+ </div>
+</header>
+<div class="workspace">
+ <aside class="sidebar" id="sidebar" aria-label="List of map entries">
+  <div class="sidebar-header">
+   <div class="eyebrow">⌁ VIETNAM · YOUR SHARED MAP</div>
+   <h1>Hanoi<span class="heading-period">.</span></h1>
+   <p class="muted" id="pinCount">Loading places…</p>
+   <div class="searchwrap"><span>⌕</span><input id="search" type="search" placeholder="Find a place or note…" aria-label="Search pins"></div>
+   <div class="filters" role="group" aria-label="Filter entries">
+    <button class="filter is-active" data-filter="all">All</button>
+    <button class="filter" data-filter="place">⌖ Places</button>
+    <button class="filter" data-filter="note">▤ Notes</button>
+    <button class="filter" data-filter="photo">▧ Photos</button>
+   </div>
+  </div>
+  <div class="entries-header"><span id="resultCount">Entries</span><select id="sort" aria-label="Sort entries"><option value="default">Default</option><option value="price">Price ↑</option><option value="rating">Rating ↓</option><option value="title">A–Z</option></select></div>
+  <div id="entries" class="entries" role="list"></div>
+  <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
+ </aside>
+ <section class="map-area" id="mapArea" aria-label="Interactive map">
+  <div id="map" aria-label="Street map of Hanoi"></div>
+  <div class="map-tag"><div class="map-tag-icon">⌑</div><div><strong>Hanoi, Vietnam</strong><small id="mapSub">Zoom in for labels and photos</small></div></div>
+  <nav class="map-tools" aria-label="Map controls">
+   <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
+   <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+   <button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
+   <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
+   <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
+  </nav>
+  <div class="basemap-switch hidden" id="basemapSwitch" role="group" aria-label="Choose map imagery">
+   <button data-basemap="openfreemap"><b>OpenFreeMap</b><small>MapLibre vector streets</small></button>
+   <button data-basemap="openstreetmap"><b>OpenStreetMap</b><small>Classic raster streets</small></button>
+  </div>
+  <div id="mapNotice" class="map-notice hidden" role="status"></div>
+  <div id="placementBar" class="placement-bar hidden">Tap the map to place your entry <button id="cancelPlace" aria-label="Cancel placement">✕</button></div>
+  <div class="mobile-tab"><button id="listButton">☷ List</button></div>
+ </section>
+</div>
+<div id="overlay" class="overlay hidden"></div>
+<aside id="detailPanel" class="side-panel hidden" aria-label="Entry details"></aside>
+<dialog id="editor">
+ <form id="editForm">
+  <div class="dialog-heading"><div><div class="eyebrow">ADD TO CANVAS</div><h2 id="editorTitle">New map entry</h2></div><button type="button" id="closeEditor" class="icon-button" aria-label="Close editor">✕</button></div>
+  <div class="type-group" role="group" aria-label="Entry type"><button type="button" class="type is-active" data-kind="place">⌖ Place</button><button type="button" class="type" data-kind="note">▤ Note</button><button type="button" class="type" data-kind="photo">▧ Photo</button></div>
+  <label>Title<input id="title" required maxlength="140" placeholder="Give this spot a name"></label>
+  <div class="form-grid"><label>Category<input id="category" maxlength="40" placeholder="Café, hostel…"></label><label>Price<input id="price" maxlength="40" placeholder="$5"></label><label>Rating<input id="rating" maxlength="30" placeholder="4.7"></label></div>
+  <label>Description / notes<textarea id="notes" rows="3" maxlength="4000" placeholder="What makes this place special?"></textarea></label>
+  <div class="photo-box">
+   <label>Photo <span class="muted">(optional for places and notes)</span>
+    <input id="imageUrl" type="url" placeholder="https://example.com/photo.jpg">
+   </label>
+   <button id="uploadPhoto" type="button" class="secondary">▧ Upload or paste photo</button>
+   <input id="photoFile" type="file" accept="image/*" hidden>
+   <img class="preview-photo hidden" id="photoPreview" alt="Selected image preview">
+  </div>
+  <div class="coords"><span id="coords">Tap the map to choose a location</span><button type="button" id="movePin">⌖ Move on map</button></div>
+  <p id="saveNote" class="hint"></p>
+  <div class="form-actions"><button type="button" id="cancelEdit" class="secondary">Cancel</button><button type="submit" class="primary" id="saveEntry">Save to shared map</button></div>
+ </form>
+</dialog>
+<div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
+<div id="toast" role="status" class="toast hidden"></div>
+</div>
+<script src="./config.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
