@@ -1,7 +1,8 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=global-delete-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=manual-20261114";
 const $ = (id) => document.getElementById(id);
-const config = window.MAP_CANVAS_CONFIG || {};
-const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
+const LOCAL_MODE = true;
+const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
+const PUBLIC_MAP_URL = "./data/public-map.json";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
@@ -14,7 +15,7 @@ const state = {
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
-  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false,
+  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: true,
   features: {...FEATURE_DEFAULTS}, remotelyDeletedIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
@@ -94,7 +95,7 @@ function renderEmojiMarkers(entries){
   }
 }
 
-const allEntries = () => state.entries.concat(state.hostels).filter(e=>!state.remotelyDeletedIds.has(e.id));
+const allEntries = () => state.entries.concat(state.hostels);
 const coord = (n) => Number.isFinite(Number(n)) ? Number(n) : null;
 const safeImage = (value) => {
   if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{20,38000}$/.test(value)) return value;
@@ -116,96 +117,71 @@ function announce(message) {
 }
 function clearNotice() { $("mapNotice").classList.add("hidden"); }
 
-async function loadHostels() {
-  const response = await fetch("./data/hostels.json", { cache: "no-store" });
-  if (!response.ok) throw new Error("Hostel map data is unavailable.");
-  state.hostels = await response.json();
-  state.hostels = state.hostels.map(e => ({...e,icon:e.icon||"🏨",color:e.color||"#245c48"}));
-}
-function sheetRequest() {
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(SHEETS_URL)) {
-    return Promise.reject(new Error("Google Sheets connection not yet configured."));
-  }
-  return new Promise((resolve, reject) => {
-    const callback = "mapCanvasCb_" + Math.random().toString(36).slice(2, 16);
-    let script;
-    const timer = setTimeout(() => finish(new Error("Google Sheets did not respond.")), 15000);
-    function finish(error, result) {
-      clearTimeout(timer);
-      delete window[callback];
-      script?.remove();
-      error ? reject(error) : resolve(result);
-    }
-    window[callback] = (data) => {
-      if (!data || data.ok !== true || !Array.isArray(data.entries)) {
-        finish(new Error(data?.error || "The shared sheet returned invalid data."));
-      } else finish(null, data);
-    };
-    script = document.createElement("script");
-    script.referrerPolicy = "no-referrer";
-    script.onerror = () => finish(new Error("Could not reach Google Sheets."));
-    script.src = SHEETS_URL + "?callback=" + encodeURIComponent(callback) + "&v=" + Date.now();
-    document.head.appendChild(script);
+function setMapEntries(items){
+  if(!Array.isArray(items)||items.length>500)throw new Error("Invalid map file");
+  const ids=new Set();
+  state.entries=items.map((e,i)=>{
+    if(!e||typeof e!=="object"||typeof e.id!=="string"||!e.id||
+      ids.has(e.id)||!Number.isFinite(Number(e.lat))||
+      !Number.isFinite(Number(e.lng))||Math.abs(Number(e.lat))>85||
+      Math.abs(Number(e.lng))>180)
+      throw new Error("Invalid pin at row "+(i+1));
+    ids.add(e.id);
+    return {...e,lat:Number(e.lat),lng:Number(e.lng),
+      icon:e.icon||"📍",color:validColor(e.color)?e.color:"#245c48",
+      source:e.source||"local"};
   });
+  state.hostels=[];
+  state.sheetConnected=true;
+  render();
 }
-async function reloadShared(silent) {
-  if (!SHEETS_URL) {
-    state.sheetConnected = false;
-    try {
-      const cached = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
-      if (Array.isArray(cached)) state.entries = cached;
-    } catch {}
-    $("syncState").textContent = navigator.onLine ? "Sheet not connected" : "Offline snapshot";
-    $("statusText").textContent = "Hostel data preview · shared edits not connected";
-    $("statusPip").classList.remove("connected");
-    render();
-    return;
+function readMapCache(){
+  try{const raw=localStorage.getItem(LOCAL_MAP_KEY);
+    return raw?JSON.parse(raw):null;}catch{return null;}
+}
+function storeMapEntries(items){
+  if(!Array.isArray(items)||items.length>500)throw new Error("Map supports up to 500 pins");
+  const json=JSON.stringify(items);
+  if(json.length>3500000)throw new Error("Map too large for browser storage. Export JSON and reduce photos.");
+  try{localStorage.setItem(LOCAL_MAP_KEY,json);}
+  catch{throw new Error("Browser storage is full or blocked. Export a JSON backup.");}
+  setMapEntries(items);
+  $("syncState").textContent="Browser edits saved";
+}
+async function loadHostels(){
+  const response=await fetch(PUBLIC_MAP_URL,{cache:"no-store"});
+  if(!response.ok)throw new Error("Could not fetch public map");
+  state.publishedMap=await response.json();
+  setMapEntries(readMapCache()||state.publishedMap);
+  $("syncState").textContent=readMapCache()?"Browser edits saved":"Public map loaded";
+  $("statusText").textContent="CSV import/export · browser edits are local";
+  $("statusPip").classList.add("connected");
+}
+async function reloadShared(silent){
+  try{await loadHostels();if(!silent)notify("Map refreshed. Browser edits preserved.");}
+  catch(error){if(!silent)notify(error.message,true);}
+}
+function resetToPublished(){
+  if(!state.publishedMap)return;
+  if(!confirm("Discard browser edits and restore the public map? Export JSON first for a backup."))return;
+  try{localStorage.removeItem(LOCAL_MAP_KEY);}catch{}
+  setMapEntries(state.publishedMap);
+  state.undo=[];state.redo=[];
+  hideDetail();render();
+  $("syncState").textContent="Public map loaded";
+  notify("Restored published map.");
+}
+function importPins(imported,mode){
+  const combined=(mode==="replace"?[]:allEntries()).map(x=>({...x}));
+  const index=new Map(combined.map((e,i)=>[e.id,i]));
+  let added=0,updated=0;
+  for(const entry of imported){
+    if(index.has(entry.id)){combined[index.get(entry.id)]=entry;updated++;}
+    else{index.set(entry.id,combined.length);combined.push(entry);added++;}
   }
-  $("syncState").textContent = "Syncing…";
-  try {
-    const result = await sheetRequest();
-    if (Array.isArray(result.hostels)) state.hostels = result.hostels;
-    state.remotelyDeletedIds=new Set(Array.isArray(result.deletedIds)?result.deletedIds:[]);
-    const items = result.entries;
-    state.entries = items.filter((e) => e && typeof e.id === "string"
-      && Number.isFinite(coord(e.lat)) && Number.isFinite(coord(e.lng)))
-      .map((entry) => ({
-        id: entry.id, kind: ["place", "note", "photo"].includes(entry.kind) ? entry.kind : "place",
-        title: String(entry.title || "Untitled"), category: String(entry.category || ""),
-        lat: Number(entry.lat), lng: Number(entry.lng), price: String(entry.price || ""),
-        rating: String(entry.rating || ""), notes: String(entry.notes || ""),
-        photo: safeImage(String(entry.photo || "")), version: String(entry.version || ""),
-        icon: ICONS.includes(entry.icon) ? entry.icon : "📍",
-        color: validColor(entry.color) ? entry.color : "#245c48",
-        source: "shared",
-        layer: String(entry.layer || "").slice(0,40),
-        group: String(entry.group || "").slice(0,100),
-        gallery: Array.isArray(entry.gallery)?entry.gallery.filter(x=>typeof x==="string" && safeImage(x)).slice(0,12):[],
-        canvas: entry.canvas && typeof entry.canvas==="object" &&
-          ["image","text","line","arrow","circle"].includes(entry.canvas.type) ? entry.canvas : null
-      }));
-    state.sheetConnected = true;
-    try {localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(state.entries));} catch {}
-    $("syncState").textContent = "● Sheet connected";
-    $("statusText").textContent = "Live shared map · no sign-in";
-    $("statusPip").classList.add("connected");
-    render();
-    applyDeepLink();
-    if (!silent) notify("Shared map refreshed.");
-  } catch (error) {
-    state.sheetConnected = false;
-    if (!state.entries.length) {
-      try {
-        const cached = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
-        if (Array.isArray(cached)) state.entries = cached;
-      } catch {}
-    }
-    render();
-    $("syncState").textContent = "Sync unavailable";
-    $("statusText").textContent = "Could not refresh the shared sheet";
-    $("statusPip").classList.remove("connected");
-    if (!silent) notify(error.message, true);
-  }
+  storeMapEntries(combined);
+  state.undo=[];state.redo=[];updateHistoryButtons();
+  return {added,updated};
 }
 function filterEntries() {
   const needle = (state.features.search?state.query:"").toLowerCase().trim();
@@ -226,7 +202,7 @@ function render() {
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
-  $("pinCount").textContent = allEntries().length + " pins on the shared canvas";
+  $("pinCount").textContent = allEntries().length + " pins · save/exports on this browser";
   $("resultCount").textContent = shown.length + (shown.length === 1 ? " entry" : " entries");
   $("mapSub").textContent = shown.length + " pins · " +
     (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : "Labels and photos visible");
@@ -573,16 +549,11 @@ function choose(entry, focus) {
     anchor.href=entry.link;anchor.rel="noopener noreferrer";anchor.target="_blank";actions.append(anchor);
   }
   actions.append(button("Share link",()=>sharePin(entry),"secondary"));
-  const ownerKey=getKey(entry.id);
-  if (entry.source!=="hostel" && ownerKey && state.sheetConnected) {
-    actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
-  }
+  actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.id="deleteSelectedPin";
   deleteButton.disabled=!state.sheetConnected;
-  deleteButton.title=state.sheetConnected
-    ?"Permanently delete this pin for every visitor"
-    :"Connect the shared Google Sheets backend to enable global deletion";
+  deleteButton.title="Delete from this browser map; export JSON to publish everywhere";
   actions.append(deleteButton);
   detail.append(actions);
   $("overlay").classList.remove("hidden");
@@ -625,7 +596,7 @@ async function placeAt({lng,lat}) {
 }
 function openEditor(entry) {
   state.draft={...entry};
-  $("editorTitle").textContent=entry.version?"Edit map entry":"New map entry";
+  $("editorTitle").textContent=allEntries().some(e=>e.id===entry.id)?"Edit map entry":"New map entry";
   $("title").value=entry.title||"";
   $("category").value=entry.category||"";
   $("price").value=entry.price||"";
@@ -642,40 +613,26 @@ function openEditor(entry) {
     b.classList.toggle("is-active",b.dataset.kind===entry.kind);
     attr(b,"aria-pressed",b.dataset.kind===entry.kind);
   }
-  $("saveNote").textContent=!SHEETS_URL
-    ? "Shared saving is unavailable until the Google Sheets backend is connected. Do not enter private information."
-    : "Public: anything saved here is visible to everyone.";
-  $("saveEntry").disabled=!SHEETS_URL;
+  $("saveNote").textContent="Saves on this browser. Export CSV for Google Sheets or JSON to publish.";
+  $("saveEntry").disabled=false;
   enhanced?.editorOpen(entry);
   $("editor").showModal();
 }
 function closeEditor() {$("editor").close();state.draft=null;}
-const keyName=(id)=>"mc-ownership:"+id;
-function getKey(id) {try{return localStorage.getItem(keyName(id));}catch{return null;}}
-function saveKey(id,key) {try{localStorage.setItem(keyName(id),key);}catch{}}
-function randomKey() {
-  const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);
-  return Array.from(bytes,x=>x.toString(16).padStart(2,"0")).join("");
-}
-async function submitChange(action,entry,key) {
-  if (!SHEETS_URL)throw new Error("Shared sheet isn't connected.");
-  const body={action,entry,key};
-  await fetch(SHEETS_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=UTF-8"},
-    body:JSON.stringify(body),redirect:"follow"});
-  await delay(1300);
-  let last=null;
-  for (let i=0;i<3;i++) {
-    const data=await sheetRequest();
-    last=data;
-    const found=data.entries.find((row)=>row.id===entry.id);
-    if ((action==="save" && found && found.version!==entry.version)||
-        (action==="delete" && (data.deletedIds?.includes(entry.id) || !found && entry.source!=="hostel"))) {
-      await reloadShared(true);
-      return;
-    }
-    await delay(1250);
-  }
-  throw new Error("The change couldn't be confirmed. Refresh to see if it saved.");
+function getKey(){return "local";}
+function saveKey(){}
+function randomKey(){return crypto.randomUUID();}
+async function submitChange(action,entry){
+  const items=allEntries().map(p=>({...p}));
+  const index=items.findIndex(p=>p.id===entry.id);
+  if(action==="delete"){
+    if(index<0)throw new Error("Pin was already removed");
+    items.splice(index,1);
+  }else if(action==="save"){
+    const value={...entry,source:entry.source||"local",version:"local"};
+    if(index<0)items.push(value);else items[index]=value;
+  }else throw new Error("Invalid action");
+  storeMapEntries(items);
 }
 async function saveEntry(event) {
   event.preventDefault();if(state.saving||!state.draft)return;
@@ -697,32 +654,23 @@ async function saveEntry(event) {
     const before = state.entries.find(x=>x.id===entry.id) || null;
     await submitChange("save",entry,key);
     recordChange({before,after:state.entries.find(x=>x.id===entry.id)||entry});
-    closeEditor();notify("Saved to the shared map.");
+    closeEditor();notify("Saved on this browser. Export JSON to publish.");
   }catch(error){notify(error.message,true);}
-  finally{state.saving=false;$("saveEntry").textContent="Save to shared map";$("saveEntry").disabled=!SHEETS_URL;}
+  finally{state.saving=false;$("saveEntry").textContent="Save pin";$("saveEntry").disabled=false;}
 }
-async function removeEntry(entry) {
-  // This is never a local-only hide. Deletions must be confirmed by the shared
-  // backend before the UI reports success; no modal or confirmation popup.
+async function removeEntry(entry){
   if(state.saving)return;
-  if(!SHEETS_URL || !state.sheetConnected){
-    notify("Global deletion needs the shared Google Sheets connection.",true);
-    return;
-  }
   state.saving=true;
   const control=$("deleteSelectedPin");
   if(control){control.disabled=true;control.textContent="Deleting…";}
   try{
-    await submitChange("delete",entry,randomKey());
-    if(entry.source!=="hostel")recordChange({before:entry,after:null});
+    const before=allEntries().find(e=>e.id===entry.id);
+    await submitChange("delete",entry);
+    if(before)recordChange({before,after:null});
     hideDetail();
-    notify("Pin deleted for everyone.");
-  }catch(error){
-    notify("Could not delete pin: "+error.message,true);
-  }finally{
-    state.saving=false;
-    if(control){control.disabled=false;control.textContent="Delete pin";}
-  }
+    notify("Pin deleted locally. Export JSON to publish this deletion everywhere.");
+  }catch(error){notify(error.message,true);}
+  finally{state.saving=false;if(control){control.disabled=false;control.textContent="Delete pin";}}
 }
 async function shrinkPhoto(file) {
   if (!file?.type.startsWith("image/"))throw new Error("Choose an image.");
@@ -829,11 +777,11 @@ function recordChange(change) {
 function updateHistoryButtons() {
   for(const [id,available] of [["undoBtn",state.undo.length],["redoBtn",state.redo.length]]) {
     const el=$(id);
-    if(el)el.disabled=state.historyBusy||state.saving||!SHEETS_URL||!available;
+    if(el)el.disabled=state.historyBusy||state.saving||!available;
   }
 }
 async function replayHistory(direction) {
-  if(state.historyBusy||state.saving||!SHEETS_URL)return;
+  if(state.historyBusy||state.saving)return;
   const from=direction==="undo"?state.undo:state.redo;
   const to=direction==="undo"?state.redo:state.undo;
   if(!from.length)return;
@@ -841,8 +789,6 @@ async function replayHistory(direction) {
   const desired=direction==="undo"?item.before:item.after;
   const id=(item.after||item.before).id;
   const current=state.entries.find(e=>e.id===id)||null;
-  const key=getKey(id);
-  if(!key){notify("This browser does not have the edit key.",true);return;}
   state.historyBusy=true;updateHistoryButtons();
   try {
     if(desired) {
@@ -852,7 +798,7 @@ async function replayHistory(direction) {
       await submitChange("delete",current,key);
     }
     from.pop();to.push(item);
-    notify(direction==="undo"?"Change undone on shared map.":"Change redone on shared map.");
+    notify(direction==="undo"?"Change undone.":"Change redone.");
   } catch(e){notify("Cannot "+direction+": "+e.message,true);}
   finally{state.historyBusy=false;updateHistoryButtons();}
 }
@@ -862,7 +808,7 @@ function setupOffline() {
     status.textContent=navigator.onLine?"":"Offline · cached map data only";
     status.classList.toggle("hidden",navigator.onLine);
   };
-  window.addEventListener("online",()=>{refresh();if(state.features.autoSync)reloadShared(true);});
+  window.addEventListener("online",refresh);
   window.addEventListener("offline",refresh);
   refresh();
   if("serviceWorker" in navigator && location.protocol==="https:")
@@ -879,7 +825,6 @@ const FEATURE_TARGETS={
   undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
   gps:["#locateButton"],
   basemaps:["#basemapButton"],navigation:["#zoomIn","#zoomOut","#fitPins"],
-  autoSync:[]
 };
 function applyFeatureSettings(changedKey=null){
   for(const [key,selectors] of Object.entries(FEATURE_TARGETS)){
@@ -929,6 +874,7 @@ function setFeatureSetting(key,value,persist=true){
 
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
+  $("resetMapBtn").addEventListener("click",resetToPublished);
   $("themeToggle").addEventListener("click",()=>setFeatureSetting("darkTheme",!state.features.darkTheme));
   $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
   $("locateButton").addEventListener("click",locateUser);
@@ -994,10 +940,10 @@ function wire() {
 }
 async function main() {
   state.features=readFeatureSettings();
-  enhanced=createEnhancements({state,SHEETS_URL,DETAIL_ZOOM,PIN_SOURCE,
+  enhanced=createEnhancements({state,LOCAL_MODE,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
-    reloadShared,sheetRequest,mapZoom});
+    reloadShared,importPins,mapZoom});
   wire();
   // An optional feature must never prevent the base map from initializing.
   try{enhanced.init();}catch(error){
@@ -1019,9 +965,7 @@ async function main() {
   render();
   await initMap();
   render();
-  await reloadShared(true);
   applyDeepLink();
-  enhanced.startPolling();
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {
@@ -1031,7 +975,8 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getEntries: () => allEntries(),
     getPins: () => state.visiblePins,
     getFeatures: () => ({...state.features}),
-    getDeletedPins: () => [...state.remotelyDeletedIds]
+    getDeletedPins: () => [],
+    getLocalPins: () => allEntries()
   };
 }
 main().catch((error)=>notify(error.message,true));
