@@ -206,7 +206,7 @@ try {
   await page.locator("#importMode").selectOption("merge");
   await page.locator("#importFile").setInputFiles({
     name:"google-sheet.csv",mimeType:"text/csv",
-    buffer:Buffer.from("title,lat,lng,category\\nImported Sheet Cafe,21.0345,105.851,Cafe\\n")
+    buffer:Buffer.from("title,lat,lng,category\nImported Sheet Cafe,21.0345,105.851,Cafe\n")
   });
   await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===14);
   await page.reload({waitUntil:"domcontentloaded"});
