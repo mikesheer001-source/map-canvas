@@ -118,3 +118,11 @@ Nearby pins no longer cluster or merge into numbered bubbles. Each pin displays 
 ## Simplified mobile canvas toolbar
 
 Only **Picture** and **Text** remain as creation tools on the map. Line, Arrow, Circle and Measure buttons and the measuring controls were removed. The Settings dialog no longer advertises measurement; the Canvas editing tools switch controls Picture and Text together. Existing saved line, arrow and circle elements are retained and still render to avoid losing map data.
+
+## Cache consistency fix
+
+The canvas module now has a versioned URL in both the module import and the
+offline service-worker cache. This prevents older iOS/Safari cached scripts from
+trying to initialize buttons removed by a newer page. Online page assets are
+fetched with `cache: "no-store"`, with offline fallback to the versioned shell.
+The map also continues to initialize if a nonessential canvas feature throws.

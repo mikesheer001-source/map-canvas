@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=canvasfix-20261114";
 const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
@@ -949,7 +949,11 @@ async function main() {
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
     reloadShared,sheetRequest,mapZoom});
   wire();
-  enhanced.init();
+  // An optional feature must never prevent the base map from initializing.
+  try{enhanced.init();}catch(error){
+    console.error("Canvas tools could not initialize:",error);
+    notify("Some map tools failed to load. Refresh to get the newest version.",true);
+  }
   settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
   settingsUI.init();
   applyFeatureSettings();

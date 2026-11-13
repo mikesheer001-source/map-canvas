@@ -1,9 +1,9 @@
 /* Offline app shell and previously viewed map resources only.
  * No tile prefetching or offline-area downloads. Provider usage policies apply.
  */
-const SHELL="map-canvas-shell-v7",TILES="map-canvas-viewed-v7";
-const CORE=["./","./index.html","./app.js?v=picturetext-20261114",
-  "./enhancements.js","./style.css?v=picturetext-20261114","./config.js","./data/hostels.json","./favicon.svg"];
+const SHELL="map-canvas-shell-v8",TILES="map-canvas-viewed-v8";
+const CORE=["./","./index.html","./app.js?v=canvasfix-20261114",
+  "./enhancements.js?v=canvasfix-20261114","./style.css?v=canvasfix-20261114","./config.js","./data/hostels.json","./favicon.svg"];
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(SHELL).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));
 });
@@ -16,7 +16,7 @@ self.addEventListener("fetch",event=>{
   if(req.method!=="GET")return;
   const url=new URL(req.url);
   if(url.origin===self.location.origin){
-    event.respondWith(fetch(req).then(res=>{
+    event.respondWith(fetch(req,{cache:"no-store"}).then(res=>{
       if(res.ok&&url.pathname.match(/(?:\/|\.html|\.js|\.css|\.json|\.svg)$/))
         caches.open(SHELL).then(c=>c.put(req,res.clone())).catch(()=>{});
       return res;

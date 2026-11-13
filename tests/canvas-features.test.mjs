@@ -62,3 +62,12 @@ console.log("PASS: settings defaults, persistence, invalid storage, feature swit
 
 assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"measure"));
 assert.ok(!FEATURE_GROUPS.some(g=>g.features.some(row=>row[0]==="measure")));
+
+// Regression: a stale cached enhancements module caused the startup crash
+// '$("measureFinish").addEventListener' after the Measure button was removed.
+assert.match(app,/enhancements\.js\?v=canvasfix-20261114/);
+const toolSource=readFileSync(new URL("../enhancements.js",import.meta.url),"utf8");
+assert.ok(!toolSource.includes('$("measureFinish")'));
+assert.ok(!toolSource.includes('$("measureClear")'));
+assert.ok(!toolSource.includes('$("measureReadout")'));
+assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
