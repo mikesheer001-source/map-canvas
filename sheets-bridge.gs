@@ -197,3 +197,10 @@ function mapCanvasRestoreBefore_(row){
     return "Restored "+e.id;
   }finally{lock.releaseLock();}
 }
+
+/* To recover a row from the Apps Script editor, set this number to the
+   desired audit row, preview it, then run restore. Never expose this as a
+   public endpoint or accept a row number from an anonymous request. */
+const OWNER_RECOVERY_ROW=2;
+function mapCanvasOwnerPreview(){Logger.log(JSON.stringify(mapCanvasPreviewHistory_(OWNER_RECOVERY_ROW)));}
+function mapCanvasOwnerRestore(){return mapCanvasRestoreBefore_(OWNER_RECOVERY_ROW);}
