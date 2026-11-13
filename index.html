@@ -82,6 +82,10 @@
    </label>
    <button id="uploadPhoto" type="button" class="secondary">▧ Upload or paste photo</button>
    <label>Additional gallery photos (HTTPS URLs, one per line)<textarea id="galleryUrls" rows="3" placeholder="https://example.com/second-photo.jpg"></textarea></label>
+   <button id="galleryUpload" type="button" class="secondary">Upload more gallery photos</button>
+   <input id="galleryFile" type="file" accept="image/*" multiple hidden>
+   <div id="galleryPreview" class="gallery-preview"></div>
+   <small class="muted">Uploaded gallery photos are compressed thumbnails. Use HTTPS links for larger images.</small>
    <label class="canvas-width-label">Picture / text width <input id="canvasWidth" type="range" min="100" max="420" step="10" value="210"><output id="canvasWidthValue">210 px</output></label>
    <input id="photoFile" type="file" accept="image/*" hidden>
    <img class="preview-photo hidden" id="photoPreview" alt="Selected image preview">
