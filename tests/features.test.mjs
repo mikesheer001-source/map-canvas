@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import { FEATURE_DEFAULTS } from "../enhancements.js";
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
 const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const gs=readFileSync(new URL("../sheets-bridge.gs",import.meta.url),"utf8");
@@ -19,10 +20,10 @@ assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"),"Do not pre-cache OSM tiles");
 assert.match(app,/localStorage\.setItem\(SNAPSHOT_KEY/);
 assert.match(app,/state\.category === "all"/);
-const api = new Function("document","window","location","navigator",app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
+const api = new Function("document","window","location","navigator","FEATURE_DEFAULTS",app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
   "\nreturn {pinGeoJSON,validColor,pinUrl,state,filterEntries};")(
   {},{MAP_CANVAS_CONFIG:{}},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
-  {onLine:true});
+  {onLine:true},FEATURE_DEFAULTS);
 assert.equal(api.validColor("#ffaa22"),true);
 assert.equal(api.validColor("red"),false);
 assert.equal(api.pinUrl("abc"),"/map/?x=1&pin=abc");
