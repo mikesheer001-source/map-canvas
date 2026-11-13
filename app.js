@@ -113,7 +113,7 @@ async function reloadShared(silent) {
         source: "shared",
         layer: String(entry.layer || "").slice(0,40),
         group: String(entry.group || "").slice(0,100),
-        gallery: Array.isArray(entry.gallery)?entry.gallery.filter(x=>typeof x==="string" && x.startsWith("https://") && safeImage(x)).slice(0,12):[],
+        gallery: Array.isArray(entry.gallery)?entry.gallery.filter(x=>typeof x==="string" && safeImage(x)).slice(0,12):[],
         canvas: entry.canvas && typeof entry.canvas==="object" &&
           ["image","text","line","arrow","circle"].includes(entry.canvas.type) ? entry.canvas : null
       }));
