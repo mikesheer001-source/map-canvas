@@ -1,6 +1,5 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=manual-20261114";
 const $ = (id) => document.getElementById(id);
-const LOCAL_MODE = true;
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const PUBLIC_MAP_URL = "./data/public-map.json";
 const DETAIL_ZOOM = 16.8;
@@ -15,7 +14,7 @@ const state = {
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
-  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: true,
+  pendingPin: new URLSearchParams(location.search).get("pin"), localReady: true,
   features: {...FEATURE_DEFAULTS}, remotelyDeletedIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
@@ -132,7 +131,7 @@ function setMapEntries(items){
       source:e.source||"local"};
   });
   state.hostels=[];
-  state.sheetConnected=true;
+  state.localReady=true;
   render();
 }
 function readMapCache(){
@@ -376,7 +375,7 @@ function renderMarkers(entries) {
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
-      const owned=!!getKey(entry.id)&&state.sheetConnected;
+      const owned=!!getKey(entry.id)&&state.localReady;
       const emoji=pinEmoji(entry);
       const marker=window.L.marker([Number(entry.lat),Number(entry.lng)],{
         draggable:owned,keyboard:true,bubblingMouseEvents:false,
@@ -552,7 +551,7 @@ function choose(entry, focus) {
   actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.id="deleteSelectedPin";
-  deleteButton.disabled=!state.sheetConnected;
+  deleteButton.disabled=!state.localReady;
   deleteButton.title="Delete from this browser map; export JSON to publish everywhere";
   actions.append(deleteButton);
   detail.append(actions);
@@ -940,7 +939,7 @@ function wire() {
 }
 async function main() {
   state.features=readFeatureSettings();
-  enhanced=createEnhancements({state,LOCAL_MODE,DETAIL_ZOOM,PIN_SOURCE,
+  enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
     reloadShared,importPins,mapZoom});
@@ -961,7 +960,12 @@ async function main() {
     }
   });
   setupOffline();
-  try {await loadHostels();}catch(error){notify(error.message,true);}
+  try {await loadHostels();}catch(error){
+    const cached=readMapCache();
+    if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
+      catch(e){notify(e.message,true);}}
+    else notify("Public map unavailable: "+error.message,true);
+  }
   render();
   await initMap();
   render();

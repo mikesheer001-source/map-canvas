@@ -315,7 +315,7 @@ export function createEnhancements(api){
     }
   }
   function pointerEdit(el,entry,resize){
-    if(!state.sheetConnected)return;
+    if(!state.localReady)return;
     let start=null;
     el.addEventListener("pointerdown",event=>{
       if(event.button!==0&&event.pointerType!=="touch")return;
@@ -370,7 +370,7 @@ export function createEnhancements(api){
       }else body.textContent=entry.notes||entry.title;
       const label=document.createElement("span");label.className="canvas-object-title";label.textContent=entry.title;
       node.append(body,label);
-      const owned=state.sheetConnected;
+      const owned=state.localReady;
       if(owned){
         node.classList.add("can-edit");
         const handle=document.createElement("button");handle.type="button";
@@ -387,7 +387,7 @@ export function createEnhancements(api){
 
   }
   async function persist(entry,updates){
-    if(!state.sheetConnected){notify("Map still loading.",true);return;}
+    if(!state.localReady){notify("Map still loading.",true);return;}
     if(state.saving)return;
     state.saving=true;
     try{
@@ -544,7 +544,7 @@ export function createEnhancements(api){
     const startDrag=(e)=>{
       if(dragging||state.placing||activeTool)return;
       const id=e.features?.[0]?.properties?.id,entry=api.allEntries().find(x=>x.id===id);
-      if(!entry||!state.sheetConnected)return;
+      if(!entry||!state.localReady)return;
       if(e.originalEvent?.button!=null&&e.originalEvent.button!==0)return;
       dragging=true;e.preventDefault();
       map.dragPan.disable();map.touchZoomRotate?.disable();

@@ -214,3 +214,10 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
   .theme-toggle{font-size:19px!important;min-width:32px!important;padding:0 4px!important}
   .detail-actions button,.detail-actions a{flex:1 1 42%}
 }
+
+/* Direct spreadsheet import/export without Google Sheets API */
+.io-actions{flex-wrap:wrap;align-items:stretch}
+.io-actions button{min-width:82px}
+.io-actions #importMode{flex:0 0 80px}
+.io-actions #exportFormat{flex:1 1 115px}
+.import-help{display:block;font-size:11px;line-height:1.5;color:var(--muted);padding:2px 4px}
