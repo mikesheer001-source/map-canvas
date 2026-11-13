@@ -804,7 +804,7 @@ function setupOffline() {
     status.textContent=navigator.onLine?"":"Offline · cached map data only";
     status.classList.toggle("hidden",navigator.onLine);
   };
-  window.addEventListener("online",()=>{refresh();reloadShared(true);});
+  window.addEventListener("online",()=>{refresh();if(state.features.autoSync)reloadShared(true);});
   window.addEventListener("offline",refresh);
   refresh();
   if("serviceWorker" in navigator && location.protocol==="https:")
