@@ -1,3 +1,4 @@
+import { createEnhancements } from "./enhancements.js";
 const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
@@ -5,6 +6,7 @@ const DETAIL_ZOOM = 16.8;
 const CLUSTER_MAX_ZOOM = 16;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
+let enhanced = null;
 const state = {
   hostels: [], entries: [], query: "", filter: "all", sort: "default",
   provider: "openfreemap", map: null, library: null, markers: [],
@@ -108,7 +110,12 @@ async function reloadShared(silent) {
         photo: safeImage(String(entry.photo || "")), version: String(entry.version || ""),
         icon: ICONS.includes(entry.icon) ? entry.icon : "📍",
         color: validColor(entry.color) ? entry.color : "#245c48",
-        source: "shared"
+        source: "shared",
+        layer: String(entry.layer || "").slice(0,40),
+        group: String(entry.group || "").slice(0,100),
+        gallery: Array.isArray(entry.gallery)?entry.gallery.filter(x=>typeof x==="string" && x.startsWith("https://") && safeImage(x)).slice(0,12):[],
+        canvas: entry.canvas && typeof entry.canvas==="object" &&
+          ["image","text","line","arrow","circle"].includes(entry.canvas.type) ? entry.canvas : null
       }));
     state.sheetConnected = true;
     try {localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(state.entries));} catch {}
@@ -145,9 +152,10 @@ function filterEntries() {
     - (Number(String(b.price).replace(/[^\d.]/g, "")) || Infinity));
   if (state.sort === "title") shown.sort((a,b) => a.title.localeCompare(b.title));
   if (state.sort === "rating") shown.sort((a,b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
-  return shown;
+  return enhanced ? enhanced.visible(shown) : shown;
 }
 function render() {
+  enhanced?.selections();
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
@@ -184,6 +192,7 @@ function render() {
   }
   if (!shown.length) list.append(text("p", "No matching entries.", "empty-results muted"));
   renderMarkers(shown);
+  enhanced?.renderOverlay();
 }
 
 // Pin dots are native map features. Rendering them in the same renderer as the
@@ -277,11 +286,13 @@ function attachMapPinClicks(map) {
     const id = event.features?.[0]?.properties?.id;
     const entry = allEntries().find((item) => item.id === id);
     if (!entry) return;
+    if(enhanced?.consumeDragClick())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else choose(entry,false);
   });
   map.on("mouseenter", PIN_TOUCH, () => { map.getCanvas().style.cursor = "pointer"; });
   map.on("mouseleave", PIN_TOUCH, () => { map.getCanvas().style.cursor = ""; });
+  enhanced?.attachPinDrag(map,PIN_TOUCH);
 }
 function renderMarkers(entries) {
   state.visiblePins = entries;
@@ -350,10 +361,20 @@ function renderMarkers(entries) {
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
-      const marker = window.L.circleMarker([Number(entry.lat),Number(entry.lng)],{
-        radius:8,color:"#ffffff",weight:3,fillColor:validColor(entry.color)?entry.color:pinColor(entry.kind),
-        fillOpacity:1,bubblingMouseEvents:false
-      }).addTo(state.map);
+      const owned=!!getKey(entry.id)&&state.sheetConnected;
+      const color=validColor(entry.color)?entry.color:pinColor(entry.kind);
+      const marker = owned
+        ?window.L.marker([Number(entry.lat),Number(entry.lng)],{
+          draggable:true,
+          icon:window.L.divIcon({className:"draggable-leaflet-pin",
+            html:'<span class="leaflet-dot" style="background:'+color+'"></span>',
+            iconSize:[24,24],iconAnchor:[12,12]})
+        }).addTo(state.map)
+        :window.L.circleMarker([Number(entry.lat),Number(entry.lng)],{
+          radius:8,color:"#ffffff",weight:3,fillColor:color,
+          fillOpacity:1,bubblingMouseEvents:false
+        }).addTo(state.map);
+      if(owned)enhanced?.leafletDrag(marker,entry);
       marker.on("click",()=>{
         if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});
         else choose(entry,false);
@@ -362,6 +383,7 @@ function renderMarkers(entries) {
     }
   }
   updateLabels();
+  enhanced?.renderOverlay();
 }
 
 function mapZoom() { return state.map ? state.map.getZoom() : 15; }
