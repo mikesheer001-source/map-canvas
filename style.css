@@ -15,3 +15,46 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 
 /* Map Canvas features */
 .entries-header{gap:7px;flex-wrap:wrap}.entries-header select{max-width:145px;min-width:95px}.offline-state{font-size:12px;color:#a65d17;font-weight:700}.gps-dot{width:18px;height:18px;background:#2486df;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px #2486df44}.top-actions button:disabled{opacity:.35;cursor:not-allowed}#pinColor{height:42px;min-width:100%;padding:3px;cursor:pointer}#pinIcon{min-height:42px;width:100%}@media(max-width:720px){.top-actions{gap:2px}.top-actions #undoBtn,.top-actions #redoBtn{font-size:19px;min-width:29px;padding:0}.offline-state{font-size:10px;max-width:75px}}
+
+/* Expanded canvas: collections, drawing/photo objects and measurement toolbar */
+.collection-tools{padding:0 14px 12px;display:grid;gap:8px}
+.collection-selects,.io-actions{display:flex;gap:6px;align-items:center}
+.collection-selects select,.io-actions select{border:1px solid var(--line);background:#fff;border-radius:8px;min-width:0;padding:7px;font-size:12px;flex:1}
+.io-actions button{padding:5px 9px;min-height:32px;font-size:12px;flex:1}
+.io-actions select{flex:0 0 75px}
+.layers-panel{border:1px solid var(--line);border-radius:8px;background:white;padding:7px 10px;font-size:12px}
+.layers-panel summary{cursor:pointer;color:var(--green);font-weight:700}
+#layerToggles{display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:8px}
+#layerToggles label{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.collection-tools label input{accent-color:var(--green)}
+.canvas-overlay{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.canvas-drawing,#canvasObjects{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.canvas-drawing line,.canvas-drawing circle,.canvas-drawing polyline{pointer-events:stroke;cursor:pointer}
+.canvas-object{position:absolute;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:9px;background:#fffc;box-shadow:0 4px 18px #0c382c55;pointer-events:auto;user-select:none;touch-action:none}
+.canvas-object-body{display:block;width:100%;max-height:280px;border-radius:6px;object-fit:contain;overflow-wrap:anywhere;white-space:pre-wrap}
+.canvas-object.text .canvas-object-body{padding:12px;background:#fffdf1;color:#263d2d;font-size:15px;line-height:1.4;min-height:65px}
+.canvas-object-title{display:block;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#f9faf7;color:var(--ink);border-radius:0 0 7px 7px}
+.canvas-object.can-edit{border-color:#75ac8b}
+.canvas-object.can-edit .canvas-object-body,.canvas-object.can-edit .canvas-object-title{cursor:grab}
+.canvas-object .is-dragging{cursor:grabbing}
+.canvas-resize{position:absolute;right:-9px;bottom:-9px;width:29px;height:29px;border:2px solid white;border-radius:9px;background:#1b5b49;color:white;font-size:17px;touch-action:none;cursor:nwse-resize}
+.canvas-tools{position:absolute;z-index:10;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:4px;max-width:calc(100% - 115px);overflow-x:auto;background:#fffe;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:5px;scrollbar-width:thin}
+.canvas-tools button{border:1px solid transparent;background:transparent;border-radius:8px;padding:8px 10px;min-width:max-content;font-size:12px;font-weight:800}
+.canvas-tools button:hover,.canvas-tools button.is-active{background:var(--pale);border-color:#b3d2be;color:var(--green)}
+.measure-readout{position:absolute;z-index:12;bottom:74px;left:50%;transform:translateX(-50%);background:#fffefc;box-shadow:var(--shadow);border-radius:9px;border:1px solid #dbdbbc;padding:8px 14px;font-size:12px;font-weight:700;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+.gallery-thumbnails{display:flex;gap:7px;overflow-x:auto;margin:6px 0 9px}
+.gallery-thumbnails button{height:62px;width:70px;flex:none;border:2px solid #dce9dd;border-radius:8px;padding:2px;background:white}
+.gallery-thumbnails img{width:100%;height:100%;object-fit:cover;border-radius:5px}
+.canvas-width-label output{font-size:12px;color:var(--muted)}
+#galleryUrls{font-size:12px}
+#editForm .form-grid:has(#entryLayer){grid-template-columns:1fr 1fr}
+.draggable-leaflet-pin .leaflet-dot{display:block;width:18px;height:18px;border:3px solid white;border-radius:50%;box-shadow:0 3px 6px #3455;position:absolute;top:3px;left:3px}
+@media(max-width:750px){
+  .collection-tools{padding:0 12px 8px}
+  .canvas-tools{bottom:77px;left:10px;right:10px;transform:none;max-width:none}
+  .canvas-tools button{padding:7px 9px}
+  .measure-readout{bottom:132px;font-size:11px}
+  .placement-bar{bottom:133px;max-width:96%;white-space:normal}
+  .canvas-object.text .canvas-object-body{font-size:13px}
+  .canvas-object{max-width:75vw}
+}
