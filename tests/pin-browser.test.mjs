@@ -131,6 +131,41 @@ try {
   await page.locator("#detailPanel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
+  // Selected-pin removal: built-in hostels are hidden only on this browser.
+  await page.locator("#entries .entry").first().click();
+  assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Remove pin");
+  page.once("dialog",dialog=>dialog.accept());
+  await page.locator("#deleteSelectedPin").click();
+  assert.equal(await page.locator("#entries .entry").count(),12,"Removal hides a selected preset pin");
+  assert.ok(!(new URL(page.url()).searchParams.has("pin")));
+  assert.deepEqual(await page.evaluate(()=>window.__mapCanvasTest.getHiddenPins()),["hostel-1"]);
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  assert.equal(await page.locator("#entries .entry").count(),12,"Hidden pins stay hidden after reload");
+  await page.locator("#settingsButton").click();
+  assert.equal(await page.locator("#restoreHiddenPins").textContent(),"Restore hidden pins (1)");
+  await page.locator("#restoreHiddenPins").click();
+  assert.equal(await page.locator("#entries .entry").count(),13,"Restore recovers locally hidden pin");
+  await page.locator("#settingsDone").click();
+
+  // Dark interface and actual MapLibre dark basemap; both must survive reload.
+  await page.locator("#themeToggle").click();
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"dark");
+  assert.equal(await page.locator("#themeToggle").getAttribute("aria-pressed"),"true");
+  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().isStyleLoaded() &&
+    window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
+  await page.screenshot({path:`test-artifacts/${engineName}-dark-theme-map.png`});
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:30000});
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"dark","Dark mode survives reload");
+  await page.locator("#settingsButton").click();
+  assert.equal(await page.locator('#settingsDialog input[data-feature="darkTheme"]').isChecked(),true,
+    "Settings reflects header dark toggle");
+  await page.locator('#settingsDialog input[data-feature="darkTheme"]').uncheck();
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"light");
+  await page.locator("#settingsDone").click();
+  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
+
   // Only Picture and Text appear in the toolbar; both can be placed.
   await page.locator(".layers-panel summary").click();
   const hostelLayer=page.locator('#layerToggles label').filter({hasText:"Hostels"}).locator("input");
