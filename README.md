@@ -41,3 +41,9 @@ Photos can be uploaded/pasted as compressed thumbnails (small enough to store in
 ## Technology
 
 Vanilla JavaScript, HTML, CSS, [MapLibre GL JS](https://maplibre.org/), [OpenFreeMap](https://openfreemap.org/), OpenStreetMap tiles, and optional Google Apps Script / Google Sheets. No build step, API key, or account required to view.
+
+## Pin tracking and testing (November 2026)
+
+Previously, custom HTML pin dots could shift independently of the map while zooming or panning, and a CSS rule overrode MapLibre marker positioning. This was corrected by rendering all pin dots as native MapLibre GeoJSON circle layers (and native Leaflet circle markers in fallback mode); HTML note/photo cards are shown only at close zoom and hidden while the map is moving. Switching base styles restores the native pin layers.
+
+Automated regression checks: `node tests/pin-regression.test.mjs`. A GitHub Actions workflow also runs Playwright tests in Chromium and WebKit, checking 45 map-coordinate projections per engine across zoom, pan, style toggles and mobile-size viewports, plus real pointer drags. Four screenshots are uploaded as workflow artifacts for visual review. These tests represent browser engine coverage, not a physical iPhone test.
