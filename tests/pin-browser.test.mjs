@@ -99,6 +99,23 @@ try {
     if(!map.getLayer("canvas-pin-dots"))throw Error("Dots disappeared while panning");
     map.fire("moveend");
   });
+  // Real DOM interactions: search, category filtering and deep links.
+  await page.setViewportSize({width:1200,height:800});
+  await page.locator("#search").fill("Viet Vintage");
+  assert.equal(await page.locator("#entries .entry").count(),1,"Search narrows the list");
+  await page.locator("#search").fill("");
+  await page.locator("#categoryFilter").selectOption("Hostel");
+  assert.equal(await page.locator("#entries .entry").count(),13,"Category filter includes hostel entries");
+  await page.locator("#categoryFilter").selectOption("all");
+  await page.locator("#entries .entry").first().click();
+  await page.waitForURL(/pin=hostel-1/);
+  assert.equal(await page.locator("#detailPanel h2").textContent(),"Viet Vintage Hostel");
+  await page.locator("#detailPanel .detail-head button").click();
+  assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
+
+  // No sign-in, and writes must be disabled if the shared backend isn't configured.
+  assert.equal(await page.locator("#editor").count(),1);
+  assert.equal(await page.locator("#syncState").textContent(),"Sheet not connected");
   assert.deepEqual(errors,[],"Browser JavaScript errors");
   console.log(`PASS ${engineName}: 45 projection tests, 2 basemap switches, mobile geometry, actual drag, CSS and gesture handling`);
 } finally {
