@@ -69,7 +69,7 @@ export function parseImport(content, filename) {
       photo:String(x.photo||x.photoUrl||"").slice(0,38000),
       layer:String(x.layer||"Imported").slice(0,40),
       group:String(x.group||"").slice(0,100),
-      gallery:Array.isArray(gallery)?gallery.filter(u=>typeof u==="string"&&/^https:\/\//.test(u)).slice(0,12):[],
+      gallery:Array.isArray(gallery)?gallery.filter(u=>typeof u==="string" && (/^https:\/\//.test(u)||(/^data:image\/jpeg;base64,/.test(u)&&u.length<=5500))).slice(0,12):[],
       canvas:canvas&&typeof canvas==="object"?canvas:null
     };
   });
@@ -521,7 +521,7 @@ export function createEnhancements(api){
         map.dragPan.enable();map.touchZoomRotate?.enable();dragging=false;
         const updated=state.entries.find(x=>x.id===id);
         if(!updated||!moved){api.render();return;}
-        suppressPinClick=true;
+        suppressPinClick=true;setTimeout(()=>{suppressPinClick=false;},180);
         const target={lat:updated.lat,lng:updated.lng};
         Object.assign(updated,{lat:before.lat,lng:before.lng});api.render();
         await persist(before,target);
