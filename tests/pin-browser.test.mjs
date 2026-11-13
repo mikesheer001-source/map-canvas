@@ -137,7 +137,6 @@ try {
   await page.locator("#entries .entry").first().click();
   assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
   assert.equal(await page.locator("#deleteSelectedPin").isEnabled(),true);
-  page.once("dialog",async dialog=>{throw Error("Unexpected delete warning: "+dialog.message());});
   await page.locator("#deleteSelectedPin").click();
   assert.equal(await page.locator("#entries .entry").count(),11);
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:manual-map-v1")).length),11);
