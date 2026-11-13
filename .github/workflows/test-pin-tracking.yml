@@ -20,6 +20,7 @@ jobs:
         run: |
           node tests/pin-regression.test.mjs
           node tests/features.test.mjs
+          node tests/backend-security.test.mjs
 
   browser-geometry:
     runs-on: ubuntu-24.04
