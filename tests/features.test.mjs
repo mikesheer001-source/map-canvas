@@ -12,14 +12,14 @@ assert.match(app,/new URLSearchParams\(location.search\)\.get\("pin"\)/);
 assert.match(app,/getCurrentPosition/);
 assert.match(app,/recordChange\(/);
 assert.match(app,/replayHistory\(/);
-assert.match(gs,/const EXTRA_HEADERS = \["Icon","Color"\]/);
-assert.match(gs,/getRange\(target,1,1,14\)/);
+assert.match(gs,/const EXTRA_HEADERS = \["Icon","Color","Canvas metadata"\]/);
+assert.match(gs,/getRange\(target,1,1,15\)/);
 assert.match(sw,/caches\.open\(SHELL\)/);
 assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"),"Do not pre-cache OSM tiles");
 assert.match(app,/localStorage\.setItem\(SNAPSHOT_KEY/);
 assert.match(app,/state\.category === "all"/);
-const api = new Function("document","window","location","navigator",app.replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
+const api = new Function("document","window","location","navigator",app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
   "\nreturn {pinGeoJSON,validColor,pinUrl,state,filterEntries};")(
   {},{MAP_CANVAS_CONFIG:{}},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
   {onLine:true});
