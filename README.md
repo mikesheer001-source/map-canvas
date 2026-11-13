@@ -57,3 +57,28 @@ Automated regression checks: `node tests/pin-regression.test.mjs`. A GitHub Acti
 - Undo/redo up to 30 successful writes in the current tab session. Each action is persisted to Sheets and uses version checks; conflicting external edits will prevent unsafe rollback.
 - Offline: service worker caches the site shell and some previously viewed OpenFreeMap assets (bounded to 180 resources), plus the last successful shared-pin snapshot in browser storage. **Offline does not guarantee a complete street map**. OpenStreetMap raster tiles are not predownloaded or cached for offline use.
 - Google Sheets two-way bridge now includes **Icon** and **Color** in columns M and N. Deploy the updated `sheets-bridge.gs` to Apps Script and configure `config.js` with its public /exec URL. Until then, edits remain disabled; the GitHub Pages frontend cannot itself host a Sheets backend.
+
+## Phase 1: reliability and recovery
+
+The Apps Script bridge includes an append-only **Map Canvas History** tab,
+recording before/after snapshots for every successful save and delete.
+**Do not publicly share the Google Sheet**: history rows contain hashed edit
+credentials. The public map's read endpoint never returns the history.
+
+For owner recovery, back up the workbook, open the Apps Script editor, change
+`OWNER_RECOVERY_ROW` to the history row number, run
+`mapCanvasOwnerPreview` to inspect the event, then run
+`mapCanvasOwnerRestore` to restore the previous state. Recovery refuses
+to overwrite a newer pin revision.
+
+Abuse controls include a global 12-writes/minute and 100-writes/hour limit,
+12 writes/hour per edit key, a 4-second per-key cooldown, and a
+20-creates/day per-key limit. Anonymous visitors can generate new keys,
+so this **does not guarantee** protection against spam or distributed abuse.
+For robust public writing, add IP-aware rate limiting and challenge
+verification through a server-side gateway.
+
+**Not yet activated:** the Apps Script web app requires one-time owner
+authorization and deployment. The connected Google Sheets integration
+cannot publish an Apps Script web app. Until the deployment URL is added to
+`config.js`, public editing and server-side recovery are unavailable.
