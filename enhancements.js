@@ -98,6 +98,7 @@ export function createEnhancements(api){
   let selectedLayer="all",selectedGroup="all",hiddenLayers=new Set();
   let activeTool=null,firstPoint=null,hoverPoint=null,measure=[],measureDone=false;
   let suppressPinClick=false,dragging=false,refreshBusy=false,updatingUi=false;
+  let uploadedGallery=[];
   const localMeta=(entry)=>({layer:entry.layer||defaultLayer(entry),group:entry.group||"",
     gallery:Array.isArray(entry.gallery)?entry.gallery:[],canvas:entry.canvas||null});
   const defaultLayer=e=>e.source==="hostel"?"Hostels":
@@ -330,7 +331,7 @@ export function createEnhancements(api){
   function makeDraft(title,kind,point){
     return {id:crypto.randomUUID(),title,kind,category:"",price:"",rating:"",
       notes:"",photo:"",version:"",icon:kind==="photo"?"📸":kind==="note"?"📝":"📍",
-      color:"#245c48",lat:Number(point.lng===undefined?21:point.lat),lng:Number(point.lng||105),
+      color:"#245c48",lat:Number(point.lat??21),lng:Number(point.lng??105),
       layer:kind==="photo"?"Pictures":"Drawings",group:"",gallery:[],canvas:null};
   }
   function setActiveButton(tool){
@@ -386,10 +387,52 @@ export function createEnhancements(api){
     }
     main.src=imgs[0];detail.insertBefore(strip,detail.querySelector(".detail-pills"));
   }
+  function showGalleryPreviews(){
+    const box=$("galleryPreview");box.replaceChildren();
+    uploadedGallery.forEach((uri,i)=>{
+      const wrap=document.createElement("div");wrap.className="gallery-upload-item";
+      const img=document.createElement("img");img.src=uri;img.alt="Uploaded gallery photo";
+      const remove=document.createElement("button");remove.type="button";remove.textContent="×";
+      remove.setAttribute("aria-label","Remove gallery image");
+      remove.addEventListener("click",()=>{uploadedGallery.splice(i,1);showGalleryPreviews();});
+      wrap.append(img,remove);box.append(wrap);
+    });
+  }
+  async function compressGallery(file){
+    if(!file.type.startsWith("image/")||file.size>12000000)throw new Error("Choose an image below 12 MB.");
+    const url=URL.createObjectURL(file);
+    try{
+      const img=new Image();img.src=url;await img.decode();
+      for(let edge=260,quality=.72;edge>=65;edge=Math.floor(edge*.8),quality=Math.max(.30,quality-.06)){
+        const factor=Math.min(1,edge/Math.max(img.naturalWidth,img.naturalHeight));
+        const c=document.createElement("canvas");
+        c.width=Math.max(1,Math.round(img.naturalWidth*factor));
+        c.height=Math.max(1,Math.round(img.naturalHeight*factor));
+        const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+        ctx.drawImage(img,0,0,c.width,c.height);
+        const encoded=c.toDataURL("image/jpeg",quality);
+        if(encoded.length<5500)return encoded;
+      }
+      throw new Error("Could not compress gallery image enough.");
+    }finally{URL.revokeObjectURL(url);}
+  }
+  async function addGalleryFiles(files){
+    const btn=$("galleryUpload");btn.disabled=true;
+    try{
+      for(const file of [...files].slice(0,12)){
+        if(uploadedGallery.length>=4){notify("Upload up to 4 thumbnail images; add URLs for more.",true);break;}
+        uploadedGallery.push(await compressGallery(file));
+      }
+      showGalleryPreviews();
+    }catch(e){notify(e.message,true);}
+    finally{btn.disabled=false;}
+  }
   function editorOpen(entry){
     $("entryLayer").value=entry.layer||defaultLayer(entry);
     $("entryGroup").value=entry.group||"";
-    $("galleryUrls").value=(entry.gallery||[]).join("\n");
+    uploadedGallery=(entry.gallery||[]).filter(x=>typeof x==="string"&&x.startsWith("data:image/"));
+    $("galleryUrls").value=(entry.gallery||[]).filter(x=>typeof x==="string"&&x.startsWith("https://")).join("\n");
+    showGalleryPreviews();
     const width=Number(entry.canvas?.width)||210;
     $("canvasWidth").value=String(width);$("canvasWidthValue").textContent=width+" px";
     $("canvasWidth").closest("label").classList.toggle("hidden",
@@ -402,7 +445,9 @@ export function createEnhancements(api){
     const sources=$("galleryUrls").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     if(sources.length>12||sources.some(x=>!safeImage(x)||!x.startsWith("https://")||x.length>2000))
       throw new Error("Gallery supports up to 12 valid HTTPS image URLs.");
-    entry.gallery=sources;
+    entry.gallery=[...uploadedGallery,...sources];
+    if(JSON.stringify({layer:entry.layer,group:entry.group,gallery:entry.gallery,canvas:entry.canvas}).length>30000)
+      throw new Error("Gallery is too large. Use photo URLs instead.");
     if(entry.canvas&&["image","text"].includes(entry.canvas.type))
       entry.canvas={...entry.canvas,width:Number($("canvasWidth").value)};
     return entry;
@@ -508,6 +553,8 @@ export function createEnhancements(api){
     $("measureFinish").addEventListener("click",endMeasurement);
     $("measureClear").addEventListener("click",clearMeasurement);
     $("canvasWidth").addEventListener("input",e=>$("canvasWidthValue").textContent=e.target.value+" px");
+    $("galleryUpload").addEventListener("click",()=>$("galleryFile").click());
+    $("galleryFile").addEventListener("change",e=>{addGalleryFiles(e.target.files||[]);e.target.value="";});
     $("mapArea").addEventListener("dragover",e=>{
       if([...e.dataTransfer?.types||[]].includes("Files"))e.preventDefault();
     });
