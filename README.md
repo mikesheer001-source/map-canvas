@@ -77,3 +77,20 @@ Write throttling and per-key creation quotas were removed at the owner’s reque
 authorization and deployment. The connected Google Sheets integration
 cannot publish an Apps Script web app. Until the deployment URL is added to
 `config.js`, public editing and server-side recovery are unavailable.
+
+## Canvas additions (November 2026)
+
+The public map now includes nine more features:
+
+- **Drag pins:** existing shared pins can be repositioned on MapLibre or Leaflet by the browser holding their original edit key. Save is verified against the shared sheet.
+- **Movable pictures:** choose Picture from the canvas toolbar, tap the map and upload or paste an image. At close zoom, drag the image or use the lower-right handle to resize it. Uploaded images are highly compressed for Sheets.
+- **Notes and shapes:** choose Text, Line, Arrow or Circle; tap a location (or two points for shapes). Finish the entry editor to save. Shapes and pictures are geographically anchored, not fixed to screen pixels.
+- **Bulk import/export:** CSV, JSON, GeoJSON (point features). Export the current filtered results as CSV, GeoJSON or JSON. Bulk import processes up to 25 pins per network request and verifies each group; the shared tab holds up to 500 pins.
+- **Toggle layers and browse nested groups:** use sidebar layer checkboxes, layer filter, group path filter, and the editor's Layer / Group fields (for example `Travel/Hanoi/Cafes`). Hiding a parent group hides nested subgroups.
+- **Shared live refresh:** when the Apps Script URL is configured, visible browsers check for remote changes every 20 seconds, with a refresh on tab activation. This is polling, not instantaneous websocket collaboration.
+- **Photo galleries:** add up to 12 images per pin using HTTPS URLs, including up to 4 uploaded compressed small thumbnails; browse pictures in the detail panel.
+- **Measure:** tap consecutive points to measure path distance. Tap "Finish area" after 3+ points for an approximate local-area measurement. Measurement overlays are temporary and are not saved to the sheet.
+
+The bridge now stores Canvas metadata in Google Sheet column **O**. An existing deployment must be updated with the *current* `sheets-bridge.gs` code to support galleries, layers and bulk import; older deployments do not support these new fields. Public saving, image placement edits, and live collaboration remain inactive until the owner deploys the Apps Script web app and places its `/exec` URL into `config.js`.
+
+There is no spam throttling, per the map owner's instruction; anonymous uploads and writes can be misused or exhaust the Google Apps Script quotas. The audit history continues to support owner-only recovery.
