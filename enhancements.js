@@ -99,7 +99,7 @@ export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasTools:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,gps:true,basemaps:true,navigation:true,autoSync:true,darkTheme:false
+  labels:true,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
@@ -122,9 +122,7 @@ export const FEATURE_GROUPS=[
     ["layers","Layers and groups","Show layer toggles and nested groups"],
     ["importExport","Import & export","Show CSV, JSON and GeoJSON controls"]
   ]},
-  {title:"Shared updates",features:[
-    ["autoSync","Automatic shared refresh","Check for changes every 20 seconds when connected"]
-  ]}
+
 ];
 export function readFeatureSettings(store=globalThis.localStorage){
   const defaults={...FEATURE_DEFAULTS};
@@ -309,7 +307,7 @@ export function createEnhancements(api){
     }
   }
   function pointerEdit(el,entry,resize){
-    if(!api.getKey(entry.id)||!api.SHEETS_URL||!state.sheetConnected)return;
+    if(!state.sheetConnected)return;
     let start=null;
     el.addEventListener("pointerdown",event=>{
       if(event.button!==0&&event.pointerType!=="touch")return;
@@ -364,7 +362,7 @@ export function createEnhancements(api){
       }else body.textContent=entry.notes||entry.title;
       const label=document.createElement("span");label.className="canvas-object-title";label.textContent=entry.title;
       node.append(body,label);
-      const owned=!!api.getKey(entry.id)&&state.sheetConnected;
+      const owned=state.sheetConnected;
       if(owned){
         node.classList.add("can-edit");
         const handle=document.createElement("button");handle.type="button";
@@ -381,17 +379,15 @@ export function createEnhancements(api){
 
   }
   async function persist(entry,updates){
-    if(!api.SHEETS_URL||!state.sheetConnected){notify("Shared saving needs the Google Sheets connection.",true);api.render();return;}
-    const key=api.getKey(entry.id);
-    if(!key){notify("Only the browser that created this pin can move it.",true);api.render();return;}
+    if(!state.sheetConnected){notify("Map still loading.",true);return;}
     if(state.saving)return;
     state.saving=true;
     try{
-      const before=state.entries.find(x=>x.id===entry.id);
+      const before=api.allEntries().find(x=>x.id===entry.id);
       if(!before)throw new Error("This pin is no longer available.");
-      await api.submitChange("save",{...before,...updates},key);
-      api.recordChange({before,after:state.entries.find(x=>x.id===entry.id)});
-      notify("Canvas change saved to the shared map.");
+      await api.submitChange("save",{...before,...updates});
+      api.recordChange({before,after:api.allEntries().find(x=>x.id===entry.id)});
+      notify("Saved in this browser. Export JSON to publish.");
     }catch(e){notify("Could not save change: "+e.message,true);}
     finally{state.saving=false;api.render();}
   }
@@ -511,39 +507,18 @@ export function createEnhancements(api){
   }
   async function importFile(file){
     if(!file)return;
-    if(!api.SHEETS_URL||!state.sheetConnected){notify("Connect Google Sheets to import shared pins.",true);return;}
-    if(file.size>250000) {notify("Choose a CSV/JSON file below 250 KB.",true);return;}
-    let pins;
-    try{pins=parseImport(await file.text(),file.name);}catch(e){notify(e.message,true);return;}
-    if(api.allEntries().length+pins.length>500){notify("Import would exceed the 500-pin limit.",true);return;}
-    if(!window.confirm("Import "+pins.length+" pins to the public map?"))return;
+    if(file.size>4500000){notify("File too large (max 4.5 MB).",true);return;}
     const btn=$("importBtn");btn.disabled=true;
-    const key=api.randomKey();let saved=0;
     try{
-      for(let i=0;i<pins.length;i+=25){
-        const batch=pins.slice(i,i+25);
-        btn.textContent="Import "+saved+"/"+pins.length;
-        await fetch(api.SHEETS_URL,{method:"POST",mode:"no-cors",
-          headers:{"Content-Type":"text/plain;charset=UTF-8"},
-          body:JSON.stringify({action:"bulk",entries:batch,key})});
-        let confirmed=false;
-        for(let attempt=0;attempt<6;attempt++){
-          await new Promise(r=>setTimeout(r,1400));
-          const data=await api.sheetRequest();
-          const ids=new Set(data.entries.map(e=>e.id));
-          if(batch.every(e=>ids.has(e.id))){confirmed=true;break;}
-        }
-        if(!confirmed)throw new Error("Could not verify imported batch "+(Math.floor(i/25)+1)+".");
-        for(const entry of batch)api.saveKey(entry.id,key);
-        saved+=batch.length;
-      }
-      await api.reloadShared(true);
-      notify("Imported "+saved+" public pins.");
-    }catch(e){await api.reloadShared(true);notify(saved+" imported; "+e.message,true);}
-    finally{btn.disabled=false;btn.textContent="Import pins";}
+      const pins=parseImport(await file.text(),file.name);
+      const result=api.importPins(pins,$("importMode").value);
+      notify("Imported "+pins.length+" pins ("+result.added+" new, "+
+        result.updated+" updated). Export JSON to publish.");
+    }catch(e){notify("Import failed: "+e.message,true);}
+    finally{btn.disabled=false;}
   }
   function exportPins(){
-    const format=$("exportFormat").value,entries=api.filterEntries();
+    const format=$("exportFormat").value,entries=api.allEntries();
     if(!entries.length){notify("No matching pins to export.",true);return;}
     if(format==="json"){download("map-canvas.json",JSON.stringify(entries,null,2),"application/json");return;}
     if(format==="geojson"){
@@ -551,7 +526,7 @@ export function createEnhancements(api){
         properties:{...e,lat:undefined,lng:undefined}}));
       download("map-canvas.geojson",JSON.stringify({type:"FeatureCollection",features},null,2),"application/geo+json");return;
     }
-    const columns=["title","lat","lng","kind","category","layer","group","notes","price","rating","photo","gallery","canvas","icon","color"];
+    const columns=["id","title","lat","lng","kind","category","layer","group","notes","price","rating","photo","gallery","canvas","icon","color","source","link","breakfast","bookingRating"];
     download("map-canvas.csv","\uFEFF"+columns.join(",")+"\n"+
       entries.map(e=>columns.map(c=>csvCell(e[c])).join(",")).join("\n"),"text/csv;charset=utf-8");
   }
@@ -560,8 +535,8 @@ export function createEnhancements(api){
   function attachPinDrag(map,layer){
     const startDrag=(e)=>{
       if(dragging||state.placing||activeTool)return;
-      const id=e.features?.[0]?.properties?.id,entry=state.entries.find(x=>x.id===id);
-      if(!entry||!api.getKey(id)||!state.sheetConnected)return;
+      const id=e.features?.[0]?.properties?.id,entry=api.allEntries().find(x=>x.id===id);
+      if(!entry||!state.sheetConnected)return;
       if(e.originalEvent?.button!=null&&e.originalEvent.button!==0)return;
       dragging=true;e.preventDefault();
       map.dragPan.disable();map.touchZoomRotate?.disable();
@@ -569,7 +544,7 @@ export function createEnhancements(api){
       const move=ev=>{
         if(!ev.lngLat)return;
         moved=true;
-        const pin=state.entries.find(x=>x.id===id);if(!pin)return;
+        const pin=api.allEntries().find(x=>x.id===id);if(!pin)return;
         pin.lng=ev.lngLat.lng;pin.lat=ev.lngLat.lat;
         map.getSource(api.PIN_SOURCE)?.setData(api.pinGeoJSON(api.filterEntries()));
       };
@@ -577,7 +552,7 @@ export function createEnhancements(api){
         map.off("mousemove",move);map.off("touchmove",move);
         map.off("mouseup",end);map.off("touchend",end);
         map.dragPan.enable();map.touchZoomRotate?.enable();dragging=false;
-        const updated=state.entries.find(x=>x.id===id);
+        const updated=api.allEntries().find(x=>x.id===id);
         if(!updated||!moved){api.render();return;}
         suppressPinClick=true;setTimeout(()=>{suppressPinClick=false;},180);
         const target={lat:updated.lat,lng:updated.lng};
@@ -629,22 +604,7 @@ export function createEnhancements(api){
     selections();
   }
   function updateHover(){ /* no in-progress drawing or measurement overlays */ }
-  function startPolling(){
-    if(!api.SHEETS_URL)return;
-    const refresh=async()=>{
-      if(!state.features.autoSync||refreshBusy||state.saving||state.historyBusy||document.hidden||!navigator.onLine)return;
-      refreshBusy=true;
-      const before=state.entries.map(e=>e.id+":"+e.version).join("|");
-      try{
-        await api.reloadShared(true);
-        const after=state.entries.map(e=>e.id+":"+e.version).join("|");
-        if(before!==after)notify("Shared map updated from another browser.");
-      }finally{refreshBusy=false;}
-    };
-    setInterval(refresh,20000);
-    document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});
-  }
   return {init,visible,selections,renderOverlay,handleTap,updateHover,isDrawing,consumeDragClick,
-    attachPinDrag,leafletDrag,galleryDetail,editorOpen,collectEditor,startPolling,defaultLayer,
+    attachPinDrag,leafletDrag,galleryDetail,editorOpen,collectEditor,defaultLayer,
     useTool,clearMeasurement,persist};
 }
