@@ -41,8 +41,8 @@ Marker.created=[];
 const fakeWindow={maplibregl:{Marker},L:null};
 const appForTest=app.replace(/main\(\)\.catch\([^;]*;\s*$/,"");
 assert.notEqual(appForTest.length,app.length,"test runner must suppress the startup sequence");
-const api=new Function("document","window",appForTest+
-  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow);
+const api=new Function("document","window","location",appForTest+
+  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"});
 const {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider}=api;
 const hostels=[
   {id:"hostel-1",title:"North",kind:"place",lat:21.0342937,lng:105.8526123,price:"$4.25",rating:"4.6"},

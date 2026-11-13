@@ -32,7 +32,7 @@ async function verifyAnchors(label) {
 }
 try {
   await page.goto("http://127.0.0.1:8765/?test=1",{waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),{timeout:60000});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:60000});
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),13);
   let checks=await verifyAnchors("initial");
   assert.equal(checks.length,9);
@@ -44,13 +44,13 @@ try {
   await page.waitForFunction(()=>{
     const map=window.__mapCanvasTest?.getMap();
     return map?.getLayer?.("canvas-pin-dots") && map?.getSource?.("canvas-geo-pins");
-  },{timeout:30000});
+  },null,{timeout:30000});
   checks=await verifyAnchors("raster");
   assert.equal(checks.length,9);
 
   await page.locator("#basemapButton").click();
   await page.locator('[data-basemap="openfreemap"]').click();
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),{timeout:30000});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:30000});
   assert.equal((await verifyAnchors("vector")).length,9);
 
   await page.setViewportSize({width:390,height:844});
