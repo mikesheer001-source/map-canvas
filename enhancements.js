@@ -62,7 +62,10 @@ export function parseImport(content, filename) {
     let canvas=x.canvas||null;
     if(typeof canvas==="string"){try{canvas=JSON.parse(canvas);}catch{canvas=null;}}
     const kind=["place","note","photo"].includes(x.kind||x.type)?(x.kind||x.type):"place";
-    return {id:crypto.randomUUID(),version:"",title,kind,category:String(x.category||"").slice(0,40),
+    const rawId=String(x.id||"").trim();
+    const id=/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(rawId)||/^hostel-[0-9]+$/.test(rawId)
+      ?rawId:crypto.randomUUID();
+    return {id,version:"local",title,kind,category:String(x.category||"").slice(0,40),
       lat,lng,notes:String(x.notes||x.description||"").slice(0,4000),
       price:String(x.price||"").slice(0,40),rating:String(x.rating||"").slice(0,30),
       icon:String(x.icon||"📍"),color:/^#[0-9a-f]{6}$/i.test(x.color)?x.color:"#245c48",
@@ -70,7 +73,12 @@ export function parseImport(content, filename) {
       layer:String(x.layer||"Imported").slice(0,40),
       group:String(x.group||"").slice(0,100),
       gallery:Array.isArray(gallery)?gallery.filter(u=>typeof u==="string" && (/^https:\/\//.test(u)||(/^data:image\/jpeg;base64,/.test(u)&&u.length<=5500))).slice(0,12):[],
-      canvas:canvas&&typeof canvas==="object"?canvas:null
+      canvas:canvas&&typeof canvas==="object"?canvas:null,
+      source:x.source==="hostel"?"hostel":"local",
+      link:typeof x.link==="string"?x.link.slice(0,2000):"",
+      breakfast:typeof x.breakfast==="string"?x.breakfast.slice(0,50):"",
+      bookingRating:typeof x.bookingRating==="string"?x.bookingRating.slice(0,30):
+        typeof x.bookingrating==="string"?x.bookingrating.slice(0,30):""
     };
   });
   return parsed;
