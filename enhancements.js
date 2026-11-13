@@ -498,6 +498,7 @@ export function createEnhancements(api){
     download("map-canvas.csv","\uFEFF"+columns.join(",")+"\n"+
       entries.map(e=>columns.map(c=>csvCell(e[c])).join(",")).join("\n"),"text/csv;charset=utf-8");
   }
+  function isDrawing(){return !!activeTool;}
   function consumeDragClick(){if(suppressPinClick){suppressPinClick=false;return true;}return false;}
   function attachPinDrag(map,layer){
     const startDrag=(e)=>{
@@ -590,7 +591,7 @@ export function createEnhancements(api){
     setInterval(refresh,20000);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});
   }
-  return {init,visible,selections,renderOverlay,handleTap,updateHover,consumeDragClick,
+  return {init,visible,selections,renderOverlay,handleTap,updateHover,isDrawing,consumeDragClick,
     attachPinDrag,leafletDrag,galleryDetail,editorOpen,collectEditor,startPolling,defaultLayer,
     useTool,clearMeasurement,persist};
 }
