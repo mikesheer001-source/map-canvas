@@ -286,7 +286,7 @@ function attachMapPinClicks(map) {
     const id = event.features?.[0]?.properties?.id;
     const entry = allEntries().find((item) => item.id === id);
     if (!entry) return;
-    if(enhanced?.consumeDragClick())return;
+    if(enhanced?.isDrawing() || enhanced?.consumeDragClick())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else choose(entry,false);
   });
@@ -376,6 +376,7 @@ function renderMarkers(entries) {
         }).addTo(state.map);
       if(owned)enhanced?.leafletDrag(marker,entry);
       marker.on("click",()=>{
+        if(enhanced?.isDrawing())return;
         if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});
         else choose(entry,false);
       });
