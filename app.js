@@ -448,9 +448,14 @@ async function fallbackLeaflet(reason) {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
     attribution:"© OpenStreetMap contributors",maxZoom:19
   }).addTo(state.map);
-  state.map.on("click",(e)=>{if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});});
+  state.map.on("click",(e)=>{
+    if(enhanced?.handleTap({lng:e.latlng.lng,lat:e.latlng.lat}))return;
+    if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});
+  });
   state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();});
+  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
+  state.map.on("move",()=>enhanced?.renderOverlay());
+  state.map.on("mousemove",e=>enhanced?.updateHover({lng:e.latlng.lng,lat:e.latlng.lat}));
   state.map.on("zoomend",updateLabels);
   state.library="leaflet";
   state.styleReady=true;
@@ -474,9 +479,14 @@ async function initMap() {
     map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
     map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-    map.on("moveend",()=>{state.mapMoving=false;updateLabels();});
+    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
+    map.on("move",()=>enhanced?.renderOverlay());
+    map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
-    map.on("click",(event)=>{ if(state.placing)placeAt(event.lngLat); });
+    map.on("click",(event)=>{
+      if(enhanced?.handleTap(event.lngLat))return;
+      if(state.placing)placeAt(event.lngLat);
+    });
     map.on("error",(event)=>{
       if (!started) announce("Map tiles may be unavailable. Try the OpenStreetMap layer.");
       console.warn("Map provider error",event.error?.message||event);
@@ -510,6 +520,7 @@ function choose(entry, focus) {
   const pills=text("div","","detail-pills");
   for (const word of [entry.price,entry.rating&&"★ "+entry.rating,entry.breakfast==="Yes"&&"Breakfast included"].filter(Boolean)) pills.append(text("span",word));
   detail.append(pills);
+  enhanced?.galleryDetail(entry,detail);
   if (entry.notes) detail.append(text("p",entry.notes,"detail-notes"));
   if (entry.source==="hostel") detail.append(text("small","Prices from Nov 12–14, 2026; verify current rates.","muted"));
   const actions=text("div","","detail-actions");
@@ -585,6 +596,7 @@ function openEditor(entry) {
     ? "Shared saving is unavailable until the Google Sheets backend is connected. Do not enter private information."
     : "Public: anything saved here is visible to everyone.";
   $("saveEntry").disabled=!SHEETS_URL;
+  enhanced?.editorOpen(entry);
   $("editor").showModal();
 }
 function closeEditor() {$("editor").close();state.draft=null;}
@@ -622,6 +634,7 @@ async function saveEntry(event) {
     notes:$("notes").value.trim(),price:$("price").value.trim(),rating:$("rating").value.trim(),
     icon:$("pinIcon").value,color:$("pinColor").value
   };
+  try{enhanced?.collectEditor(entry);}catch(error){notify(error.message,true);return;}
   const imageUrl=$("imageUrl").value.trim();
   if (imageUrl && !safeImage(imageUrl)) {notify("Use an HTTPS image URL.",true);return;}
   if (imageUrl) entry.photo=imageUrl;
@@ -669,7 +682,13 @@ async function shrinkPhoto(file) {
   }finally{URL.revokeObjectURL(url);}
 }
 async function addImageFile(file) {
-  if (!state.draft) {state.pendingPhoto=file;startPlacement("photo");return;}
+  if (!state.draft) {
+    state.pendingPhoto=file;
+    const draft={id:crypto.randomUUID(),title:"Picture",kind:"photo",category:"",price:"",
+      rating:"",notes:"",photo:"",version:"",layer:"Pictures",group:"",
+      gallery:[],canvas:{type:"image",width:210},icon:"📸",color:"#245c48"};
+    startPlacement("photo",draft);return;
+  }
   try {
     const result=await shrinkPhoto(file);
     state.draft.photo=result;$("imageUrl").value="";
@@ -847,7 +866,12 @@ function wire() {
   });
 }
 async function main() {
+  enhanced=createEnhancements({state,SHEETS_URL,DETAIL_ZOOM,PIN_SOURCE,
+    allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
+    startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
+    reloadShared,sheetRequest,mapZoom});
   wire();
+  enhanced.init();
   setupOffline();
   try {await loadHostels();}catch(error){notify(error.message,true);}
   render();
@@ -855,6 +879,7 @@ async function main() {
   render();
   await reloadShared(true);
   applyDeepLink();
+  enhanced.startPolling();
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {
