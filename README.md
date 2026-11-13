@@ -24,7 +24,7 @@ The site currently has seeded hostel locations even without this step, but *publ
 4. Replace the empty \`sheetWebAppUrl\` in [config.js](config.js) with the URL. Commit the update on GitHub.
 5. Reload the Pages site. It now reads both the hostel tab and shared "Map Canvas" entries and can write back to the Map Canvas tab.
 
-**Important:** This setup makes map entries publicly readable and permits anonymous contributions on your behalf. Never store private or sensitive information in these tabs. Contributors may edit/delete **their own entries on the same browser** using a per-entry random edit key; there is no sign-in. Basic hourly write limiting helps reduce abuse but cannot completely prevent spam.
+**Important:** This setup makes map entries publicly readable and permits anonymous contributions on your behalf. Never store private or sensitive information in these tabs. Contributors may edit/delete **their own entries on the same browser** using a per-entry random edit key; there is no sign-in. No spam throttling is enabled; public anonymous writes can be abused.
 
 Photos can be uploaded/pasted as compressed thumbnails (small enough to store in a Sheets cell) or supplied as a public HTTPS image URL. Photo uploads in this version are not stored in GitHub, and Google Drive image storage is not automatically provisioned.
 
@@ -71,12 +71,7 @@ For owner recovery, back up the workbook, open the Apps Script editor, change
 `mapCanvasOwnerRestore` to restore the previous state. Recovery refuses
 to overwrite a newer pin revision.
 
-Abuse controls include a global 12-writes/minute and 100-writes/hour limit,
-12 writes/hour per edit key, a 4-second per-key cooldown, and a
-20-creates/day per-key limit. Anonymous visitors can generate new keys,
-so this **does not guarantee** protection against spam or distributed abuse.
-For robust public writing, add IP-aware rate limiting and challenge
-verification through a server-side gateway.
+Write throttling and per-key creation quotas were removed at the owner’s request. The backend still validates entries, checks edit keys and versions, and keeps audit history. Public anonymous writes can be spammed or exhaust Google Apps Script quotas.
 
 **Not yet activated:** the Apps Script web app requires one-time owner
 authorization and deployment. The connected Google Sheets integration
