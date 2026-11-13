@@ -164,6 +164,7 @@ try {
 
   // No sign-in, and writes must be disabled if the shared backend isn't configured.
   assert.equal(await page.locator("#editor").count(),1);
+  await page.waitForFunction(()=>document.querySelector("#syncState")?.textContent==="Sheet not connected");
   assert.equal(await page.locator("#syncState").textContent(),"Sheet not connected");
   assert.deepEqual(errors,[],"Browser JavaScript errors");
   console.log(`PASS ${engineName}: 45 projection tests, 2 basemap switches, mobile geometry, actual drag, CSS and gesture handling`);
