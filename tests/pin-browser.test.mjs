@@ -13,7 +13,10 @@ async function verifyAnchors(label) {
     const api=window.__mapCanvasTest;
     const map=api.getMap();
     if(api.getLibrary()!=="maplibre")throw Error("Native MapLibre renderer unavailable");
-    if(!map.getLayer("canvas-pin-dots"))throw Error("Missing native circle layer");
+    if(!map.getLayer("canvas-pin-dots"))throw Error("Missing native pin hit layer");
+    if(map.getSource("canvas-geo-pins").getClusterOptions?.().cluster!==false)
+      throw Error("Pin clustering should be disabled");
+    if(map.getLayer("canvas-clusters"))throw Error("Grouped pins should not render");
     const sample=api.getEntries().filter(e=>Number.isFinite(e.lat)&&Number.isFinite(e.lng)).slice(0,3);
     if(sample.length!==3)throw Error("Missing map pin data");
     const counts=[];
@@ -28,11 +31,10 @@ async function verifyAnchors(label) {
           await new Promise(done=>setTimeout(done,110));
           map.triggerRepaint();
           screen=map.project([entry.lng,entry.lat]);
-          hits=map.queryRenderedFeatures(zoom < 16 ? undefined : screen,
-            {layers:zoom < 16 ? ["canvas-clusters","canvas-pin-dots"] : ["canvas-pin-dots"]});
-          if(zoom < 16 ? hits.length>0 : hits.some(f=>f.properties.id===entry.id))break;
+          hits=map.queryRenderedFeatures(screen,{layers:["canvas-pin-dots"]});
+          if(hits.some(f=>f.properties.id===entry.id))break;
         } while(performance.now()<deadline);
-        if(!(zoom < 16 ? hits.length>0 : hits.some(f=>f.properties.id===entry.id))){
+        if(!hits.some(f=>f.properties.id===entry.id)){
           throw Error(label+" zoom "+zoom+" failed for "+entry.id+
             " at "+JSON.stringify(screen)+"; rendered="+hits.map(f=>f.properties.id).join(",")+
             "; styleReady="+map.isStyleLoaded());
@@ -47,6 +49,9 @@ try {
   await page.goto("http://127.0.0.1:8765/?test=1",{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:60000});
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),13);
+  assert.equal(await page.locator(".maplibregl-marker.emoji-pin").count(),13,"Every hostel has a visible emoji");
+  assert.equal(await page.locator(".maplibregl-marker.emoji-pin").first().textContent(),"🏨",
+    "Hostel icons are thematic");
   let checks=await verifyAnchors("initial");
   assert.equal(checks.length,9);
   await page.screenshot({path:`test-artifacts/${engineName}-maplibre-pins-desktop.png`});
@@ -96,7 +101,9 @@ try {
     map.fire("movestart");
     if(document.querySelectorAll(".maplibregl-marker.canvas-pin").length!==0)
       throw Error("DOM labels should not drift during a gesture");
-    if(!map.getLayer("canvas-pin-dots"))throw Error("Dots disappeared while panning");
+    if(!map.getLayer("canvas-pin-dots"))throw Error("Pin hit layer disappeared while panning");
+    if(document.querySelectorAll(".maplibregl-marker.emoji-pin").length!==13)
+      throw Error("Emoji pins should remain visible while panning");
     map.fire("moveend");
   });
   // Real DOM interactions: search, category filtering and deep links.
@@ -142,21 +149,23 @@ try {
   assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
   await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="labels"]').uncheck();
-  await page.locator('#settingsDialog input[data-feature="clustering"]').uncheck();
+  await page.locator('#settingsDialog input[data-feature="galleries"]').uncheck();
   assert.ok(await page.locator(".searchwrap").isHidden());
   assert.ok(await page.locator("#toggleLabels").isHidden());
-  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster===false);
+  assert.ok(await page.locator("#galleryControls").isHidden(),"Galleries can be disabled");
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:feature-settings-v1")).search),false);
   await page.locator("#settingsDone").click();
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
   assert.ok(await page.locator(".searchwrap").isHidden(),"Settings persist after reload");
+  assert.ok(await page.locator("#galleryControls").isHidden(),"Gallery choice persists");
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
   await page.locator("#settingsButton").click();
   await page.locator("#settingsReset").click();
   assert.ok(await page.locator(".searchwrap").isVisible(),"Reset restores search");
   assert.equal(await page.locator('#settingsDialog input[data-feature="labels"]').isChecked(),true);
-  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster===true);
+  assert.ok(await page.locator("#galleryControls").isVisible(),"Reset restores galleries");
+  assert.ok(!(await page.locator('#settingsDialog input[data-feature="clustering"]').count()));
   await page.locator("#settingsDone").click();
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
