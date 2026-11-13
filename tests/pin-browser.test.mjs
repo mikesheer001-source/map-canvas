@@ -28,10 +28,11 @@ async function verifyAnchors(label) {
           await new Promise(done=>setTimeout(done,110));
           map.triggerRepaint();
           screen=map.project([entry.lng,entry.lat]);
-          hits=map.queryRenderedFeatures(screen,{layers:["canvas-pin-dots"]});
-          if(hits.some(f=>f.properties.id===entry.id))break;
+          hits=map.queryRenderedFeatures(zoom < 16 ? undefined : screen,
+            {layers:zoom < 16 ? ["canvas-clusters","canvas-pin-dots"] : ["canvas-pin-dots"]});
+          if(zoom < 16 ? hits.length>0 : hits.some(f=>f.properties.id===entry.id))break;
         } while(performance.now()<deadline);
-        if(!hits.some(f=>f.properties.id===entry.id)){
+        if(!(zoom < 16 ? hits.length>0 : hits.some(f=>f.properties.id===entry.id))){
           throw Error(label+" zoom "+zoom+" failed for "+entry.id+
             " at "+JSON.stringify(screen)+"; rendered="+hits.map(f=>f.properties.id).join(",")+
             "; styleReady="+map.isStyleLoaded());

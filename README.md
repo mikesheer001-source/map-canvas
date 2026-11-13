@@ -47,3 +47,13 @@ Vanilla JavaScript, HTML, CSS, [MapLibre GL JS](https://maplibre.org/), [OpenFre
 Previously, custom HTML pin dots could shift independently of the map while zooming or panning, and a CSS rule overrode MapLibre marker positioning. This was corrected by rendering all pin dots as native MapLibre GeoJSON circle layers (and native Leaflet circle markers in fallback mode); HTML note/photo cards are shown only at close zoom and hidden while the map is moving. Switching base styles restores the native pin layers.
 
 Automated regression checks: `node tests/pin-regression.test.mjs`. A GitHub Actions workflow also runs Playwright tests in Chromium and WebKit, checking 45 map-coordinate projections per engine across zoom, pan, style toggles and mobile-size viewports, plus real pointer drags. Four screenshots are uploaded as workflow artifacts for visual review. These tests represent browser engine coverage, not a physical iPhone test.
+
+## New map features (November 2026)
+
+- Search by title, category, notes, price or rating; filter by type and category; sort by price/rating/title.
+- Custom icon and hex color on new public entries. MapLibre-native clustering groups nearby pins at low zoom, expanding on click; detailed photo/label cards appear from zoom 16.8.
+- GPS location button uses browser geolocation only with consent. It never uploads the visitor's location.
+- Share pin links using `?pin=ID`, including deep-link navigation on load.
+- Undo/redo up to 30 successful writes in the current tab session. Each action is persisted to Sheets and uses version checks; conflicting external edits will prevent unsafe rollback.
+- Offline: service worker caches the site shell and some previously viewed OpenFreeMap assets (bounded to 180 resources), plus the last successful shared-pin snapshot in browser storage. **Offline does not guarantee a complete street map**. OpenStreetMap raster tiles are not predownloaded or cached for offline use.
+- Google Sheets two-way bridge now includes **Icon** and **Color** in columns M and N. Deploy the updated `sheets-bridge.gs` to Apps Script and configure `config.js` with its public /exec URL. Until then, edits remain disabled; the GitHub Pages frontend cannot itself host a Sheets backend.

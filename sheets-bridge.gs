@@ -10,25 +10,27 @@ const HOSTEL_TAB = "Hanoi Nov 12–14";
 const PINS_TAB = "Map Canvas";
 const HEADERS = ["ID","Title","Type","Category","Latitude","Longitude","Notes","Photo URL","Price","Rating","Version","Edit key hash"];
 const MAX_ROWS = 500;
+const EXTRA_HEADERS = ["Icon","Color"];
 function mapTab_() {
   const book = SpreadsheetApp.openById(WORKBOOK_ID);
   const sheet = book.getSheetByName(PINS_TAB);
   if (!sheet) throw new Error("Map Canvas tab not found.");
-  if (sheet.getMaxColumns() < 12) sheet.insertColumnsAfter(sheet.getMaxColumns(),12-sheet.getMaxColumns());
+  if (sheet.getMaxColumns() < 14) sheet.insertColumnsAfter(sheet.getMaxColumns(),14-sheet.getMaxColumns());
   if (sheet.getRange(1,1,1,11).getDisplayValues()[0].join("|") !== HEADERS.slice(0,11).join("|"))
     throw new Error("Map Canvas tab headers have changed.");
   sheet.getRange(1,12).setValue(HEADERS[11]);
+  sheet.getRange(1,13,1,2).setValues([EXTRA_HEADERS]);
   return {sheet,book};
 }
 function readPins_(sh) {
   const count = Math.min(MAX_ROWS,Math.max(0,sh.getLastRow()-1));
   if (!count) return [];
-  return sh.getRange(2,1,count,12).getDisplayValues()
+  return sh.getRange(2,1,count,14).getDisplayValues()
     .filter((r)=>r[0]&&r[1]&&r[4]&&r[5])
     .map((r)=>({
       id:r[0],title:r[1],kind:r[2]||"place",category:r[3]||"",
       lat:Number(String(r[4]).replace(",",".")),lng:Number(String(r[5]).replace(",",".")),
-      notes:r[6]||"",photo:r[7]||"",price:r[8]||"",rating:r[9]||"",version:r[10]||""
+      notes:r[6]||"",photo:r[7]||"",price:r[8]||"",rating:r[9]||"",version:r[10]||"",icon:r[12]||"📍",color:r[13]||"#245c48"
     })).filter((e)=>Number.isFinite(e.lat)&&Number.isFinite(e.lng));
 }
 function readHostels_(book) {
@@ -76,11 +78,12 @@ function check_(entry) {
   if(typeof entry.id!=="string"||!/^[a-f0-9-]{36}$/.test(entry.id))throw new Error("Invalid ID");
   if(!["place","note","photo"].includes(entry.kind))throw new Error("Invalid type");
   if(typeof entry.title!=="string"||!entry.title.trim()||entry.title.length>140)throw new Error("Invalid title");
-  for (const [key,max] of [["category",40],["notes",4000],["photo",38000],["price",40],["rating",30]]) {
+  for (const [key,max] of [["category",40],["notes",4000],["photo",38000],["price",40],["rating",30],["icon",8],["color",7]]) {
     if (typeof entry[key]!=="string"||entry[key].length>max)throw new Error("Invalid "+key);
   }
   if(!Number.isFinite(Number(entry.lat))||Math.abs(Number(entry.lat))>85||
      !Number.isFinite(Number(entry.lng))||Math.abs(Number(entry.lng))>180)throw new Error("Invalid coordinates");
+  if(!/^#[0-9a-fA-F]{6}$/.test(entry.color))throw new Error("Invalid pin color");
   if(entry.photo&&!/^https:\/\/\S+$/.test(entry.photo)&&
      !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{20,37000}$/.test(entry.photo))
     throw new Error("Invalid photo");
@@ -111,7 +114,7 @@ function doPost(e) {
     const sheet=store.sheet;
     const count=Math.max(0,sheet.getLastRow()-1);
     if(count>=MAX_ROWS && body.action==="save"&&!entry.version)throw new Error("Map is full");
-    const rows=count?sheet.getRange(2,1,count,12).getDisplayValues():[];
+    const rows=count?sheet.getRange(2,1,count,14).getDisplayValues():[];
     const i=rows.findIndex((r)=>r[0]===entry.id);
     const existing=i===-1?null:rows[i];
     const hashed=sha256_(body.key);
@@ -123,10 +126,10 @@ function doPost(e) {
       const revision=Utilities.getUuid();
       const values=[entry.id,escaped_(entry.title),entry.kind,escaped_(entry.category),
         Number(entry.lat),Number(entry.lng),escaped_(entry.notes),entry.photo||"",
-        escaped_(entry.price),escaped_(entry.rating),revision,hashed];
+        escaped_(entry.price),escaped_(entry.rating),revision,hashed,escaped_(entry.icon),entry.color];
       const target=existing?i+2:sheet.getLastRow()+1;
       if(target>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
-      sheet.getRange(target,1,1,12).setValues([values]);
+      sheet.getRange(target,1,1,14).setValues([values]);
     }
     SpreadsheetApp.flush();
     return output_(JSON.stringify({ok:true}),ContentService.MimeType.JSON);

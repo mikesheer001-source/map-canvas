@@ -12,3 +12,6 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 
 /* Noninteractive labels are hidden during gestures; native circles never drift. */
 .map-detail-card .pin-label{display:flex;left:13px;top:-21px;white-space:nowrap;max-width:165px}
+
+/* Map Canvas features */
+.entries-header{gap:7px;flex-wrap:wrap}.entries-header select{max-width:145px;min-width:95px}.offline-state{font-size:12px;color:#a65d17;font-weight:700}.gps-dot{width:18px;height:18px;background:#2486df;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px #2486df44}.top-actions button:disabled{opacity:.35;cursor:not-allowed}#pinColor{height:42px;min-width:100%;padding:3px;cursor:pointer}#pinIcon{min-height:42px;width:100%}@media(max-width:720px){.top-actions{gap:2px}.top-actions #undoBtn,.top-actions #redoBtn{font-size:19px;min-width:29px;padding:0}.offline-state{font-size:10px;max-width:75px}}

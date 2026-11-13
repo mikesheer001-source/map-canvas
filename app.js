@@ -2,12 +2,17 @@ const $ = (id) => document.getElementById(id);
 const config = window.MAP_CANVAS_CONFIG || {};
 const SHEETS_URL = String(config.sheetWebAppUrl || "").trim();
 const DETAIL_ZOOM = 16.8;
+const CLUSTER_MAX_ZOOM = 16;
+const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
+const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 const state = {
   hostels: [], entries: [], query: "", filter: "all", sort: "default",
   provider: "openfreemap", map: null, library: null, markers: [],
   leafletGroup: null, current: null, draft: null, placing: null, visiblePins: [],
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
-  pendingPhoto: null, showLabels: true, saving: false, listOpen: false
+  pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
+  category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
+  pendingPin: new URLSearchParams(location.search).get("pin"), sheetConnected: false
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -47,6 +52,7 @@ async function loadHostels() {
   const response = await fetch("./data/hostels.json", { cache: "no-store" });
   if (!response.ok) throw new Error("Hostel map data is unavailable.");
   state.hostels = await response.json();
+  state.hostels = state.hostels.map(e => ({...e,icon:e.icon||"🏨",color:e.color||"#245c48"}));
 }
 function sheetRequest() {
   if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(SHEETS_URL)) {
@@ -76,8 +82,12 @@ function sheetRequest() {
 }
 async function reloadShared(silent) {
   if (!SHEETS_URL) {
-    state.entries = [];
-    $("syncState").textContent = "Sheet not connected";
+    state.sheetConnected = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
+      if (Array.isArray(cached)) state.entries = cached;
+    } catch {}
+    $("syncState").textContent = navigator.onLine ? "Sheet not connected" : "Offline snapshot";
     $("statusText").textContent = "Hostel data preview · shared edits not connected";
     $("statusPip").classList.remove("connected");
     render();
@@ -96,14 +106,27 @@ async function reloadShared(silent) {
         lat: Number(entry.lat), lng: Number(entry.lng), price: String(entry.price || ""),
         rating: String(entry.rating || ""), notes: String(entry.notes || ""),
         photo: safeImage(String(entry.photo || "")), version: String(entry.version || ""),
+        icon: ICONS.includes(entry.icon) ? entry.icon : "📍",
+        color: validColor(entry.color) ? entry.color : "#245c48",
         source: "shared"
       }));
+    state.sheetConnected = true;
+    try {localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(state.entries));} catch {}
     $("syncState").textContent = "● Sheet connected";
     $("statusText").textContent = "Live shared map · no sign-in";
     $("statusPip").classList.add("connected");
     render();
+    applyDeepLink();
     if (!silent) notify("Shared map refreshed.");
   } catch (error) {
+    state.sheetConnected = false;
+    if (!state.entries.length) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
+        if (Array.isArray(cached)) state.entries = cached;
+      } catch {}
+    }
+    render();
     $("syncState").textContent = "Sync unavailable";
     $("statusText").textContent = "Could not refresh the shared sheet";
     $("statusPip").classList.remove("connected");
@@ -113,7 +136,8 @@ async function reloadShared(silent) {
 function filterEntries() {
   const needle = state.query.toLowerCase().trim();
   const shown = allEntries().filter((e) =>
-    (state.filter === "all" || state.filter === e.kind)
+    (state.category === "all" || e.category === state.category)
+    && (state.filter === "all" || state.filter === e.kind)
     && [e.title, e.notes, e.category, e.price, e.rating]
       .some((x) => String(x || "").toLowerCase().includes(needle)));
   if (state.sort === "price") shown.sort((a,b) =>
@@ -125,6 +149,8 @@ function filterEntries() {
 }
 function render() {
   const shown = filterEntries();
+  renderCategories();
+  updateHistoryButtons();
   $("pinCount").textContent = allEntries().length + " pins on the shared canvas";
   $("resultCount").textContent = shown.length + (shown.length === 1 ? " entry" : " entries");
   $("mapSub").textContent = shown.length + " pins · " +
@@ -139,7 +165,8 @@ function render() {
   for (const entry of shown) {
     const row = document.createElement("button");
     row.type = "button"; row.className = "entry" + (state.current?.id === entry.id ? " is-active" : "");
-    const ico = text("span", entry.kind === "place" ? "⌖" : entry.kind === "note" ? "▤" : "▧", "entry-ico");
+    const ico = text("span", entry.icon || (entry.kind === "note" ? "📝" : entry.kind === "photo" ? "📸" : "📍"), "entry-ico");
+    ico.style.color = validColor(entry.color) ? entry.color : pinColor(entry.kind);
     if (entry.kind === "photo" && entry.photo) {
       const img = document.createElement("img"); img.alt = "";
       img.src = entry.photo; ico.replaceChildren(img);
@@ -177,7 +204,7 @@ function pinGeoJSON(entries) {
       type: "Feature",
       id: e.id,
       geometry: { type: "Point", coordinates: [Number(e.lng), Number(e.lat)] },
-      properties: { id: e.id, kind: e.kind || "place" }
+      properties: { id: e.id, kind: e.kind || "place", color: validColor(e.color) ? e.color : pinColor(e.kind) }
     }))
   };
 }
@@ -200,7 +227,7 @@ function makeCard(entry) {
     label.append(img);
   }
   const lines = document.createElement("span");
-  lines.append(text("strong", entry.title));
+  lines.append(text("strong", (entry.icon || "📍") + " " + entry.title));
   const extra = [entry.price, entry.rating ? "★ " + entry.rating : ""].filter(Boolean).join(" · ");
   if (extra) lines.append(text("small", extra));
   else if (entry.kind === "note" && entry.notes) lines.append(text("small", entry.notes.slice(0, 55)));
@@ -267,21 +294,30 @@ function renderMarkers(entries) {
     if (source) {
       source.setData(data);
     } else {
-      state.map.addSource(PIN_SOURCE, {type:"geojson",data});
+      state.map.addSource(PIN_SOURCE, {type:"geojson",data,cluster:true,clusterRadius:54,clusterMaxZoom:CLUSTER_MAX_ZOOM});
+    }
+    if (!state.map.getLayer("canvas-clusters")) {
+      state.map.addLayer({id:"canvas-clusters",source:PIN_SOURCE,type:"circle",
+        filter:["has","point_count"],
+        paint:{"circle-color":"#174f42","circle-radius":["step",["get","point_count"],19,10,24,30,30],
+          "circle-stroke-width":3,"circle-stroke-color":"#ffffff"}});
+      state.map.addLayer({id:"canvas-cluster-count",source:PIN_SOURCE,type:"symbol",
+        filter:["has","point_count"],layout:{"text-field":["get","point_count_abbreviated"],
+          "text-size":13},paint:{"text-color":"#ffffff"}});
     }
     if (!state.map.getLayer(PIN_HALO)) {
       state.map.addLayer({
-        id:PIN_HALO,source:PIN_SOURCE,type:"circle",
+        id:PIN_HALO,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
         paint:{"circle-radius":11,"circle-color":"#ffffff",
           "circle-opacity":0.97,"circle-blur":0.1}
       });
     }
     if (!state.map.getLayer(PIN_DOTS)) {
       state.map.addLayer({
-        id:PIN_DOTS,source:PIN_SOURCE,type:"circle",
+        id:PIN_DOTS,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
         paint:{
           "circle-radius": ["case", ["==",["get","id"],state.current?.id || ""],9,7],
-          "circle-color":["match",["get","kind"],"note","#b77c27","photo","#845cac","#245c48"],
+          "circle-color":["get","color"],
           "circle-stroke-color":"#ffffff","circle-stroke-width":1.2
         }
       });
@@ -291,18 +327,31 @@ function renderMarkers(entries) {
     }
     if (!state.map.getLayer(PIN_TOUCH)) {
       state.map.addLayer({
-        id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",
+        id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",filter:["!",["has","point_count"]],
         paint:{"circle-radius":18,"circle-color":"#ffffff","circle-opacity":0.005}
       });
     }
     attachMapPinClicks(state.map);
+    if (!state.clusterClickAttached) {
+      state.clusterClickAttached = true;
+      state.map.on("click","canvas-clusters",(event)=>{
+        const feature=event.features?.[0];
+        if (!feature) return;
+        state.map.getSource(PIN_SOURCE).getClusterExpansionZoom(
+          feature.properties.cluster_id,(err,zoom)=>{
+            if (!err) state.map.easeTo({center:feature.geometry.coordinates,zoom:Math.min(zoom,19)});
+          });
+      });
+      state.map.on("mouseenter","canvas-clusters",()=>{state.map.getCanvas().style.cursor="pointer";});
+      state.map.on("mouseleave","canvas-clusters",()=>{state.map.getCanvas().style.cursor="";});
+    }
   } else if (state.library === "leaflet") {
     for (const marker of state.markers) { try { marker.remove(); }catch {} }
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
       const marker = window.L.circleMarker([Number(entry.lat),Number(entry.lng)],{
-        radius:8,color:"#ffffff",weight:3,fillColor:pinColor(entry.kind),
+        radius:8,color:"#ffffff",weight:3,fillColor:validColor(entry.color)?entry.color:pinColor(entry.kind),
         fillOpacity:1,bubblingMouseEvents:false
       }).addTo(state.map);
       marker.on("click",()=>{
@@ -424,6 +473,7 @@ async function initMap() {
 function choose(entry, focus) {
   if (state.placing) { placeAt({lng:entry.lng,lat:entry.lat}); return; }
   state.current=entry;render();
+  if (entry.id) history.replaceState(null,"",pinUrl(entry.id));
   if (focus) {showMobileMap();mapFocus(entry);}
   const detail=$("detailPanel");detail.replaceChildren();
   const head=text("div","","detail-head");
@@ -445,6 +495,7 @@ function choose(entry, focus) {
     const anchor=text("a","Google Maps ↗","secondary");
     anchor.href=entry.link;anchor.rel="noopener noreferrer";anchor.target="_blank";actions.append(anchor);
   }
+  actions.append(button("Share link",()=>sharePin(entry),"secondary"));
   const ownerKey=getKey(entry.id);
   if (entry.source!=="hostel" && ownerKey) {
     actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
@@ -455,7 +506,9 @@ function choose(entry, focus) {
   detail.classList.remove("hidden");
 }
 function hideDetail() {
-  state.current=null;$("detailPanel").classList.add("hidden");$("overlay").classList.add("hidden");render();
+  state.current=null;
+  if (new URLSearchParams(location.search).has("pin")) history.replaceState(null,"",pinUrl(null));
+  $("detailPanel").classList.add("hidden");$("overlay").classList.add("hidden");render();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -495,6 +548,8 @@ function openEditor(entry) {
   $("price").value=entry.price||"";
   $("rating").value=entry.rating||"";
   $("notes").value=entry.notes||"";
+  $("pinIcon").value=ICONS.includes(entry.icon)?entry.icon:"📍";
+  $("pinColor").value=validColor(entry.color)?entry.color:"#245c48";
   $("imageUrl").value=entry.photo?.startsWith("https://")?entry.photo:"";
   $("coords").textContent=entry.lat.toFixed(5)+", "+entry.lng.toFixed(5);
   const img=$("photoPreview");
@@ -542,7 +597,8 @@ async function saveEntry(event) {
   event.preventDefault();if(state.saving||!state.draft)return;
   const entry={...state.draft,
     title:$("title").value.trim(),category:$("category").value.trim(),kind:state.draft.kind,
-    notes:$("notes").value.trim(),price:$("price").value.trim(),rating:$("rating").value.trim()
+    notes:$("notes").value.trim(),price:$("price").value.trim(),rating:$("rating").value.trim(),
+    icon:$("pinIcon").value,color:$("pinColor").value
   };
   const imageUrl=$("imageUrl").value.trim();
   if (imageUrl && !safeImage(imageUrl)) {notify("Use an HTTPS image URL.",true);return;}
@@ -553,7 +609,9 @@ async function saveEntry(event) {
   const existing=getKey(entry.id);const key=existing||randomKey();
   if (!existing)saveKey(entry.id,key);
   try {
+    const before = state.entries.find(x=>x.id===entry.id) || null;
     await submitChange("save",entry,key);
+    recordChange({before,after:state.entries.find(x=>x.id===entry.id)||entry});
     closeEditor();notify("Saved to the shared map.");
   }catch(error){notify(error.message,true);}
   finally{state.saving=false;$("saveEntry").textContent="Save to shared map";$("saveEntry").disabled=!SHEETS_URL;}
@@ -562,7 +620,7 @@ async function removeEntry(entry) {
   if (!confirm("Delete this public entry?"))return;
   const key=getKey(entry.id);
   if (!key){notify("Only the browser that added this entry can delete it.",true);return;}
-  try {await submitChange("delete",entry,key);hideDetail();notify("Entry removed.");}
+  try {await submitChange("delete",entry,key);recordChange({before:entry,after:null});hideDetail();notify("Entry removed.");}
   catch(error){notify(error.message,true);}
 }
 async function shrinkPhoto(file) {
@@ -596,8 +654,120 @@ async function addImageFile(file) {
     $("photoPreview").src=result;$("photoPreview").classList.remove("hidden");
   }catch(error){notify(error.message,true);}
 }
+
+function validColor(color) {return /^#[0-9a-fA-F]{6}$/.test(String(color||""));}
+function renderCategories() {
+  const select=$("categoryFilter");
+  if (!select) return;
+  const categories=[...new Set(allEntries().map(e=>e.category).filter(Boolean))].sort();
+  const signature=categories.join("\u0001");
+  if (select.dataset.signature!==signature) {
+    select.dataset.signature=signature;
+    select.replaceChildren(new Option("All categories","all"));
+    for (const cat of categories) select.add(new Option(cat,cat));
+  }
+  if (state.category!=="all"&&!categories.includes(state.category)) state.category="all";
+  select.value=state.category;
+}
+function pinUrl(id) {
+  const url=new URL(location.href);
+  if(id)url.searchParams.set("pin",id);
+  else url.searchParams.delete("pin");
+  return url.pathname+url.search+url.hash;
+}
+async function sharePin(entry) {
+  const url=new URL(pinUrl(entry.id),location.href).href;
+  try {
+    if (navigator.share) await navigator.share({title:entry.title,url});
+    else if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);notify("Pin link copied.");
+    } else {prompt("Copy this pin link:",url);}
+  } catch(e) {if(e.name!=="AbortError")notify("Could not share this link.",true);}
+}
+function applyDeepLink() {
+  if(!state.pendingPin)return;
+  const entry=allEntries().find(e=>e.id===state.pendingPin);
+  if(entry){state.pendingPin=null;choose(entry,true);}
+}
+function locateUser() {
+  if (!navigator.geolocation) {notify("Location is unavailable in this browser.",true);return;}
+  $("locateButton").disabled=true;
+  navigator.geolocation.getCurrentPosition(({coords})=>{
+    $("locateButton").disabled=false;
+    const {latitude:lat,longitude:lng}=coords;
+    if(state.library==="maplibre"){
+      state.gpsMarker?.remove();
+      const el=text("div","", "gps-dot");
+      state.gpsMarker=new window.maplibregl.Marker({element:el})
+        .setLngLat([lng,lat]).addTo(state.map);
+      state.map.flyTo({center:[lng,lat],zoom:Math.max(mapZoom(),16)});
+    } else if(state.library==="leaflet"){
+      state.gpsMarker?.remove();
+      state.gpsMarker=window.L.circleMarker([lat,lng],{radius:8,color:"#fff",weight:3,
+        fillColor:"#2486df",fillOpacity:1}).addTo(state.map);
+      state.map.flyTo([lat,lng],Math.max(mapZoom(),16));
+    }
+    notify("Showing your location. Location is not saved or shared.");
+  },error=>{
+    $("locateButton").disabled=false;
+    notify(error.code===1?"Location permission denied.":"Unable to determine your location.",true);
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+}
+function recordChange(change) {
+  state.undo.push(change);
+  if(state.undo.length>30)state.undo.shift();
+  state.redo=[];
+  updateHistoryButtons();
+}
+function updateHistoryButtons() {
+  for(const [id,available] of [["undoBtn",state.undo.length],["redoBtn",state.redo.length]]) {
+    const el=$(id);
+    if(el)el.disabled=state.historyBusy||state.saving||!SHEETS_URL||!available;
+  }
+}
+async function replayHistory(direction) {
+  if(state.historyBusy||state.saving||!SHEETS_URL)return;
+  const from=direction==="undo"?state.undo:state.redo;
+  const to=direction==="undo"?state.redo:state.undo;
+  if(!from.length)return;
+  const item=from[from.length-1];
+  const desired=direction==="undo"?item.before:item.after;
+  const id=(item.after||item.before).id;
+  const current=state.entries.find(e=>e.id===id)||null;
+  const key=getKey(id);
+  if(!key){notify("This browser does not have the edit key.",true);return;}
+  state.historyBusy=true;updateHistoryButtons();
+  try {
+    if(desired) {
+      const entry={...desired,version:current?.version||""};
+      await submitChange("save",entry,key);
+    } else if(current) {
+      await submitChange("delete",current,key);
+    }
+    from.pop();to.push(item);
+    notify(direction==="undo"?"Change undone on shared map.":"Change redone on shared map.");
+  } catch(e){notify("Cannot "+direction+": "+e.message,true);}
+  finally{state.historyBusy=false;updateHistoryButtons();}
+}
+function setupOffline() {
+  const status=$("offlineState");
+  const refresh=()=>{
+    status.textContent=navigator.onLine?"":"Offline · cached map data only";
+    status.classList.toggle("hidden",navigator.onLine);
+  };
+  window.addEventListener("online",()=>{refresh();reloadShared(true);});
+  window.addEventListener("offline",refresh);
+  refresh();
+  if("serviceWorker" in navigator && location.protocol==="https:")
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
+  $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
+  $("locateButton").addEventListener("click",locateUser);
+  $("undoBtn").addEventListener("click",()=>replayHistory("undo"));
+  $("redoBtn").addEventListener("click",()=>replayHistory("redo"));
   $("search").addEventListener("input",(e)=>{state.query=e.target.value;render();});
   $("sort").addEventListener("change",(e)=>{state.sort=e.target.value;render();});
   document.querySelectorAll(".filter").forEach((el)=>
@@ -656,11 +826,13 @@ function wire() {
 }
 async function main() {
   wire();
+  setupOffline();
   try {await loadHostels();}catch(error){notify(error.message,true);}
   render();
   await initMap();
   render();
   await reloadShared(true);
+  applyDeepLink();
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {

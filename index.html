@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=trackfix-20261114">
+<link rel="stylesheet" href="./style.css?v=features-20261114">
 </head>
 <body>
 <div id="app">
@@ -16,7 +16,7 @@
  <a class="brand" href="./" aria-label="Map Canvas home"><span class="brand-symbol">◎</span><span>Map<span class="brand-heavy">Canvas</span></span></a>
  <div class="top-actions">
   <span class="storage-state" id="syncState" title="Connection status">Loading…</span>
-  <button id="refreshBtn" class="icon-button" aria-label="Reload shared pins" title="Reload shared pins">↻</button>
+  <span id="offlineState" class="offline-state hidden" role="status"></span><button id="undoBtn" class="icon-button" title="Undo saved change" aria-label="Undo saved change" disabled>↶</button><button id="redoBtn" class="icon-button" title="Redo saved change" aria-label="Redo saved change" disabled>↷</button><button id="refreshBtn" class="icon-button" aria-label="Reload shared pins" title="Reload shared pins">↻</button>
   <button id="addButton" class="primary">＋ <span>Add to map</span></button>
  </div>
 </header>
@@ -34,7 +34,7 @@
     <button class="filter" data-filter="photo">▧ Photos</button>
    </div>
   </div>
-  <div class="entries-header"><span id="resultCount">Entries</span><select id="sort" aria-label="Sort entries"><option value="default">Default</option><option value="price">Price ↑</option><option value="rating">Rating ↓</option><option value="title">A–Z</option></select></div>
+  <div class="entries-header"><span id="resultCount">Entries</span><select id="categoryFilter" aria-label="Filter category"><option value="all">All categories</option></select><select id="sort" aria-label="Sort entries"><option value="default">Default</option><option value="price">Price ↑</option><option value="rating">Rating ↓</option><option value="title">A–Z</option></select></div>
   <div id="entries" class="entries" role="list"></div>
   <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
  </aside>
@@ -44,7 +44,7 @@
   <nav class="map-tools" aria-label="Map controls">
    <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
    <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
-   <button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
+   <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
    <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
    <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
   </nav>
@@ -65,6 +65,7 @@
   <div class="type-group" role="group" aria-label="Entry type"><button type="button" class="type is-active" data-kind="place">⌖ Place</button><button type="button" class="type" data-kind="note">▤ Note</button><button type="button" class="type" data-kind="photo">▧ Photo</button></div>
   <label>Title<input id="title" required maxlength="140" placeholder="Give this spot a name"></label>
   <div class="form-grid"><label>Category<input id="category" maxlength="40" placeholder="Café, hostel…"></label><label>Price<input id="price" maxlength="40" placeholder="$5"></label><label>Rating<input id="rating" maxlength="30" placeholder="4.7"></label></div>
+  <div class="form-grid"><label>Pin icon<select id="pinIcon" aria-label="Pin icon"><option>📍</option><option>🏨</option><option>☕</option><option>🍜</option><option>🏋️</option><option>🎨</option><option>📸</option><option>📝</option><option>🏖️</option><option>🛒</option><option>⭐</option></select></label><label>Pin color<input id="pinColor" type="color" value="#245c48"></label></div>
   <label>Description / notes<textarea id="notes" rows="3" maxlength="4000" placeholder="What makes this place special?"></textarea></label>
   <div class="photo-box">
    <label>Photo <span class="muted">(optional for places and notes)</span>
