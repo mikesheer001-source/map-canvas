@@ -137,6 +137,31 @@ try {
   assert.ok(await page.locator("#measureReadout").isHidden());
   await page.screenshot({path:`test-artifacts/${engineName}-canvas-tools-desktop.png`});
 
+  // Settings: immediate application, persistence through reload, and reset.
+  await page.locator("#settingsButton").click();
+  assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
+  await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
+  await page.locator('#settingsDialog input[data-feature="labels"]').uncheck();
+  await page.locator('#settingsDialog input[data-feature="clustering"]').uncheck();
+  assert.ok(await page.locator(".searchwrap").isHidden());
+  assert.ok(await page.locator("#toggleLabels").isHidden());
+  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster===false);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:feature-settings-v1")).search),false);
+  await page.locator("#settingsDone").click();
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  assert.ok(await page.locator(".searchwrap").isHidden(),"Settings persist after reload");
+  assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
+  await page.locator("#settingsButton").click();
+  await page.locator("#settingsReset").click();
+  assert.ok(await page.locator(".searchwrap").isVisible(),"Reset restores search");
+  assert.equal(await page.locator('#settingsDialog input[data-feature="labels"]').isChecked(),true);
+  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster===true);
+  await page.locator("#settingsDone").click();
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  assert.ok(await page.locator(".searchwrap").isVisible());
+
   // No sign-in, and writes must be disabled if the shared backend isn't configured.
   assert.equal(await page.locator("#editor").count(),1);
   assert.equal(await page.locator("#syncState").textContent(),"Sheet not connected");
