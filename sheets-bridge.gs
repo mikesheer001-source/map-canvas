@@ -112,7 +112,7 @@ function check_(entry) {
   if(entry.group!==undefined&&(typeof entry.group!=="string"||entry.group.length>100))throw new Error("Invalid group");
   if(entry.gallery!==undefined){
     if(!Array.isArray(entry.gallery)||entry.gallery.length>12||
-       entry.gallery.some(u=>typeof u!=="string"||u.length>2000||!/^https:\/\/\S+$/.test(u)))
+       entry.gallery.some(u=>typeof u!=="string" || !(u.length<=2000 && /^https:\/\/\S+$/.test(u)) && !(u.length<=5500 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(u))))
       throw new Error("Invalid gallery");
   }
   if(entry.canvas!=null){
