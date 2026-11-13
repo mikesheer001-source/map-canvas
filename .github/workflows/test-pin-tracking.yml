@@ -30,12 +30,13 @@ jobs:
       - name: Install Chromium test dependencies
         run: |
           npm install --no-save playwright@1.57.0
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Run real-browser geometry tests
         run: |
           mkdir -p test-artifacts
           python3 -m http.server 8765 --bind 127.0.0.1 &
           node tests/pin-browser.test.mjs
+          MAP_BROWSER_ENGINE=webkit node tests/pin-browser.test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import {chromium} from "playwright";
-const browser = await chromium.launch({
-  headless:true,args:["--use-gl=angle","--use-angle=swiftshader","--enable-webgl"]
+import {chromium, webkit} from "playwright";
+const engineName = process.env.MAP_BROWSER_ENGINE === "webkit" ? "webkit" : "chromium";
+const engine = engineName === "webkit" ? webkit : chromium;
+const browser = await engine.launch({
+  headless:true,...(engineName === "chromium" ? {args:["--use-gl=angle","--use-angle=swiftshader","--enable-webgl"]} : {})
 });
 const page = await browser.newPage({viewport:{width:1200,height:800},deviceScaleFactor:1});
 const errors=[];
@@ -36,7 +38,7 @@ try {
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),13);
   let checks=await verifyAnchors("initial");
   assert.equal(checks.length,9);
-  await page.screenshot({path:"test-artifacts/maplibre-pins-desktop.png"});
+  await page.screenshot({path:`test-artifacts/${engineName}-maplibre-pins-desktop.png`});
 
   // Switch to raster OSM. Map.setStyle removes custom layers: they must restore.
   await page.locator("#basemapButton").click();
@@ -53,6 +55,21 @@ try {
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:30000});
   assert.equal((await verifyAnchors("vector")).length,9);
 
+  // Simulate a genuine drag on the map viewport (not a programmatic camera jump).
+  const beforeDrag = await page.evaluate(() => {
+    const p=window.__mapCanvasTest.getMap().getCenter(); return [p.lng,p.lat];
+  });
+  await page.mouse.move(710,380);
+  await page.mouse.down();
+  await page.mouse.move(850,460,{steps:12});
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const afterDrag = await page.evaluate(() => {
+    const p=window.__mapCanvasTest.getMap().getCenter(); return [p.lng,p.lat];
+  });
+  assert.notDeepEqual(afterDrag,beforeDrag,"Touch-style drag must actually pan the map");
+  assert.equal((await verifyAnchors("drag")).length,9);
+
   await page.setViewportSize({width:390,height:844});
   await page.evaluate(()=>window.__mapCanvasTest.getMap().resize());
   assert.equal((await verifyAnchors("mobile")).length,9);
@@ -60,7 +77,7 @@ try {
   await page.waitForFunction(()=>document.querySelectorAll(".maplibregl-marker.canvas-pin").length>0);
   const positioned=await page.locator(".maplibregl-marker.canvas-pin").first().evaluate(node=>getComputedStyle(node).position);
   assert.equal(positioned,"absolute","Label card positioning must not override MapLibre's anchor");
-  await page.screenshot({path:"test-artifacts/maplibre-mobile-labels.png"});
+  await page.screenshot({path:`test-artifacts/${engineName}-maplibre-mobile-labels.png`});
 
   // Labels vanish during drag; the native dot layer persists.
   await page.evaluate(()=>{
@@ -72,7 +89,7 @@ try {
     map.fire("moveend");
   });
   assert.deepEqual(errors,[],"Browser JavaScript errors");
-  console.log("PASS: 36 projection tests, 2 basemap switches, mobile geometry, CSS and gesture handling");
+  console.log(`PASS ${engineName}: 45 projection tests, 2 basemap switches, mobile geometry, actual drag, CSS and gesture handling`);
 } finally {
   await browser.close();
 }
