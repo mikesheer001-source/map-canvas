@@ -581,6 +581,7 @@ export function createEnhancements(api){
       if(!file)return;e.preventDefault();
       const [x,y]=viewPoint(e),[lng,lat]=unproject(x,y);
       const draft=makeDraft("Picture","photo",{lat,lng});
+      draft.kind="place";
       draft.canvas={type:"image",width:210};
       state.pendingPhoto=file;api.startPlacement("photo",draft);api.placeAt({lng,lat});
     });

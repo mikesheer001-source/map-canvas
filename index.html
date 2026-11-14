@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=shared-map-20261114">
+<link rel="stylesheet" href="./style.css?v=place-details-20261114">
 </head>
 <body>
 <div id="app">
@@ -78,7 +78,7 @@
 <dialog id="editor">
  <form id="editForm">
   <div class="dialog-heading"><div><div class="eyebrow">ADD TO CANVAS</div><h2 id="editorTitle">New map entry</h2></div><button type="button" id="closeEditor" class="icon-button" aria-label="Close editor">✕</button></div>
-  <div class="type-group" role="group" aria-label="Entry type"><button type="button" class="type is-active" data-kind="place">⌖ Place</button><button type="button" class="type" data-kind="note">▤ Note</button><button type="button" class="type" data-kind="photo">▧ Photo</button></div>
+  <div class="type-group" role="group" aria-label="Place details"><button type="button" class="type is-active" data-kind="place">⌖ Place</button><button type="button" class="type" data-kind="note">▤ Notes</button><button type="button" class="type" data-kind="photo">▧ Photo</button></div>
   <label>Title<input id="title" required maxlength="140" placeholder="Give this spot a name"></label>
   <div class="form-grid"><label>Category<input id="category" maxlength="40" placeholder="Café, hostel…"></label><label>Price<input id="price" maxlength="40" placeholder="$5"></label><label>Rating<input id="rating" maxlength="30" placeholder="4.7"></label></div>
   <div class="form-grid"><label>Layer<input id="entryLayer" list="layerSuggestions" maxlength="40" placeholder="Places"><datalist id="layerSuggestions"></datalist></label><label>Group / folder<input id="entryGroup" list="groupSuggestions" maxlength="100" placeholder="Travel/Hanoi"><datalist id="groupSuggestions"></datalist></label></div>
@@ -108,6 +108,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=shared-map-20261114"></script>
+<script type="module" src="./app.js?v=place-details-20261114"></script>
 </body>
 </html>

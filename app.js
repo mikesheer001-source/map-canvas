@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=shared-map-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=place-details-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -216,7 +216,9 @@ function filterEntries() {
   const needle = (state.features.search?state.query:"").toLowerCase().trim();
   const shown = allEntries().filter((e) =>
     (!state.features.filters || state.category === "all" || e.category === state.category)
-    && (!state.features.filters || state.filter === "all" || state.filter === e.kind)
+    && (!state.features.filters || state.filter === "all" || state.filter === "place" ||
+      (state.filter === "note" && (e.notes || e.kind === "note")) ||
+      (state.filter === "photo" && (e.photo || e.gallery?.length || e.kind === "photo")))
     && [e.title, e.notes, e.category, e.price, e.rating]
       .some((x) => String(x || "").toLowerCase().includes(needle)));
   if (state.features.filters && state.sort === "price") shown.sort((a,b) =>
@@ -613,7 +615,7 @@ async function placeAt({lng,lat}) {
   const p=state.placing;state.placing=null;
   $("placementBar").classList.add("hidden");
   const draft=p.draft||{
-    id:crypto.randomUUID(),title:"",kind:p.kind,category:"",price:"",rating:"",
+    id:crypto.randomUUID(),title:"",kind:"place",category:"",price:"",rating:"",
     notes:"",photo:"",version:""
   };
   draft.lat=Number(lat);draft.lng=Number(lng);
@@ -639,8 +641,8 @@ function openEditor(entry) {
   if (entry.photo) {img.src=entry.photo;img.classList.remove("hidden");}
   else {img.removeAttribute("src");img.classList.add("hidden");}
   for(const b of document.querySelectorAll(".type")) {
-    b.classList.toggle("is-active",b.dataset.kind===entry.kind);
-    attr(b,"aria-pressed",b.dataset.kind===entry.kind);
+    b.classList.toggle("is-active",b.dataset.kind==="place");
+    attr(b,"aria-pressed",b.dataset.kind==="place");
   }
   $("saveNote").textContent="Saves to the shared map on all devices.";
   $("saveEntry").disabled=false;
@@ -684,7 +686,7 @@ async function uploadEntryPhotos(entry){
 async function saveEntry(event) {
   event.preventDefault();if(state.saving||!state.draft)return;
   const entry={...state.draft,
-    title:$("title").value.trim(),category:$("category").value.trim(),kind:state.draft.kind,
+    title:$("title").value.trim(),category:$("category").value.trim(),kind:"place",
     notes:$("notes").value.trim(),price:$("price").value.trim(),rating:$("rating").value.trim(),
     icon:$("pinIcon").value,color:$("pinColor").value
   };
@@ -745,7 +747,7 @@ async function shrinkPhoto(file) {
 async function addImageFile(file) {
   if (!state.draft) {
     state.pendingPhoto=file;
-    const draft={id:crypto.randomUUID(),title:"Picture",kind:"photo",category:"",price:"",
+    const draft={id:crypto.randomUUID(),title:"Picture",kind:"place",category:"",price:"",
       rating:"",notes:"",photo:"",version:"",layer:"Pictures",group:"",
       gallery:[],canvas:{type:"image",width:210},icon:"📸",color:"#245c48"};
     startPlacement("photo",draft);return;
@@ -971,10 +973,11 @@ function wire() {
   });
   document.querySelectorAll(".type").forEach((el)=>el.addEventListener("click",()=>{
     if(!state.draft)return;
-    state.draft.kind=el.dataset.kind;
     for(const item of document.querySelectorAll(".type")){
       item.classList.toggle("is-active",item===el);attr(item,"aria-pressed",item===el);
     }
+    const target={place:$("title"),note:$("notes"),photo:$("imageUrl")}[el.dataset.kind];
+    target?.focus();
   }));
   window.addEventListener("paste",(event)=>{
     if(event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;
