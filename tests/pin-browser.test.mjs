@@ -8,7 +8,13 @@ const browser = await engine.launch({
 });
 const page = await browser.newPage({viewport:{width:1200,height:800},deviceScaleFactor:1});
 const errors=[];
+const consoleMessages=[];
+const failedRequests=[];
 page.on("pageerror",error=>errors.push(error.message));
+page.on("console",message=>{
+  if(["error","warning"].includes(message.type()))consoleMessages.push(message.text());
+});
+page.on("requestfailed",request=>failedRequests.push(`${request.url()} - ${request.failure()?.errorText}`));
 let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
@@ -90,11 +96,37 @@ async function verifyAnchors(label) {
     return counts;
   },label);
 }
+async function waitForRenderer() {
+  try {
+    await page.waitForFunction(()=>{
+      const api=window.__mapCanvasTest;
+      const map=api?.getMap();
+      if(api?.getLibrary()==="maplibre")return !!map?.getLayer?.("canvas-pin-dots");
+      if(api?.getLibrary()==="leaflet")return !!map && document.querySelectorAll(".leaflet-emoji-marker").length>0;
+      return false;
+    },null,{timeout:60000});
+  } catch(error) {
+    const diagnostics=await page.evaluate(()=>({
+      renderer:window.__mapCanvasTest?.getLibrary(),
+      hasMap:!!window.__mapCanvasTest?.getMap(),
+      mapNotice:document.getElementById("mapNotice")?.textContent,
+      entries:window.__mapCanvasTest?.getEntries()?.length,
+      leafletMarkers:document.querySelectorAll(".leaflet-emoji-marker").length
+    }));
+    throw new Error(`No working map renderer: ${JSON.stringify(diagnostics)}. `+
+      `Page errors: ${JSON.stringify(errors)}. Console: ${JSON.stringify(consoleMessages.slice(-10))}. `+
+      `Failed requests: ${JSON.stringify(failedRequests.slice(-10))}. ${error.message}`);
+  }
+  const renderer=await page.evaluate(()=>window.__mapCanvasTest.getLibrary());
+  if(engineName==="chromium")assert.equal(renderer,"maplibre","Chromium must exercise native WebGL geometry");
+  return renderer;
+}
 try {
   await page.goto("http://127.0.0.1:8765/?test=1",{waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:60000});
+  let renderer=await waitForRenderer();
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),12);
   assert.equal(await page.locator("#entries .entry").filter({hasText:"Rebel Rooster Hostel"}).count(),0);
+  if(renderer==="maplibre"){
   assert.equal(await page.locator(".maplibregl-marker.emoji-pin").count(),12,"Every remaining hostel has a visible emoji");
   assert.equal(await page.locator(".maplibregl-marker.emoji-pin").first().textContent(),"🏨",
     "Hostel icons are thematic");
@@ -152,6 +184,11 @@ try {
       throw Error("Emoji pins should remain visible while panning");
     map.fire("moveend");
   });
+  }else{
+    assert.equal(await page.locator(".leaflet-emoji-marker").count(),12,"Every hostel has a fallback marker");
+    assert.match(await page.locator(".leaflet-emoji-marker").first().textContent(),/🏨/,"Fallback markers use thematic emoji");
+    await page.screenshot({path:`test-artifacts/${engineName}-leaflet-pins-desktop.png`});
+  }
   // Real DOM interactions: search, category filtering and deep links.
   await page.setViewportSize({width:1200,height:800});
   await page.locator("#search").fill("Viet Vintage");
@@ -175,7 +212,7 @@ try {
   assert.equal(await page.locator("#entries .entry").count(),11);
   assert.equal(shared.length,11);
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  renderer=await waitForRenderer();
   assert.equal(await page.locator("#entries .entry").count(),11,"Deletion persists after reload");
   // A fresh change can be undone and reflected on the shared map.
   await page.locator("#entries .entry").first().click();
@@ -190,11 +227,11 @@ try {
   await page.locator("#themeToggle").click();
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"dark");
   assert.equal(await page.locator("#themeToggle").getAttribute("aria-pressed"),"true");
-  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().isStyleLoaded() &&
+  if(renderer==="maplibre")await page.waitForFunction(()=>window.__mapCanvasTest.getMap().isStyleLoaded() &&
     window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
   await page.screenshot({path:`test-artifacts/${engineName}-dark-theme-map.png`});
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"),null,{timeout:30000});
+  renderer=await waitForRenderer();
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"dark","Dark mode survives reload");
   await page.locator("#settingsButton").click();
   assert.equal(await page.locator('#settingsDialog input[data-feature="darkTheme"]').isChecked(),true,
@@ -202,7 +239,7 @@ try {
   await page.locator('#settingsDialog input[data-feature="darkTheme"]').uncheck();
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),"light");
   await page.locator("#settingsDone").click();
-  await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
+  if(renderer==="maplibre")await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
 
   // No floating Picture/Text toolbar or empty white rectangle.
   assert.equal(await page.locator(".canvas-tools").count(),0);
@@ -233,7 +270,7 @@ try {
   });
   await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===13);
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  renderer=await waitForRenderer();
   assert.equal(await page.locator("#entries .entry").count(),13,"CSV import persists on reload");
 
   // Settings: immediate application, persistence through reload, and reset.
@@ -250,10 +287,10 @@ try {
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:feature-settings-v1")).search),false);
   await page.locator("#settingsDone").click();
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  renderer=await waitForRenderer();
   assert.ok(await page.locator(".searchwrap").isHidden(),"Settings persist after reload");
   assert.equal(await page.locator("#galleryControls").evaluate(el=>el.classList.contains("feature-hidden")),true,"Gallery choice persists");
-  assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
+  if(renderer==="maplibre")assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
   await page.locator("#settingsButton").click();
   await page.locator("#settingsReset").click();
   assert.ok(await page.locator(".searchwrap").isVisible(),"Reset restores search");
@@ -262,7 +299,7 @@ try {
   assert.ok(!(await page.locator('#settingsDialog input[data-feature="clustering"]').count()));
   await page.locator("#settingsDone").click();
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
+  renderer=await waitForRenderer();
   assert.ok(await page.locator(".searchwrap").isVisible());
 
   // Shared public map with no sign-in.
@@ -270,7 +307,7 @@ try {
   assert.match(await page.locator("#syncState").textContent(),/Shared map synced/);
   assert.equal(await page.locator("script[src*='config.js']").count(),0);
   assert.deepEqual(errors,[],"Browser JavaScript errors");
-  console.log(`PASS ${engineName}: projections, basemap switches, delete/save persistence, CSV import, JSON export, settings and mobile geometry`);
+  console.log(`PASS ${engineName} (${renderer}): map rendering, shared delete/save persistence, CSV import, JSON export and settings`);
 } finally {
   await browser.close();
 }
