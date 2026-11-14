@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=anchored-details-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=zoomed-details-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -559,12 +559,16 @@ function positionDetail() {
   const map=$("map");
   const onScreen=point.x >= 0 && point.y >= 0 && point.x <= map.clientWidth && point.y <= map.clientHeight;
   detail.style.visibility=onScreen ? "visible" : "hidden";
-  const halfWidth=detail.offsetWidth/2;
+  // Keep the card usable at distant zoom levels and cap its size up close.
+  const scale=Math.max(0.5,Math.min(1.15,0.5+(mapZoom()-12)*0.1));
+  const halfWidth=detail.offsetWidth*scale/2;
   const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
   detail.style.left=centerX+"px";
-  detail.style.setProperty("--anchor-x",(point.x-centerX)+"px");
-  detail.style.top=point.y+"px";
-  detail.classList.toggle("below-pin",point.y < detail.offsetHeight+24);
+  detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
+  detail.style.setProperty("--detail-scale",scale);
+  const below=point.y < detail.offsetHeight*scale+24;
+  detail.style.top=(point.y+(below?22:-22))+"px";
+  detail.classList.toggle("below-pin",below);
 }
 function choose(entry, focus) {
   if (state.placing) { placeAt({lng:entry.lng,lat:entry.lat}); return; }
