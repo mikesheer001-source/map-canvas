@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=place-details-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=no-pin-drag-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -360,13 +360,12 @@ function attachMapPinClicks(map) {
     const id = event.features?.[0]?.properties?.id;
     const entry = allEntries().find((item) => item.id === id);
     if (!entry) return;
-    if(enhanced?.isDrawing() || enhanced?.consumeDragClick())return;
+    if(enhanced?.isDrawing())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else choose(entry,false);
   });
   map.on("mouseenter", PIN_TOUCH, () => { map.getCanvas().style.cursor = "pointer"; });
   map.on("mouseleave", PIN_TOUCH, () => { map.getCanvas().style.cursor = ""; });
-  enhanced?.attachPinDrag(map,PIN_TOUCH);
 }
 function renderMarkers(entries) {
   state.visiblePins = entries;
@@ -378,7 +377,7 @@ function renderMarkers(entries) {
     const data = pinGeoJSON(entries);
     const source = state.map.getSource(PIN_SOURCE);
     // Every feature stays separate at every zoom. Native GeoJSON remains
-    // underneath emoji markers for precise hit-testing and pin dragging.
+    // underneath emoji markers for precise hit-testing.
     if (source) source.setData(data);
     else state.map.addSource(PIN_SOURCE,{type:"geojson",data,cluster:false});
     if (!state.map.getLayer(PIN_DOTS)) {
@@ -407,17 +406,15 @@ function renderMarkers(entries) {
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
-      const owned=!!getKey(entry.id)&&state.localReady;
       const emoji=pinEmoji(entry);
       const marker=window.L.marker([Number(entry.lat),Number(entry.lng)],{
-        draggable:owned,keyboard:true,bubblingMouseEvents:false,
+        keyboard:true,bubblingMouseEvents:false,
         icon:window.L.divIcon({
           className:"leaflet-emoji-marker",
           html:'<span class="emoji-pin-inner">'+emoji+'</span>',
           iconSize:[34,34],iconAnchor:[17,17]
         })
       }).addTo(state.map);
-      if(owned)enhanced?.leafletDrag(marker,entry);
       marker.on("click",()=>{
         if(enhanced?.isDrawing())return;
         if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});

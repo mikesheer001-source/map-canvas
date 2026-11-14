@@ -202,7 +202,7 @@ export function createEnhancements(api){
   const $=id=>document.getElementById(id);
   let selectedLayer="all",selectedGroup="all",hiddenLayers=new Set();
   let activeTool=null,firstPoint=null,hoverPoint=null,measure=[],measureDone=false;
-  let suppressPinClick=false,dragging=false,refreshBusy=false,updatingUi=false;
+  let refreshBusy=false,updatingUi=false;
   let uploadedGallery=[];
   const localMeta=(entry)=>({layer:entry.layer||defaultLayer(entry),group:entry.group||"",
     gallery:Array.isArray(entry.gallery)?entry.gallery:[],canvas:entry.canvas||null});
@@ -313,29 +313,26 @@ export function createEnhancements(api){
       });
     }
   }
-  function pointerEdit(el,entry,resize){
+  function resizeObject(el,entry){
     if(!state.localReady)return;
     let start=null;
     el.addEventListener("pointerdown",event=>{
       if(event.button!==0&&event.pointerType!=="touch")return;
       event.stopPropagation();event.preventDefault();
-      start={x:event.clientX,y:event.clientY,width:entry.canvas?.width||210,
-        point:project(entry.lng,entry.lat)};
+      start={x:event.clientX,y:event.clientY,width:entry.canvas?.width||210};
       el.setPointerCapture(event.pointerId);el.classList.add("is-dragging");
     });
     el.addEventListener("pointermove",event=>{
       if(!start)return;
-      const dx=event.clientX-start.x,dy=event.clientY-start.y;
-      if(resize)el.parentElement.style.width=Math.max(100,Math.min(420,start.width+dx))+"px";
-      else {el.parentElement.style.left=(start.point.x+dx)+"px";el.parentElement.style.top=(start.point.y+dy)+"px";}
+      const dx=event.clientX-start.x;
+      el.parentElement.style.width=Math.max(100,Math.min(420,start.width+dx))+"px";
     });
     const finish=async event=>{
       if(!start)return;
       const x=event.clientX-start.x,y=event.clientY-start.y,old=start;start=null;
       el.classList.remove("is-dragging");
       if(Math.abs(x)+Math.abs(y)<3)return;
-      const updates=resize?{canvas:{...entry.canvas,width:Math.round(Math.max(100,Math.min(420,old.width+x)))}}
-        :(()=>{const [lng,lat]=unproject(old.point.x+x,old.point.y+y);return {lng,lat};})();
+      const updates={canvas:{...entry.canvas,width:Math.round(Math.max(100,Math.min(420,old.width+x)))}};
       await persist(entry,updates);
     };
     el.addEventListener("pointerup",finish);
@@ -375,7 +372,7 @@ export function createEnhancements(api){
         const handle=document.createElement("button");handle.type="button";
         handle.className="canvas-resize";handle.title="Resize object";handle.textContent="↘";
         node.append(handle);
-        pointerEdit(body,entry,false);pointerEdit(label,entry,false);pointerEdit(handle,entry,true);
+        resizeObject(handle,entry);
       }
       node.addEventListener("click",event=>{
         if(event.target.closest(".canvas-resize"))return;
@@ -520,48 +517,6 @@ export function createEnhancements(api){
       entries.map(e=>columns.map(c=>csvCell(e[c])).join(",")).join("\n"),"text/csv;charset=utf-8");
   }
   function isDrawing(){return false;}
-  function consumeDragClick(){if(suppressPinClick){suppressPinClick=false;return true;}return false;}
-  function attachPinDrag(map,layer){
-    const startDrag=(e)=>{
-      if(dragging||state.placing||activeTool)return;
-      const id=e.features?.[0]?.properties?.id,entry=api.allEntries().find(x=>x.id===id);
-      if(!entry||!state.localReady)return;
-      if(e.originalEvent?.button!=null&&e.originalEvent.button!==0)return;
-      dragging=true;e.preventDefault();
-      map.dragPan.disable();map.touchZoomRotate?.disable();
-      const before={...entry};let moved=false;
-      const move=ev=>{
-        if(!ev.lngLat)return;
-        moved=true;
-        const pin=api.allEntries().find(x=>x.id===id);if(!pin)return;
-        pin.lng=ev.lngLat.lng;pin.lat=ev.lngLat.lat;
-        map.getSource(api.PIN_SOURCE)?.setData(api.pinGeoJSON(api.filterEntries()));
-      };
-      const end=async()=>{
-        map.off("mousemove",move);map.off("touchmove",move);
-        map.off("mouseup",end);map.off("touchend",end);
-        map.dragPan.enable();map.touchZoomRotate?.enable();dragging=false;
-        const updated=api.allEntries().find(x=>x.id===id);
-        if(!updated||!moved){api.render();return;}
-        suppressPinClick=true;setTimeout(()=>{suppressPinClick=false;},180);
-        const target={lat:updated.lat,lng:updated.lng};
-        Object.assign(updated,{lat:before.lat,lng:before.lng});api.render();
-        await persist(before,target);
-      };
-      map.on("mousemove",move);map.on("touchmove",move);
-      map.on("mouseup",end);map.on("touchend",end);
-    };
-    map.on("mousedown",layer,startDrag);
-    map.on("touchstart",layer,startDrag);
-  }
-  function leafletDrag(marker,entry){
-    if(!marker.dragging)return;
-    marker.on("dragstart",()=>{dragging=true;});
-    marker.on("dragend",async()=>{
-      dragging=false;suppressPinClick=true;
-      const p=marker.getLatLng();await persist(entry,{lat:p.lat,lng:p.lng});
-    });
-  }
   function init(){
     $("layerFilter").addEventListener("change",e=>{selectedLayer=e.target.value;api.render();});
     $("groupFilter").addEventListener("change",e=>{selectedGroup=e.target.value;api.render();});
@@ -591,7 +546,7 @@ export function createEnhancements(api){
     selections();
   }
   function updateHover(){ /* no in-progress drawing or measurement overlays */ }
-  return {init,visible,selections,renderOverlay,handleTap,updateHover,isDrawing,consumeDragClick,
-    attachPinDrag,leafletDrag,galleryDetail,editorOpen,collectEditor,defaultLayer,
+  return {init,visible,selections,renderOverlay,handleTap,updateHover,isDrawing,
+    galleryDetail,editorOpen,collectEditor,defaultLayer,
     clearMeasurement,persist};
 }

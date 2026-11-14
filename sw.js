@@ -1,9 +1,9 @@
 /* Offline app shell and previously viewed map resources only.
  * No tile prefetching or offline-area downloads. Provider usage policies apply.
  */
-const SHELL="map-canvas-shell-v14",TILES="map-canvas-viewed-v14";
-const CORE=["./","./index.html","./app.js?v=place-details-20261114",
-  "./enhancements.js?v=place-details-20261114","./style.css?v=place-details-20261114","./data/public-map.json","./favicon.svg"];
+const SHELL="map-canvas-shell-v15",TILES="map-canvas-viewed-v15";
+const CORE=["./","./index.html","./app.js?v=no-pin-drag-20261114",
+  "./enhancements.js?v=no-pin-drag-20261114","./style.css?v=no-pin-drag-20261114","./data/public-map.json","./favicon.svg"];
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(SHELL).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));
 });
