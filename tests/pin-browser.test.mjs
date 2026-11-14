@@ -171,6 +171,7 @@ try {
   assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
   assert.equal(await page.locator("#deleteSelectedPin").isEnabled(),true);
   await page.locator("#deleteSelectedPin").click();
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===11);
   assert.equal(await page.locator("#entries .entry").count(),11);
   assert.equal(shared.length,11);
   await page.reload({waitUntil:"domcontentloaded"});
@@ -179,7 +180,10 @@ try {
   // A fresh change can be undone and reflected on the shared map.
   await page.locator("#entries .entry").first().click();
   await page.locator("#deleteSelectedPin").click();
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===10);
+  await page.waitForFunction(()=>!document.getElementById("undoBtn").disabled);
   await page.locator("#undoBtn").click();
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===11);
   assert.equal(shared.length,11,"Undo restores the shared pin");
 
   // Dark interface and actual MapLibre dark basemap; both must survive reload.
