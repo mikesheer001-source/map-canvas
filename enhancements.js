@@ -106,7 +106,7 @@ function csvCell(val){
 export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
-  addPins:true,canvasTools:true,canvasObjects:true,galleries:true,undoRedo:true,
+  addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
   labels:true,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
@@ -120,7 +120,6 @@ export const FEATURE_GROUPS=[
   ]},
   {title:"Create & edit",features:[
     ["addPins","Add pin button","Show the button for adding places"],
-    ["canvasTools","Canvas editing tools","Pictures and floating text"],
     ["galleries","Photo galleries","Show gallery controls and photo strips"],
     ["undoRedo","Undo & redo buttons","Show saved-change history controls"]
   ]},
@@ -399,8 +398,7 @@ export function createEnhancements(api){
     }catch(e){notify("Could not save change: "+e.message,true);}
     finally{state.saving=false;api.render();}
   }
-  // Line, Arrow, Circle and Measure tools were retired. Normal map clicks
-  // remain available to the Picture and Text placement flow.
+  // Floating creation toolbar retired. Map clicks remain available for pin placement.
   function handleTap(){return false;}
   function makeDraft(title,kind,point){
     return {id:crypto.randomUUID(),title,kind,category:"",price:"",rating:"",
@@ -408,27 +406,8 @@ export function createEnhancements(api){
       color:"#245c48",lat:Number(point.lat??21),lng:Number(point.lng??105),
       layer:kind==="photo"?"Pictures":"Drawings",group:"",gallery:[],canvas:null};
   }
-  function setActiveButton(tool){
-    document.querySelectorAll("[data-canvas-tool]").forEach(button=>{
-      const active=button.dataset.canvasTool===tool;
-      button.classList.toggle("is-active",active);button.setAttribute("aria-pressed",String(active));
-    });
-    if($("placementBar"))$("placementBar").classList.toggle("hidden",!tool&& !state.placing);
-  }
-  function useTool(tool){
-    if(!state.features.canvasTools || !["image","text"].includes(tool))return;
-    activeTool=null;firstPoint=null;hoverPoint=null;measure=[];measureDone=false;
-    const isPicture=tool==="image";
-    const draft=makeDraft(isPicture?"Picture":"Text",isPicture?"photo":"note",{lng:105,lat:21});
-    draft.canvas={type:tool,width:210};
-    draft.layer=isPicture?"Pictures":"Drawings";
-    api.startPlacement(draft.kind,draft);
-    $("placementBar").firstChild.textContent="Tap map to place "+tool+" ";
-    renderOverlay();
-  }
   function clearMeasurement(){
     activeTool=null;firstPoint=null;hoverPoint=null;measure=[];measureDone=false;
-    setActiveButton(null);
     renderOverlay();
   }
   function galleryDetail(entry,detail){
@@ -589,8 +568,6 @@ export function createEnhancements(api){
       importFile(e.target.files?.[0]);e.target.value="";
     });
     $("exportBtn").addEventListener("click",exportPins);
-    for(const b of document.querySelectorAll("[data-canvas-tool]"))
-      b.addEventListener("click",()=>useTool(b.dataset.canvasTool));
     $("canvasWidth").addEventListener("input",e=>$("canvasWidthValue").textContent=e.target.value+" px");
     $("galleryUpload").addEventListener("click",()=>$("galleryFile").click());
     $("galleryFile").addEventListener("change",e=>{addGalleryFiles(e.target.files||[]);e.target.value="";});
@@ -598,7 +575,6 @@ export function createEnhancements(api){
       if([...e.dataTransfer?.types||[]].includes("Files"))e.preventDefault();
     });
     $("mapArea").addEventListener("drop",async e=>{
-      if(!state.features.canvasTools)return;
       const file=[...e.dataTransfer?.files||[]].find(f=>f.type.startsWith("image/"));
       if(!file)return;e.preventDefault();
       const [x,y]=viewPoint(e),[lng,lat]=unproject(x,y);
@@ -614,5 +590,5 @@ export function createEnhancements(api){
   function updateHover(){ /* no in-progress drawing or measurement overlays */ }
   return {init,visible,selections,renderOverlay,handleTap,updateHover,isDrawing,consumeDragClick,
     attachPinDrag,leafletDrag,galleryDetail,editorOpen,collectEditor,defaultLayer,
-    useTool,clearMeasurement,persist};
+    clearMeasurement,persist};
 }

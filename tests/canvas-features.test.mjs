@@ -9,22 +9,23 @@ for(const id of ["layerFilter","groupFilter","layerToggles","entryLayer","entryG
  "importMode","exportBtn","exportFormat","galleryUrls","canvasWidth","canvasOverlay",
  "canvasDrawing","resetMapBtn"])
  assert.ok(html.includes('id="'+id+'"'),"Missing element "+id);
-for(const tool of ["image","text"]) assert.ok(html.includes('data-canvas-tool="'+tool+'"'));
-for(const retired of ["line","arrow","circle","measure"])
+for(const retired of ["image","text","line","arrow","circle","measure"])
  assert.ok(!html.includes('data-canvas-tool="'+retired+'"'));
+assert.ok(!html.includes('class="canvas-tools"'));
 for(const retired of ["measureFinish","measureClear","measureReadout"])
  assert.ok(!html.includes('id="'+retired+'"'));
 assert.ok(!html.includes('id="restoreHiddenPins"'));
 assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"autoSync"));
+assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"canvasTools"));
 assert.equal(FEATURE_DEFAULTS.darkTheme,false);
 assert.equal(FEATURE_GROUPS.flatMap(g=>g.features).length,Object.keys(FEATURE_DEFAULTS).length);
 const fake={v:new Map(),getItem(k){return this.v.get(k)||null;},setItem(k,val){this.v.set(k,val);}};
 const initial=readFeatureSettings(fake);
 assert.deepEqual(initial,{...FEATURE_DEFAULTS});
-initial.search=false;initial.canvasTools=false;
+initial.search=false;initial.canvasObjects=false;
 assert.equal(saveFeatureSettings(initial,fake),true);
 assert.equal(readFeatureSettings(fake).search,false);
-assert.equal(readFeatureSettings(fake).canvasTools,false);
+assert.equal(readFeatureSettings(fake).canvasObjects,false);
 fake.setItem(FEATURE_STORAGE_KEY,"{broken");
 assert.deepEqual(readFeatureSettings(fake),{...FEATURE_DEFAULTS});
 const parsed=parseCsvRows('id,title,notes,lat,lng\nhostel-1,"Cafe, North","hello ""hi""",21.03,105.85\n');
@@ -47,7 +48,7 @@ assert.throws(()=>parseImport("title,lat,lng\nBad,100,105\n","pins.csv"),/invali
 assert.ok(Math.abs(metersBetween([105,21],[105,22])-111195)<500);
 assert.ok(polygonAreaMeters([[0,0],[.001,0],[.001,.001],[0,.001]])>12000);
 assert.equal(polygonAreaMeters([[0,0],[1,0]]),0);
-assert.match(app,/enhancements\.js\?v=manual-20261114/);
+assert.match(app,/enhancements\.js\?v=toolbarless-20261114/);
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
 assert.match(app,/storeMapEntries\(/);
 assert.match(app,/resetToPublished\(/);

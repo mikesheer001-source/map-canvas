@@ -41,7 +41,7 @@ remains for the destructive **Reset to published map** operation.
 ## Features
 
 - Individual category-matched emoji pins, with 📍 as the default
-- Pin selection, edit/delete, Picture and Text canvas objects
+- Pin selection, edit/delete, and existing picture/text map objects
 - Dragging and resizing pins, images and text
 - Import/export CSV for Google Sheets, JSON and GeoJSON
 - Persistent per-browser map data, undo/redo and dark-mode settings
@@ -51,3 +51,7 @@ remains for the destructive **Reset to published map** operation.
 ## Testing
 
 GitHub Actions runs Node tests and Chromium/WebKit automated browser checks.
+
+## Floating toolbar removed
+
+The lower Picture/Text toolbar and its background panel were removed, along with the unused settings toggle. Existing map photos and text are preserved. Use **Add to map** to create pins and the pin editor to attach photos and notes.

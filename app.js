@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=manual-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=toolbarless-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const PUBLIC_MAP_URL = "./data/public-map.json";
@@ -819,7 +819,6 @@ const FEATURE_TARGETS={
   search:[".searchwrap"],filters:[".filters","#categoryFilter","#sort"],
   layers:[".collection-selects",".layers-panel"],
   importExport:[".io-actions"],addPins:["#addButton"],
-  canvasTools:['[data-canvas-tool="image"]','[data-canvas-tool="text"]'],
   canvasObjects:[],galleries:["#galleryControls"],
   undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
   gps:["#locateButton"],
@@ -835,8 +834,6 @@ function applyFeatureSettings(changedKey=null){
     $("basemapSwitch").classList.add("hidden");
     $("basemapButton").setAttribute("aria-expanded","false");
   }
-  if(!state.features.canvasTools)
-    enhanced?.clearMeasurement();
   if(!state.features.gps && state.gpsMarker){
     state.gpsMarker.remove();state.gpsMarker=null;
   }
@@ -923,7 +920,6 @@ function wire() {
     }
   }));
   window.addEventListener("paste",(event)=>{
-    if(!state.features.canvasTools)return;
     if(event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement)return;
     const file=Array.from(event.clipboardData?.items||[])
       .find((x)=>x.type.startsWith("image/"))?.getAsFile();

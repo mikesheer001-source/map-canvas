@@ -167,23 +167,10 @@ try {
   await page.locator("#settingsDone").click();
   await page.waitForFunction(()=>window.__mapCanvasTest.getMap().getLayer("canvas-pin-dots"),null,{timeout:30000});
 
-  // Only Picture and Text appear in the toolbar; both can be placed.
-  await page.locator(".layers-panel summary").click();
-  const hostelLayer=page.locator('#layerToggles label').filter({hasText:"Hostels"}).locator("input");
-  await hostelLayer.uncheck();
-  assert.equal(await page.locator("#entries .entry").count(),0,"Layer toggle hides hostel pins");
-  await hostelLayer.check();
-  assert.equal(await page.locator("#entries .entry").count(),12,"Layer toggle restores remaining hostels");
-  assert.deepEqual(await page.locator("[data-canvas-tool]").evaluateAll(
-    els=>els.map(el=>el.dataset.canvasTool)),["image","text"]);
-  for(const [tool,layer] of [["image","Pictures"],["text","Drawings"]]){
-    await page.locator('[data-canvas-tool="'+tool+'"]').click();
-    await page.locator("#map").click({position:{x:250,y:255}});
-    assert.ok(await page.locator("#editor").evaluate(d=>d.open),tool+" opens the entry editor");
-    assert.equal(await page.locator("#entryLayer").inputValue(),layer);
-    await page.locator("#cancelEdit").click();
-  }
-  await page.screenshot({path:`test-artifacts/${engineName}-picture-text-toolbar.png`});
+  // No floating Picture/Text toolbar or empty white rectangle.
+  assert.equal(await page.locator(".canvas-tools").count(),0);
+  assert.equal(await page.locator("[data-canvas-tool]").count(),0);
+  await page.screenshot({path:`test-artifacts/${engineName}-map-without-toolbar.png`});
 
   // Add a pin without Sheets, then round-trip a full JSON export and Sheets CSV.
   await page.locator("#addButton").click();
@@ -216,7 +203,7 @@ try {
   await page.locator("#settingsButton").click();
   assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
   assert.equal(await page.locator('#settingsDialog input[data-feature="measure"]').count(),0);
-  assert.ok(await page.locator('#settingsDialog input[data-feature="canvasTools"]').count());
+  assert.equal(await page.locator('#settingsDialog input[data-feature="canvasTools"]').count(),0);
   await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="labels"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="galleries"]').uncheck();

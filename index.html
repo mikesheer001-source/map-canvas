@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=manual-20261114">
+<link rel="stylesheet" href="./style.css?v=toolbarless-20261114">
 </head>
 <body>
 <div id="app">
@@ -62,7 +62,6 @@
   </div>
   <div id="mapNotice" class="map-notice hidden" role="status"></div>
   <div id="canvasOverlay" class="canvas-overlay" aria-label="Map notes pictures and drawings"><svg id="canvasDrawing" class="canvas-drawing" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div id="canvasObjects"></div></div>
-  <div class="canvas-tools" role="toolbar" aria-label="Canvas tools"><button type="button" data-canvas-tool="image">▧ Picture</button><button type="button" data-canvas-tool="text">T Text</button></div>
   <div id="placementBar" class="placement-bar hidden">Tap the map to place your entry <button id="cancelPlace" aria-label="Cancel placement">✕</button></div>
   <div class="mobile-tab"><button id="listButton">☷ List</button></div>
  </section>
@@ -109,6 +108,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=manual-20261114"></script>
+<script type="module" src="./app.js?v=toolbarless-20261114"></script>
 </body>
 </html>
