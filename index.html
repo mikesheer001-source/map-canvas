@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=toolbarless-20261114">
+<link rel="stylesheet" href="./style.css?v=shared-map-20261114">
 </head>
 <body>
 <div id="app">
@@ -41,7 +41,7 @@
    <div class="collection-selects"><select id="layerFilter" aria-label="Filter map layer"><option value="all">All layers</option></select><select id="groupFilter" aria-label="Filter pin group"><option value="all">All groups</option></select></div>
    <details class="layers-panel"><summary>Toggle map layers</summary><div id="layerToggles"></div></details>
    <div class="io-actions"><button type="button" id="importBtn" class="secondary">Import</button><select id="importMode" aria-label="Import behavior"><option value="merge">Merge</option><option value="replace">Replace</option></select><button type="button" id="exportBtn" class="secondary">Export</button><select id="exportFormat" aria-label="Export format"><option value="csv">CSV (Sheets)</option><option value="json">JSON (site)</option><option value="geojson">GeoJSON</option></select><input id="importFile" type="file" accept=".csv,.json,.geojson,text/csv,application/json" hidden></div>
-   <small class="import-help">Google Sheets: File → Download → CSV, then Import here. Export CSV to edit in Sheets. Publish changes on every device by uploading exported JSON to GitHub.</small>
+   <small class="import-help">Google Sheets: File → Download → CSV, then Import here. Export CSV to edit in Sheets.</small>
   </div>
   <div id="entries" class="entries" role="list"></div>
   <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
@@ -72,7 +72,7 @@
  <div class="settings-header"><div><div class="eyebrow">YOUR MAP · YOUR CONTROLS</div><h2 id="settingsTitle">Settings</h2></div><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">✕</button></div>
  <p class="settings-note">Choose which tools and details appear. Preferences are saved automatically <strong>on this browser</strong> and remain after refreshing. They don't change anyone else's settings.</p>
  <div id="settingsGroups" class="settings-groups"></div>
- <div class="settings-hidden-controls"><button type="button" id="resetMapBtn" class="secondary">Reset to published map</button><small>Discards browser-only edits. Export JSON first to keep a backup.</small></div>
+ <div class="settings-hidden-controls"><button type="button" id="downloadLegacyBtn" class="secondary hidden">Download previous browser edits</button><small id="legacyHelp" class="hidden">This is an older full map snapshot. Review it before importing with Merge. It can overwrite newer edits or restore deleted pins.</small></div>
  <div class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this device</span><button type="button" class="primary" id="settingsDone">Done</button></div>
 </dialog>
 <dialog id="editor">
@@ -108,6 +108,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=toolbarless-20261114"></script>
+<script type="module" src="./app.js?v=shared-map-20261114"></script>
 </body>
 </html>

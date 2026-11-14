@@ -9,6 +9,39 @@ const browser = await engine.launch({
 const page = await browser.newPage({viewport:{width:1200,height:800},deviceScaleFactor:1});
 const errors=[];
 page.on("pageerror",error=>errors.push(error.message));
+let revision=1;
+let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
+  .map(entry=>({...entry,version:1}));
+const deleted=new Map();
+await page.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**",async route=>{
+  const request=route.request(),url=new URL(request.url());
+  const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, PUT, DELETE, POST, OPTIONS","Access-Control-Allow-Headers":"content-type"};
+  const respond=(json,status=200)=>route.fulfill({status,headers,json});
+  if(request.method()==="OPTIONS")return respond({});
+  if(url.pathname.endsWith("/pins")&&request.method()==="GET")return respond({entries:shared,revision});
+  const body=request.postDataJSON();
+  if(url.pathname.endsWith("/import")){
+    const items=body.mode==="replace"?[]:[...shared];
+    let added=0,updated=0;
+    for(const entry of body.entries){
+      const index=items.findIndex(item=>item.id===entry.id);
+      if(index<0){items.push({...entry,version:1});added++;}
+      else{items[index]={...entry,version:items[index].version+1};updated++;}
+    }
+    shared=items;return respond({entries:shared,revision:++revision,added,updated});
+  }
+  const id=decodeURIComponent(url.pathname.split("/").pop());
+  const index=shared.findIndex(entry=>entry.id===id);
+  const version=index<0?(deleted.get(id)??null):shared[index].version;
+  if(body.expectedVersion!==version)return respond({error:"Pin changed"},409);
+  if(request.method()==="DELETE"){
+    shared.splice(index,1);deleted.set(id,version+1);
+    return respond({version:version+1,revision:++revision});
+  }
+  const entry={...body.entry,version:(version??0)+1};
+  if(index<0)shared.push(entry);else shared[index]=entry;
+  deleted.delete(id);return respond({entry,revision:++revision});
+});
 async function verifyAnchors(label) {
   return page.evaluate(async(label)=>{
     const api=window.__mapCanvasTest;
@@ -133,21 +166,21 @@ try {
   await page.locator("#detailPanel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
-  // Delete immediately from local map, without a confirmation dialog.
+  // Delete immediately from the shared map, without a confirmation dialog.
   await page.locator("#entries .entry").first().click();
   assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
   assert.equal(await page.locator("#deleteSelectedPin").isEnabled(),true);
   await page.locator("#deleteSelectedPin").click();
   assert.equal(await page.locator("#entries .entry").count(),11);
-  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:manual-map-v1")).length),11);
+  assert.equal(shared.length,11);
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
   assert.equal(await page.locator("#entries .entry").count(),11,"Deletion persists after reload");
-  await page.locator("#settingsButton").click();
-  page.once("dialog",dialog=>dialog.accept());
-  await page.locator("#resetMapBtn").click();
-  assert.equal(await page.locator("#entries .entry").count(),12,"Reset loads published map");
-  await page.locator("#settingsDone").click();
+  // A fresh change can be undone and reflected on the shared map.
+  await page.locator("#entries .entry").first().click();
+  await page.locator("#deleteSelectedPin").click();
+  await page.locator("#undoBtn").click();
+  assert.equal(shared.length,11,"Undo restores the shared pin");
 
   // Dark interface and actual MapLibre dark basemap; both must survive reload.
   await page.locator("#themeToggle").click();
@@ -179,8 +212,8 @@ try {
   await page.locator("#title").fill("Browser Saved Cafe");
   await page.locator("#category").fill("Cafe");
   await page.locator("#saveEntry").click();
-  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===13);
-  assert.equal(await page.locator("#entries .entry").count(),13);
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===12);
+  assert.equal(await page.locator("#entries .entry").count(),12);
   const [fileDownload]=await Promise.all([
     page.waitForEvent("download"),
     page.locator("#exportFormat").selectOption("json").then(()=>
@@ -188,16 +221,16 @@ try {
   ]);
   assert.equal(fileDownload.suggestedFilename(),"map-canvas.json");
   const exported=JSON.parse(readFileSync(await fileDownload.path(),"utf8"));
-  assert.equal(exported.length,13,"JSON backup includes all map entries");
+  assert.equal(exported.length,12,"JSON backup includes all map entries");
   await page.locator("#importMode").selectOption("merge");
   await page.locator("#importFile").setInputFiles({
     name:"google-sheet.csv",mimeType:"text/csv",
     buffer:Buffer.from("title,lat,lng,category\nImported Sheet Cafe,21.0345,105.851,Cafe\n")
   });
-  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===14);
+  await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===13);
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
-  assert.equal(await page.locator("#entries .entry").count(),14,"CSV import persists on reload");
+  assert.equal(await page.locator("#entries .entry").count(),13,"CSV import persists on reload");
 
   // Settings: immediate application, persistence through reload, and reset.
   await page.locator("#settingsButton").click();
@@ -228,9 +261,9 @@ try {
   await page.waitForFunction(()=>window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
   assert.ok(await page.locator(".searchwrap").isVisible());
 
-  // Standalone public map: browser edits are always enabled, no API connection.
+  // Shared public map with no sign-in.
   assert.equal(await page.locator("#editor").count(),1);
-  assert.match(await page.locator("#syncState").textContent(),/Browser edits saved|Public map loaded/);
+  assert.match(await page.locator("#syncState").textContent(),/Shared map synced/);
   assert.equal(await page.locator("script[src*='config.js']").count(),0);
   assert.deepEqual(errors,[],"Browser JavaScript errors");
   console.log(`PASS ${engineName}: projections, basemap switches, delete/save persistence, CSV import, JSON export, settings and mobile geometry`);

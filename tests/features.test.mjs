@@ -8,7 +8,7 @@ const map=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.
 assert.equal(map.length,12);
 assert.ok(!map.some(x=>x.title==="Rebel Rooster Hostel"));
 for(const id of ["categoryFilter","locateButton","undoBtn","redoBtn","pinIcon","pinColor",
- "importBtn","importMode","exportBtn","exportFormat","resetMapBtn","deleteSelectedPin"].filter(x=>x!=="deleteSelectedPin"))
+ "importBtn","importMode","exportBtn","exportFormat","downloadLegacyBtn","deleteSelectedPin"].filter(x=>x!=="deleteSelectedPin"))
  assert.ok(html.includes('id="'+id+'"'));
 assert.ok(!html.includes('config.js'));
 assert.match(app,/cluster:false/);
@@ -17,9 +17,9 @@ assert.match(app,/new URLSearchParams\(location.search\)\.get\("pin"\)/);
 assert.match(app,/getCurrentPosition/);
 assert.match(app,/recordChange\(/);
 assert.match(app,/replayHistory\(/);
-assert.match(app,/localStorage\.setItem\(LOCAL_MAP_KEY/);
+assert.match(app,/localStorage\.setItem\(SNAPSHOT_KEY/);
 assert.match(app,/submitChange\("delete",entry/);
-assert.match(app,/PUBLIC_MAP_URL/);
+assert.match(app,/SHARED_MAP_URL/);
 assert.doesNotMatch(app,/script\.google\.com|SHEETS_URL|sheetRequest/);
 assert.match(sw,/caches\.open\(SHELL\)/);
 assert.match(sw,/public-map\.json/);
@@ -44,4 +44,4 @@ assert.equal(api.pinEmoji({category:"Café",icon:"📍"}),"☕");
 assert.equal(api.pinEmoji({category:"Hostel",title:"Guesthouse"}),"🏨");
 assert.equal(api.pinEmoji({title:"Gym Fitness Club"}),"🏋️");
 assert.equal(api.pinEmoji({category:"Unknown category"}),"📍");
-console.log("PASS: static public map, filters, emoji pins, no Sheets API, local storage and cache");
+console.log("PASS: shared public map, filters, emoji pins, manual Sheets import, and cache");

@@ -1,57 +1,19 @@
-# Map Canvas — public map with manual Google Sheets import/export
+# Map Canvas
 
-Live website: https://mikesheer001-source.github.io/map-canvas/
+A public, shared map for places, notes and photos. Open https://mikesheer001-source.github.io/map-canvas/ to use it without signing in.
 
-No Google Sheets connection, Apps Script, API key or visitor sign-in is needed.
-The public map is hosted on GitHub Pages and works as a static website.
+Pin additions, edits, moves, deletions and photo uploads save to the shared map and appear on other devices. The Undo and Redo buttons reverse recent changes from the current browser session. If someone else edits the same pin, refresh and review it before retrying.
 
-## Google Sheets workflow
+## Google Sheets and backups
 
-1. Click **Export** and choose **CSV (Sheets)**. The downloaded CSV includes
-   pin IDs, titles, coordinates, descriptions, categories, picture links,
-   gallery data, layers, groups and other properties.
-2. Edit the CSV in Google Sheets using **File → Import → Upload**.
-3. Choose **File → Download → Comma Separated Values (.csv)** in Google Sheets.
-   Back on the map, choose **Import**, select the CSV, and use **Merge**
-   (update matching IDs and add new pins) or **Replace** (replace all pins).
-4. **Export → JSON (site)** saves a complete map backup, including deletions.
-   You can also import/export GeoJSON.
+Export **CSV (Sheets)** and use **File → Import → Upload** in Google Sheets. After editing, download the sheet as CSV and import it back on the map. **Merge** adds entries and updates matching IDs. **Replace** replaces the shared map after confirmation. Export **JSON (site)** for a full backup, or use GeoJSON for compatible mapping tools.
 
-## How saving and publishing differ
+A browser with edits from the previous local-only version can download its old snapshot in **Settings → Download previous browser edits**. Review the snapshot before importing it with Merge. It contains the full older map and may overwrite newer changes or restore pins deleted since then.
 
-Adding, editing, dragging and deleting pins now **works without a backend**.
-Every change automatically saves in browser localStorage and survives refreshes
-on that device. Undo and redo work locally.
+## Availability
 
-**Important:** Browser edits cannot automatically update everybody's public
-map without a server or an authenticated publish operation. To make changes
-visible across all devices, **export JSON and replace
-`data/public-map.json` in this GitHub repository**, then commit the file.
-This publishes the complete edited map through GitHub Pages. It can also be
-done by asking ChatGPT to update the GitHub file from the exported data.
-
-Visitors without local edits receive the updated public dataset. Visitors
-with a saved local copy can choose **Settings → Reset to published map** to
-discard local changes and adopt the newest published map. Back up with
-Export JSON first. Clearing browser site storage can erase unexported edits.
-
-No confirmation popup appears for ordinary pin deletion. A confirmation
-remains for the destructive **Reset to published map** operation.
-
-## Features
-
-- Individual category-matched emoji pins, with 📍 as the default
-- Pin selection, edit/delete, and existing picture/text map objects
-- Dragging and resizing pins, images and text
-- Import/export CSV for Google Sheets, JSON and GeoJSON
-- Persistent per-browser map data, undo/redo and dark-mode settings
-- Layers, groups, search, galleries, GPS and pin deep links
-- OpenFreeMap and OpenStreetMap basemaps, offline shell and cached resources
+The GitHub Pages frontend connects to the shared map service at `https://map-canvas.mikesheer001.chatgpt.site/api/shared-map`. If the service is unavailable, the last loaded snapshot stays visible and editing resumes after the connection returns. Existing browser-only feature and theme settings remain on that browser.
 
 ## Testing
 
-GitHub Actions runs Node tests and Chromium/WebKit automated browser checks.
-
-## Floating toolbar removed
-
-The lower Picture/Text toolbar and its background panel were removed, along with the unused settings toggle. Existing map photos and text are preserved. Use **Add to map** to create pins and the pin editor to attach photos and notes.
+GitHub Actions runs Node tests and Chromium/WebKit browser checks.

@@ -394,7 +394,7 @@ export function createEnhancements(api){
       if(!before)throw new Error("This pin is no longer available.");
       await api.submitChange("save",{...before,...updates});
       api.recordChange({before,after:api.allEntries().find(x=>x.id===entry.id)});
-      notify("Saved in this browser. Export JSON to publish.");
+      notify("Saved to the shared map.");
     }catch(e){notify("Could not save change: "+e.message,true);}
     finally{state.saving=false;api.render();}
   }
@@ -495,12 +495,14 @@ export function createEnhancements(api){
   async function importFile(file){
     if(!file)return;
     if(file.size>4500000){notify("File too large (max 4.5 MB).",true);return;}
+    const mode=$("importMode").value;
+    if(mode==="replace"&&!confirm("Replace every pin on the shared map with this file? This affects all devices."))return;
     const btn=$("importBtn");btn.disabled=true;
     try{
       const pins=parseImport(await file.text(),file.name);
-      const result=api.importPins(pins,$("importMode").value);
+      const result=await api.importPins(pins,mode);
       notify("Imported "+pins.length+" pins ("+result.added+" new, "+
-        result.updated+" updated). Export JSON to publish.");
+        result.updated+" updated) to the shared map.");
     }catch(e){notify("Import failed: "+e.message,true);}
     finally{btn.disabled=false;}
   }

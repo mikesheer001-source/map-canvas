@@ -1,7 +1,7 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=toolbarless-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=shared-map-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
-const PUBLIC_MAP_URL = "./data/public-map.json";
+const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
@@ -14,7 +14,8 @@ const state = {
   labelMarkers: [], mapMoving: false, pinEventsAttached: false, styleReady: false,
   pendingPhoto: null, showLabels: true, saving: false, listOpen: false,
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
-  pendingPin: new URLSearchParams(location.search).get("pin"), localReady: true,
+  pendingPin: new URLSearchParams(location.search).get("pin"), localReady: false,
+  revision: null, readEpoch: 0, syncInFlight: false,
   features: {...FEATURE_DEFAULTS}, remotelyDeletedIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
@@ -131,56 +132,85 @@ function setMapEntries(items){
       source:e.source||"local"};
   });
   state.hostels=[];
-  state.localReady=true;
   render();
 }
 function readMapCache(){
-  try{const raw=localStorage.getItem(LOCAL_MAP_KEY);
+  try{const raw=localStorage.getItem(SNAPSHOT_KEY);
     return raw?JSON.parse(raw):null;}catch{return null;}
 }
-function storeMapEntries(items){
-  if(!Array.isArray(items)||items.length>500)throw new Error("Map supports up to 500 pins");
-  const json=JSON.stringify(items);
-  if(json.length>3500000)throw new Error("Map too large for browser storage. Export JSON and reduce photos.");
-  try{localStorage.setItem(LOCAL_MAP_KEY,json);}
-  catch{throw new Error("Browser storage is full or blocked. Export a JSON backup.");}
+function storeMapSnapshot(items){
   setMapEntries(items);
-  $("syncState").textContent="Browser edits saved";
+  try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(items));}catch{}
+}
+async function requestShared(path, options={}){
+  let response;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),15000);
+  try{response=await fetch(SHARED_MAP_URL+path,{cache:"no-store",...options,signal:controller.signal});}
+  catch{throw new Error("Could not reach the shared map. Check your connection and retry.");}
+  finally{clearTimeout(timeout);}
+  let data;
+  try{data=await response.json();}catch{throw new Error("The shared map returned an invalid response. Retry.");}
+  if(response.status===409)throw new Error("The map changed on another device. Refresh and retry.");
+  if(!response.ok)throw new Error(data.error||"Could not save to the shared map. Retry.");
+  return data;
+}
+function jsonOptions(method,body){
+  return {method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};
 }
 async function loadHostels(){
-  const response=await fetch(PUBLIC_MAP_URL,{cache:"no-store"});
-  if(!response.ok)throw new Error("Could not fetch public map");
-  state.publishedMap=await response.json();
-  setMapEntries(readMapCache()||state.publishedMap);
-  $("syncState").textContent=readMapCache()?"Browser edits saved":"Public map loaded";
-  $("statusText").textContent="CSV import/export · browser edits are local";
+  if(state.syncInFlight||state.saving)return;
+  state.syncInFlight=true;
+  const epoch=state.readEpoch;
+  try{
+    const data=await requestShared("/pins");
+    if(epoch!==state.readEpoch||state.saving)return;
+    if(state.localReady&&state.revision===data.revision)return;
+    const selectedVersion=state.current?.version;
+    state.revision=data.revision;
+    state.localReady=true;
+    storeMapSnapshot(data.entries);
+    if(state.current&&!$("detailPanel").classList.contains("hidden")){
+      const selected=state.entries.find(entry=>entry.id===state.current.id);
+      if(!selected){hideDetail();notify("This pin was deleted from the shared map.");}
+      else if(selected.version!==selectedVersion)choose(selected,false);
+    }
+  }finally{state.syncInFlight=false;}
+  $("syncState").textContent="Shared map synced";
+  $("statusText").textContent="Shared map · changes appear on all devices";
   $("statusPip").classList.add("connected");
 }
 async function reloadShared(silent){
-  try{await loadHostels();if(!silent)notify("Map refreshed. Browser edits preserved.");}
-  catch(error){if(!silent)notify(error.message,true);}
-}
-function resetToPublished(){
-  if(!state.publishedMap)return;
-  if(!confirm("Discard browser edits and restore the public map? Export JSON first for a backup."))return;
-  try{localStorage.removeItem(LOCAL_MAP_KEY);}catch{}
-  setMapEntries(state.publishedMap);
-  state.undo=[];state.redo=[];
-  hideDetail();render();
-  $("syncState").textContent="Public map loaded";
-  notify("Restored published map.");
-}
-function importPins(imported,mode){
-  const combined=(mode==="replace"?[]:allEntries()).map(x=>({...x}));
-  const index=new Map(combined.map((e,i)=>[e.id,i]));
-  let added=0,updated=0;
-  for(const entry of imported){
-    if(index.has(entry.id)){combined[index.get(entry.id)]=entry;updated++;}
-    else{index.set(entry.id,combined.length);combined.push(entry);added++;}
+  try{await loadHostels();if(!silent)notify("Shared map refreshed.");}
+  catch(error){
+    state.localReady=false;
+    $("syncState").textContent="Connection lost · retry";
+    $("statusText").textContent="Showing saved map · reconnect to edit";
+    $("statusPip").classList.remove("connected");
+    render();
+    if(!silent)notify(error.message,true);
   }
-  storeMapEntries(combined);
-  state.undo=[];state.redo=[];updateHistoryButtons();
-  return {added,updated};
+}
+function downloadLegacyEdits(){
+  const saved=localStorage.getItem(LOCAL_MAP_KEY);
+  if(!saved)return;
+  const url=URL.createObjectURL(new Blob([saved],{type:"application/json"}));
+  const link=document.createElement("a");link.href=url;link.download="map-canvas-previous-browser-edits.json";
+  link.click();setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+async function importPins(imported,mode){
+  if(!state.localReady||state.saving)throw new Error("Connect to the shared map and retry.");
+  if(state.syncInFlight)throw new Error("The shared map is syncing. Retry the import.");
+  await loadHostels();
+  state.saving=true;state.readEpoch++;
+  try{
+    const entries=[];
+    for(const entry of imported)entries.push(await uploadEntryPhotos(entry));
+    const data=await requestShared("/import",jsonOptions("POST",{entries,mode,expectedRevision:state.revision}));
+    state.revision=data.revision;storeMapSnapshot(data.entries);
+    state.undo=[];state.redo=[];updateHistoryButtons();
+    return data;
+  }finally{state.saving=false;updateHistoryButtons();}
 }
 function filterEntries() {
   const needle = (state.features.search?state.query:"").toLowerCase().trim();
@@ -201,7 +231,7 @@ function render() {
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
-  $("pinCount").textContent = allEntries().length + " pins · save/exports on this browser";
+  $("pinCount").textContent = allEntries().length + " pins · shared map";
   $("resultCount").textContent = shown.length + (shown.length === 1 ? " entry" : " entries");
   $("mapSub").textContent = shown.length + " pins · " +
     (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : "Labels and photos visible");
@@ -552,7 +582,7 @@ function choose(entry, focus) {
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.id="deleteSelectedPin";
   deleteButton.disabled=!state.localReady;
-  deleteButton.title="Delete from this browser map; export JSON to publish everywhere";
+  deleteButton.title="Delete from the shared map";
   actions.append(deleteButton);
   detail.append(actions);
   $("overlay").classList.remove("hidden");
@@ -612,7 +642,7 @@ function openEditor(entry) {
     b.classList.toggle("is-active",b.dataset.kind===entry.kind);
     attr(b,"aria-pressed",b.dataset.kind===entry.kind);
   }
-  $("saveNote").textContent="Saves on this browser. Export CSV for Google Sheets or JSON to publish.";
+  $("saveNote").textContent="Saves to the shared map on all devices.";
   $("saveEntry").disabled=false;
   enhanced?.editorOpen(entry);
   $("editor").showModal();
@@ -622,16 +652,34 @@ function getKey(){return "local";}
 function saveKey(){}
 function randomKey(){return crypto.randomUUID();}
 async function submitChange(action,entry){
-  const items=allEntries().map(p=>({...p}));
-  const index=items.findIndex(p=>p.id===entry.id);
+  if(!state.localReady)throw new Error("Connect to the shared map and retry.");
+  state.readEpoch++;
+  const path="/pins/"+encodeURIComponent(entry.id);
+  let data;
   if(action==="delete"){
-    if(index<0)throw new Error("Pin was already removed");
-    items.splice(index,1);
+    data=await requestShared(path,jsonOptions("DELETE",{expectedVersion:entry.version}));
+    storeMapSnapshot(allEntries().filter(pin=>pin.id!==entry.id));
   }else if(action==="save"){
-    const value={...entry,source:entry.source||"local",version:"local"};
-    if(index<0)items.push(value);else items[index]=value;
+    const value=await uploadEntryPhotos(entry);
+    const expectedVersion=Number.isInteger(entry.version)?entry.version:null;
+    data=await requestShared(path,jsonOptions("PUT",{entry:value,expectedVersion}));
+    const items=allEntries().slice();
+    const index=items.findIndex(pin=>pin.id===entry.id);
+    if(index<0)items.push(data.entry);else items[index]=data.entry;
+    storeMapSnapshot(items);
   }else throw new Error("Invalid action");
-  storeMapEntries(items);
+  return data;
+}
+async function uploadEntryPhotos(entry){
+  async function upload(value){
+    if(typeof value!=="string"||!value.startsWith("data:image/"))return value;
+    const blob=await (await fetch(value)).blob();
+    const form=new FormData();form.append("photo",blob,"photo.jpg");
+    const result=await requestShared("/photo",{method:"POST",body:form});
+    return result.photo;
+  }
+  return {...entry,photo:await upload(entry.photo),
+    gallery:await Promise.all((entry.gallery||[]).map(upload))};
 }
 async function saveEntry(event) {
   event.preventDefault();if(state.saving||!state.draft)return;
@@ -653,9 +701,9 @@ async function saveEntry(event) {
     const before = state.entries.find(x=>x.id===entry.id) || null;
     await submitChange("save",entry,key);
     recordChange({before,after:state.entries.find(x=>x.id===entry.id)||entry});
-    closeEditor();notify("Saved on this browser. Export JSON to publish.");
+    closeEditor();notify("Saved to the shared map.");
   }catch(error){notify(error.message,true);}
-  finally{state.saving=false;$("saveEntry").textContent="Save pin";$("saveEntry").disabled=false;}
+  finally{state.saving=false;$("saveEntry").textContent="Save pin";$("saveEntry").disabled=false;updateHistoryButtons();}
 }
 async function removeEntry(entry){
   if(state.saving)return;
@@ -664,12 +712,12 @@ async function removeEntry(entry){
   if(control){control.disabled=true;control.textContent="Deleting…";}
   try{
     const before=allEntries().find(e=>e.id===entry.id);
-    await submitChange("delete",entry);
-    if(before)recordChange({before,after:null});
+    const result=await submitChange("delete",entry);
+    if(before)recordChange({before,after:null,version:result.version});
     hideDetail();
-    notify("Pin deleted locally. Export JSON to publish this deletion everywhere.");
+    notify("Pin deleted from the shared map. Use Undo to restore it.");
   }catch(error){notify(error.message,true);}
-  finally{state.saving=false;if(control){control.disabled=false;control.textContent="Delete pin";}}
+  finally{state.saving=false;if(control){control.disabled=false;control.textContent="Delete pin";}updateHistoryButtons();}
 }
 async function shrinkPhoto(file) {
   if (!file?.type.startsWith("image/"))throw new Error("Choose an image.");
@@ -768,6 +816,7 @@ function locateUser() {
   },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
 }
 function recordChange(change) {
+  change.version=change.version??change.after?.version;
   state.undo.push(change);
   if(state.undo.length>30)state.undo.shift();
   state.redo=[];
@@ -790,13 +839,21 @@ async function replayHistory(direction) {
   const current=state.entries.find(e=>e.id===id)||null;
   state.historyBusy=true;updateHistoryButtons();
   try {
+    if(current&&current.version!==item.version)
+      throw new Error("This pin changed on another device. Refresh and review it first.");
     if(desired) {
-      const entry={...desired,version:current?.version||""};
-      await submitChange("save",entry,key);
+      const result=await submitChange("save",{...desired,version:item.version});
+      item.version=result.entry.version;
     } else if(current) {
-      await submitChange("delete",current,key);
-    }
+      const result=await submitChange("delete",current);
+      item.version=result.version;
+    } else throw new Error("This pin is already deleted.");
     from.pop();to.push(item);
+    const next=[...from].reverse().find(change=>(change.after||change.before).id===id);
+    const adjacent=direction==="undo"
+      ?next?.after?.version===item.before?.version
+      :next?.before?.version===item.after?.version;
+    if(next&&adjacent)next.version=item.version;
     notify(direction==="undo"?"Change undone.":"Change redone.");
   } catch(e){notify("Cannot "+direction+": "+e.message,true);}
   finally{state.historyBusy=false;updateHistoryButtons();}
@@ -870,7 +927,7 @@ function setFeatureSetting(key,value,persist=true){
 
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
-  $("resetMapBtn").addEventListener("click",resetToPublished);
+  $("downloadLegacyBtn").addEventListener("click",downloadLegacyEdits);
   $("themeToggle").addEventListener("click",()=>setFeatureSetting("darkTheme",!state.features.darkTheme));
   $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
   $("locateButton").addEventListener("click",locateUser);
@@ -956,16 +1013,33 @@ async function main() {
     }
   });
   setupOffline();
+  try {
+    if(localStorage.getItem(LOCAL_MAP_KEY)){
+      $("downloadLegacyBtn").classList.remove("hidden");
+      $("legacyHelp").classList.remove("hidden");
+    }
+  }catch{}
   try {await loadHostels();}catch(error){
     const cached=readMapCache();
     if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
       catch(e){notify(e.message,true);}}
-    else notify("Public map unavailable: "+error.message,true);
+    else {
+      try{
+        const response=await fetch("./data/public-map.json",{cache:"no-store"});
+        if(response.ok)setMapEntries(await response.json());
+      }catch{}
+      notify("Shared map unavailable: "+error.message,true);
+    }
+    state.localReady=false;
+    $("syncState").textContent="Connection lost · retry";
+    $("statusText").textContent="Showing saved map · reconnect to edit";
   }
   render();
   await initMap();
   render();
   applyDeepLink();
+  setInterval(()=>reloadShared(true),5000);
+  window.addEventListener("online",()=>reloadShared(true));
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {

@@ -7,7 +7,7 @@ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
 for(const id of ["layerFilter","groupFilter","layerToggles","entryLayer","entryGroup","importBtn",
  "importMode","exportBtn","exportFormat","galleryUrls","canvasWidth","canvasOverlay",
- "canvasDrawing","resetMapBtn"])
+ "canvasDrawing","downloadLegacyBtn"])
  assert.ok(html.includes('id="'+id+'"'),"Missing element "+id);
 for(const retired of ["image","text","line","arrow","circle","measure"])
  assert.ok(!html.includes('data-canvas-tool="'+retired+'"'));
@@ -48,10 +48,11 @@ assert.throws(()=>parseImport("title,lat,lng\nBad,100,105\n","pins.csv"),/invali
 assert.ok(Math.abs(metersBetween([105,21],[105,22])-111195)<500);
 assert.ok(polygonAreaMeters([[0,0],[.001,0],[.001,.001],[0,.001]])>12000);
 assert.equal(polygonAreaMeters([[0,0],[1,0]]),0);
-assert.match(app,/enhancements\.js\?v=toolbarless-20261114/);
+assert.match(app,/enhancements\.js\?v=shared-map-20261114/);
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
-assert.match(app,/storeMapEntries\(/);
-assert.match(app,/resetToPublished\(/);
+assert.match(app,/storeMapSnapshot\(/);
+assert.match(app,/downloadLegacyEdits\(/);
 assert.doesNotMatch(app,/SHEETS_URL|sheetRequest\(/);
 assert.ok(!readFileSync(new URL("../enhancements.js",import.meta.url),"utf8").includes('$("measureFinish")'));
 console.log("PASS: Sheets CSV/JSON round-trip, stable IDs, local settings and import/export controls");
+await import("./shared-client.test.mjs");
