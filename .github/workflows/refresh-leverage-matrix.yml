@@ -1,0 +1,45 @@
+name: Refresh leverage matrix prices
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5,11,17,23 * * *'
+  push:
+    paths:
+      - 'leverage-matrix/index.html'
+      - 'leverage-matrix/scripts/**'
+      - '.github/workflows/refresh-leverage-matrix.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: leverage-matrix-prices
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download daily close history
+        run: python leverage-matrix/scripts/update_prices.py
+      - name: Commit the refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add leverage-matrix/data/prices.json
+          if git diff --cached --quiet; then
+            echo "No new successful quotes. Nothing to commit."
+          else
+            git commit -m "data: refresh leverage matrix daily price history"
+            git push
+          fi
