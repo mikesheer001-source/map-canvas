@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=no-pin-drag-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=anchored-details-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -501,7 +501,7 @@ async function fallbackLeaflet(reason) {
   });
   state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
   state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-  state.map.on("move",()=>enhanced?.renderOverlay());
+  state.map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
   state.map.on("mousemove",e=>enhanced?.updateHover({lng:e.latlng.lng,lat:e.latlng.lat}));
   state.map.on("zoomend",updateLabels);
   state.library="leaflet";
@@ -528,7 +528,7 @@ async function initMap() {
     map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
     map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-    map.on("move",()=>enhanced?.renderOverlay());
+    map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{
@@ -550,6 +550,22 @@ async function initMap() {
     catch {announce("Map tiles couldn't load. Check your connection and refresh.");}
   }
 }
+function positionDetail() {
+  const detail=$("detailPanel");
+  if (!state.current || !state.map || detail.classList.contains("hidden")) return;
+  const point=state.library === "maplibre"
+    ? state.map.project([state.current.lng,state.current.lat])
+    : state.map.latLngToContainerPoint([state.current.lat,state.current.lng]);
+  const map=$("map");
+  const onScreen=point.x >= 0 && point.y >= 0 && point.x <= map.clientWidth && point.y <= map.clientHeight;
+  detail.style.visibility=onScreen ? "visible" : "hidden";
+  const halfWidth=detail.offsetWidth/2;
+  const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
+  detail.style.left=centerX+"px";
+  detail.style.setProperty("--anchor-x",(point.x-centerX)+"px");
+  detail.style.top=point.y+"px";
+  detail.classList.toggle("below-pin",point.y < detail.offsetHeight+24);
+}
 function choose(entry, focus) {
   if (state.placing) { placeAt({lng:entry.lng,lat:entry.lat}); return; }
   state.current=entry;render();
@@ -558,7 +574,9 @@ function choose(entry, focus) {
   const detail=$("detailPanel");detail.replaceChildren();
   const head=text("div","","detail-head");
   const name=text("h2",entry.title);
-  head.append(name,button("✕",hideDetail));
+  const closeButton=button("✕",hideDetail);
+  closeButton.setAttribute("aria-label","Close details");
+  head.append(name,closeButton);
   detail.append(head);
   if (entry.photo) {
     const img=document.createElement("img");
@@ -584,13 +602,13 @@ function choose(entry, focus) {
   deleteButton.title="Delete from the shared map";
   actions.append(deleteButton);
   detail.append(actions);
-  $("overlay").classList.remove("hidden");
   detail.classList.remove("hidden");
+  positionDetail();
 }
 function hideDetail() {
   state.current=null;
   if (new URLSearchParams(location.search).has("pin")) history.replaceState(null,"",pinUrl(null));
-  $("detailPanel").classList.add("hidden");$("overlay").classList.add("hidden");render();
+  $("detailPanel").classList.add("hidden");render();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -951,7 +969,6 @@ function wire() {
   });
   document.querySelectorAll("[data-basemap]").forEach((el)=>
     el.addEventListener("click",()=>changeProvider(el.dataset.basemap)));
-  $("overlay").addEventListener("click",hideDetail);
   $("listButton").addEventListener("click",()=>toggleList(true));
   $("mobileMapButton").addEventListener("click",()=>toggleList(false));
   $("closeEditor").addEventListener("click",closeEditor);
@@ -1040,6 +1057,7 @@ async function main() {
   applyDeepLink();
   setInterval(()=>reloadShared(true),5000);
   window.addEventListener("online",()=>reloadShared(true));
+  window.addEventListener("resize",positionDetail);
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {
