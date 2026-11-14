@@ -211,8 +211,12 @@ try {
   await page.locator("#entries .entry").first().click();
   assert.equal(await page.locator(".side-panel").count(),1,"Clicking the same pin closes only its panel");
   await page.locator("#entries .entry").first().click();
-  await page.locator(".side-panel").filter({hasText:"AprilBox"}).locator(".detail-head button").click();
+  await page.locator(".side-panel").filter({hasText:"Viet Vintage"}).locator(".detail-head button").click();
   assert.equal(await page.locator(".side-panel").count(),1,"Closing one leaves the other open");
+  assert.equal(await page.locator(".side-panel h2").textContent(),"AprilBox Trackside Hostel");
+  // Focus the remaining pin after it may have moved outside the viewport.
+  await page.locator("#entries .entry").nth(1).click();
+  await page.locator("#entries .entry").nth(1).click();
   await page.locator(".side-panel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
