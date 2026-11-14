@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=multi-details-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=photo-grid-20261115";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -621,17 +621,15 @@ function raiseDetail(id) {
 }
 function choose(entry, focus) {
   if(state.placing){placeAt({lng:entry.lng,lat:entry.lat});return;}
+  if(openDetails.has(entry.id)){hideDetail(entry.id);return;}
   state.current=entry;render();
   if(entry.id)history.replaceState(null,"",pinUrl(entry.id));
   if(focus){showMobileMap();mapFocus(entry);}
-  let card=openDetails.get(entry.id);
-  if(!card){
-    const node=document.createElement("aside");
-    node.className="side-panel";node.setAttribute("aria-label","Entry details");
-    card={entry,node};openDetails.set(entry.id,card);
-    node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
-    $("detailLayer").append(node);
-  }
+  const node=document.createElement("aside");
+  node.className="side-panel";node.setAttribute("aria-label","Entry details");
+  const card={entry,node};openDetails.set(entry.id,card);
+  node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
+  $("detailLayer").append(node);
   raiseDetail(entry.id);
   renderDetail(entry,card.node);
 }

@@ -18,6 +18,8 @@ page.on("requestfailed",request=>failedRequests.push(`${request.url()} - ${reque
 let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
+const testImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=";
+shared[0].photo=testImage;shared[0].gallery=[testImage,testImage,testImage];
 const deleted=new Map();
 await page.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**",async route=>{
   const request=route.request(),url=new URL(request.url());
@@ -200,11 +202,17 @@ try {
   await page.locator("#entries .entry").first().click();
   await page.waitForURL(/pin=hostel-1/);
   assert.equal(await page.locator(".side-panel h2").textContent(),"Viet Vintage Hostel");
+  const grid=page.locator(".side-panel .gallery-grid");
+  assert.equal(await grid.locator("a").count(),4,"Four gallery images appear");
+  const tiles=await grid.locator("a").evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};}));
+  assert.ok(Math.abs(tiles[0].right-tiles[1].left)<1 && Math.abs(tiles[0].bottom-tiles[2].top)<1,"Gallery tiles touch");
   await page.locator("#entries .entry").nth(1).click();
   assert.equal(await page.locator(".side-panel").count(),2,"Two pins remain open");
+  await page.locator("#entries .entry").first().click();
+  assert.equal(await page.locator(".side-panel").count(),1,"Clicking the same pin closes only its panel");
+  await page.locator("#entries .entry").first().click();
   await page.locator(".side-panel").filter({hasText:"AprilBox"}).locator(".detail-head button").click();
   assert.equal(await page.locator(".side-panel").count(),1,"Closing one leaves the other open");
-  await page.locator("#entries .entry").first().click();
   await page.locator(".side-panel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 

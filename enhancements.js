@@ -411,18 +411,23 @@ export function createEnhancements(api){
     if(!state.features.galleries)return;
     const imgs=[entry.photo,...(entry.gallery||[])].filter(x=>safeImage(x));
     if(imgs.length<2)return;
-    const main=detail.querySelector(".detail-photo")||document.createElement("img");
-    if(!main.classList.contains("detail-photo")){
-      main.className="detail-photo";detail.insertBefore(main,detail.querySelector(".detail-pills"));
+    detail.querySelector(".detail-photo")?.remove();
+    const grid=document.createElement("div");grid.className="gallery-grid";
+    for(const [index,src] of imgs.entries()){
+      const link=document.createElement("a");link.href=src;link.target="_blank";
+      link.rel="noopener noreferrer";link.setAttribute("aria-label",`Open photo ${index+1} of ${imgs.length}`);
+      if(src.startsWith("data:image/"))link.addEventListener("click",event=>{
+        event.preventDefault();
+        const [header,encoded]=src.split(",");
+        const bytes=Uint8Array.from(atob(encoded),character=>character.charCodeAt(0));
+        const url=URL.createObjectURL(new Blob([bytes],{type:header.slice(5,header.indexOf(";"))}));
+        window.open(url,"_blank","noopener,noreferrer");
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      });
+      const image=document.createElement("img");image.src=src;image.alt=`${entry.title} photo ${index+1}`;image.loading="lazy";image.referrerPolicy="no-referrer";
+      link.append(image);grid.append(link);
     }
-    const strip=document.createElement("div");strip.className="gallery-thumbnails";
-    for(const src of imgs){
-      const thumb=document.createElement("button");thumb.type="button";
-      const image=document.createElement("img");image.src=src;image.alt="Gallery photo";image.loading="lazy";
-      thumb.append(image);thumb.addEventListener("click",()=>{main.src=src;main.alt=entry.title;});
-      strip.append(thumb);
-    }
-    main.src=imgs[0];detail.insertBefore(strip,detail.querySelector(".detail-pills"));
+    detail.insertBefore(grid,detail.querySelector(".detail-pills"));
   }
   function showGalleryPreviews(){
     const box=$("galleryPreview");box.replaceChildren();
