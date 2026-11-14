@@ -199,15 +199,20 @@ try {
   await page.locator("#categoryFilter").selectOption("all");
   await page.locator("#entries .entry").first().click();
   await page.waitForURL(/pin=hostel-1/);
-  assert.equal(await page.locator("#detailPanel h2").textContent(),"Viet Vintage Hostel");
-  await page.locator("#detailPanel .detail-head button").click();
+  assert.equal(await page.locator(".side-panel h2").textContent(),"Viet Vintage Hostel");
+  await page.locator("#entries .entry").nth(1).click();
+  assert.equal(await page.locator(".side-panel").count(),2,"Two pins remain open");
+  await page.locator(".side-panel").filter({hasText:"AprilBox"}).locator(".detail-head button").click();
+  assert.equal(await page.locator(".side-panel").count(),1,"Closing one leaves the other open");
+  await page.locator("#entries .entry").first().click();
+  await page.locator(".side-panel .detail-head button").click();
   assert.ok(!(new URL(page.url()).searchParams.has("pin")),"Closing pin clears deep link");
 
   // Delete immediately from the shared map, without a confirmation dialog.
   await page.locator("#entries .entry").first().click();
-  assert.equal(await page.locator("#deleteSelectedPin").textContent(),"Delete pin");
-  assert.equal(await page.locator("#deleteSelectedPin").isEnabled(),true);
-  await page.locator("#deleteSelectedPin").click();
+  assert.equal(await page.locator(".delete-selected-pin").textContent(),"Delete pin");
+  assert.equal(await page.locator(".delete-selected-pin").isEnabled(),true);
+  await page.locator(".delete-selected-pin").click();
   await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===11);
   assert.equal(await page.locator("#entries .entry").count(),11);
   assert.equal(shared.length,11);
@@ -216,7 +221,7 @@ try {
   assert.equal(await page.locator("#entries .entry").count(),11,"Deletion persists after reload");
   // A fresh change can be undone and reflected on the shared map.
   await page.locator("#entries .entry").first().click();
-  await page.locator("#deleteSelectedPin").click();
+  await page.locator(".delete-selected-pin").click();
   await page.waitForFunction(()=>window.__mapCanvasTest.getEntries().length===10);
   await page.waitForFunction(()=>!document.getElementById("undoBtn").disabled);
   await page.locator("#undoBtn").click();
@@ -278,6 +283,7 @@ try {
   assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
   assert.equal(await page.locator('#settingsDialog input[data-feature="measure"]').count(),0);
   assert.equal(await page.locator('#settingsDialog input[data-feature="canvasTools"]').count(),0);
+  await page.locator("#popupSensitivity").fill("3");
   await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="labels"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="galleries"]').uncheck();
@@ -292,7 +298,9 @@ try {
   assert.equal(await page.locator("#galleryControls").evaluate(el=>el.classList.contains("feature-hidden")),true,"Gallery choice persists");
   if(renderer==="maplibre")assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
   await page.locator("#settingsButton").click();
+  assert.equal(await page.locator("#popupSensitivity").inputValue(),"3","Sensitivity persists after reload");
   await page.locator("#settingsReset").click();
+  assert.equal(await page.locator("#popupSensitivity").inputValue(),"2","Reset restores sensitivity");
   assert.ok(await page.locator(".searchwrap").isVisible(),"Reset restores search");
   assert.equal(await page.locator('#settingsDialog input[data-feature="labels"]').isChecked(),true);
   assert.equal(await page.locator("#galleryControls").evaluate(el=>el.classList.contains("feature-hidden")),false,"Reset restores galleries");

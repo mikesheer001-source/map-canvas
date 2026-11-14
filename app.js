@@ -1,9 +1,15 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=zoomed-details-20261114";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=multi-details-20261114";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
+const openDetails=new Map();
+
+const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
+let popupSensitivity=2;
+try{popupSensitivity=Number(globalThis.localStorage?.getItem(SENSITIVITY_KEY))||2;}catch{}
+popupSensitivity=Math.max(0.5,Math.min(4,popupSensitivity));
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 let enhanced = null;
 let settingsUI = null;
@@ -166,14 +172,13 @@ async function loadHostels(){
     const data=await requestShared("/pins");
     if(epoch!==state.readEpoch||state.saving)return;
     if(state.localReady&&state.revision===data.revision)return;
-    const selectedVersion=state.current?.version;
     state.revision=data.revision;
     state.localReady=true;
     storeMapSnapshot(data.entries);
-    if(state.current&&!$("detailPanel").classList.contains("hidden")){
-      const selected=state.entries.find(entry=>entry.id===state.current.id);
-      if(!selected){hideDetail();notify("This pin was deleted from the shared map.");}
-      else if(selected.version!==selectedVersion)choose(selected,false);
+    for(const [id,card] of [...openDetails]){
+      const selected=state.entries.find(entry=>entry.id===id);
+      if(!selected){hideDetail(id);notify("This pin was deleted from the shared map.");}
+      else if(selected.version!==card.entry.version)renderDetail(selected,card.node);
     }
   }finally{state.syncInFlight=false;}
   $("syncState").textContent="Shared map synced";
@@ -208,6 +213,7 @@ async function importPins(imported,mode){
     for(const entry of imported)entries.push(await uploadEntryPhotos(entry));
     const data=await requestShared("/import",jsonOptions("POST",{entries,mode,expectedRevision:state.revision}));
     state.revision=data.revision;storeMapSnapshot(data.entries);
+    for(const [id,card] of [...openDetails]){const pin=state.entries.find(e=>e.id===id);if(pin)renderDetail(pin,card.node);else hideDetail(id);}
     state.undo=[];state.redo=[];updateHistoryButtons();
     return data;
   }finally{state.saving=false;updateHistoryButtons();}
@@ -551,34 +557,28 @@ async function initMap() {
   }
 }
 function positionDetail() {
-  const detail=$("detailPanel");
-  if (!state.current || !state.map || detail.classList.contains("hidden")) return;
-  const point=state.library === "maplibre"
-    ? state.map.project([state.current.lng,state.current.lat])
-    : state.map.latLngToContainerPoint([state.current.lat,state.current.lng]);
-  const map=$("map");
-  const onScreen=point.x >= 0 && point.y >= 0 && point.x <= map.clientWidth && point.y <= map.clientHeight;
-  detail.style.visibility=onScreen ? "visible" : "hidden";
-  // Keep the card usable at distant zoom levels and cap its size up close.
-  const scale=Math.max(0.5,Math.min(1.15,0.5+(mapZoom()-12)*0.1));
-  const halfWidth=detail.offsetWidth*scale/2;
-  const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
-  detail.style.left=centerX+"px";
-  detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
-  detail.style.setProperty("--detail-scale",scale);
-  const below=point.y < detail.offsetHeight*scale+24;
-  detail.style.top=(point.y+(below?22:-22))+"px";
-  detail.classList.toggle("below-pin",below);
+  if(!state.map)return;
+  for(const {entry, node:detail} of openDetails.values()){
+    const point=state.library === "maplibre" ? state.map.project([entry.lng,entry.lat]) : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
+    const map=$("map");
+    const visible=point.x>=0 && point.y>=0 && point.x<=map.clientWidth && point.y<=map.clientHeight;
+    detail.style.visibility=visible?"visible":"hidden";
+    const scale=Math.max(0.3,Math.min(1.35,Math.exp((mapZoom()-17)*0.12*popupSensitivity)));
+    const halfWidth=detail.offsetWidth*scale/2;
+    const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
+    detail.style.left=centerX+"px";
+    detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
+    detail.style.setProperty("--detail-scale",scale);
+    const below=point.y<detail.offsetHeight*scale+24;
+    detail.style.top=(point.y+(below?22:-22))+"px";
+    detail.classList.toggle("below-pin",below);
+  }
 }
-function choose(entry, focus) {
-  if (state.placing) { placeAt({lng:entry.lng,lat:entry.lat}); return; }
-  state.current=entry;render();
-  if (entry.id) history.replaceState(null,"",pinUrl(entry.id));
-  if (focus) {showMobileMap();mapFocus(entry);}
-  const detail=$("detailPanel");detail.replaceChildren();
+function renderDetail(entry,detail){
+  detail.replaceChildren();
   const head=text("div","","detail-head");
   const name=text("h2",entry.title);
-  const closeButton=button("✕",hideDetail);
+  const closeButton=button("✕",()=>hideDetail(entry.id));
   closeButton.setAttribute("aria-label","Close details");
   head.append(name,closeButton);
   detail.append(head);
@@ -599,20 +599,48 @@ function choose(entry, focus) {
     anchor.href=entry.link;anchor.rel="noopener noreferrer";anchor.target="_blank";actions.append(anchor);
   }
   actions.append(button("Share link",()=>sharePin(entry),"secondary"));
-  actions.append(button("Edit",()=>{hideDetail();openEditor(entry);},"secondary"));
+  actions.append(button("Edit",()=>{hideDetail(entry.id);openEditor(entry);},"secondary"));
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
-  deleteButton.id="deleteSelectedPin";
+  deleteButton.className+=" delete-selected-pin";
   deleteButton.disabled=!state.localReady;
   deleteButton.title="Delete from the shared map";
   actions.append(deleteButton);
   detail.append(actions);
+  const card=openDetails.get(entry.id);
+  if(card)card.entry=entry;
   detail.classList.remove("hidden");
   positionDetail();
 }
-function hideDetail() {
-  state.current=null;
-  if (new URLSearchParams(location.search).has("pin")) history.replaceState(null,"",pinUrl(null));
-  $("detailPanel").classList.add("hidden");render();
+function raiseDetail(id) {
+  const card=openDetails.get(id);if(!card)return;
+  const ordered=[...openDetails.entries()].filter(([key])=>key!==id);
+  ordered.push([id,card]);
+  ordered.forEach(([,item],index)=>{item.node.style.zIndex=String(index+1);});
+  state.current=card.entry;
+  history.replaceState(null,"",pinUrl(id));
+}
+function choose(entry, focus) {
+  if(state.placing){placeAt({lng:entry.lng,lat:entry.lat});return;}
+  state.current=entry;render();
+  if(entry.id)history.replaceState(null,"",pinUrl(entry.id));
+  if(focus){showMobileMap();mapFocus(entry);}
+  let card=openDetails.get(entry.id);
+  if(!card){
+    const node=document.createElement("aside");
+    node.className="side-panel";node.setAttribute("aria-label","Entry details");
+    card={entry,node};openDetails.set(entry.id,card);
+    node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
+    $("detailLayer").append(node);
+  }
+  raiseDetail(entry.id);
+  renderDetail(entry,card.node);
+}
+function hideDetail(id=state.current?.id) {
+  const card=openDetails.get(id);
+  if(card){card.node.remove();openDetails.delete(id);}
+  if(state.current?.id===id)state.current=[...openDetails.values()].sort((a,b)=>Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]?.entry||null;
+  history.replaceState(null,"",pinUrl(state.current?.id||null));
+  render();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -623,7 +651,6 @@ function toggleList(open) {
 }
 function showMobileMap(){toggleList(false);}
 function startPlacement(kind, draft) {
-  hideDetail();
   state.placing={kind:kind||"place", draft:draft||null};
   $("placementBar").classList.remove("hidden");
   $("cancelPlace").focus();
@@ -680,6 +707,7 @@ async function submitChange(action,entry){
   if(action==="delete"){
     data=await requestShared(path,jsonOptions("DELETE",{expectedVersion:entry.version}));
     storeMapSnapshot(allEntries().filter(pin=>pin.id!==entry.id));
+    if(openDetails.has(entry.id))hideDetail(entry.id);
   }else if(action==="save"){
     const value=await uploadEntryPhotos(entry);
     const expectedVersion=Number.isInteger(entry.version)?entry.version:null;
@@ -688,6 +716,7 @@ async function submitChange(action,entry){
     const index=items.findIndex(pin=>pin.id===entry.id);
     if(index<0)items.push(data.entry);else items[index]=data.entry;
     storeMapSnapshot(items);
+    const card=openDetails.get(entry.id);if(card)renderDetail(data.entry,card.node);
   }else throw new Error("Invalid action");
   return data;
 }
@@ -729,13 +758,13 @@ async function saveEntry(event) {
 async function removeEntry(entry){
   if(state.saving)return;
   state.saving=true;
-  const control=$("deleteSelectedPin");
+  const control=openDetails.get(entry.id)?.node.querySelector(".delete-selected-pin");
   if(control){control.disabled=true;control.textContent="Deleting…";}
   try{
     const before=allEntries().find(e=>e.id===entry.id);
     const result=await submitChange("delete",entry);
     if(before)recordChange({before,after:null,version:result.version});
-    hideDetail();
+    hideDetail(entry.id);
     notify("Pin deleted from the shared map. Use Undo to restore it.");
   }catch(error){notify(error.message,true);}
   finally{state.saving=false;if(control){control.disabled=false;control.textContent="Delete pin";}updateHistoryButtons();}
@@ -1007,7 +1036,7 @@ function wire() {
     if(event.key==="Escape"){
       $("basemapSwitch").classList.add("hidden");
       if(state.placing) {$("placementBar").classList.add("hidden");state.placing=null;}
-      if(!$("detailPanel").classList.contains("hidden"))hideDetail();
+      if(openDetails.size)hideDetail();
     }
   });
 }
@@ -1025,8 +1054,17 @@ async function main() {
   }
   settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
   settingsUI.init();
+  const sensitivity=$("popupSensitivity");
+  sensitivity.value=String(popupSensitivity);
+  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}positionDetail();});
+  sensitivity.addEventListener("input",()=>{
+    popupSensitivity=Number(sensitivity.value);
+    try{localStorage.setItem(SENSITIVITY_KEY,String(popupSensitivity));}catch{}
+    positionDetail();
+  });
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
+    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);positionDetail();}
     if(event.key===FEATURE_STORAGE_KEY){
       state.features=readFeatureSettings();
       applyFeatureSettings();

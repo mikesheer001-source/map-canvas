@@ -225,3 +225,6 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 @media(max-width:750px){.side-panel{top:0;left:0;right:auto;bottom:auto;width:min(260px,74vw);max-height:min(290px,38dvh)}}
 .side-panel::after{content:"";position:absolute;bottom:0;left:calc(50% + var(--anchor-x, 0px));transform:translateX(-50%);width:0;height:0;border:7px solid transparent;border-top-color:#75ac8b;pointer-events:none}
 .side-panel.below-pin::after{top:0;bottom:auto;border-top-color:transparent;border-bottom-color:#75ac8b}
+@media(max-width:750px){.side-panel{width:min(230px,calc(68vw / var(--detail-scale,1)));max-height:min(255px,calc(35dvh / var(--detail-scale,1)))}}
+
+.detail-layer{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}.detail-layer .side-panel{pointer-events:auto}
