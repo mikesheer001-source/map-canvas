@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>Leverage Matrix — Historical Returns</title>
+<style>
+:root{color-scheme:dark;--bg:#090f1b;--panel:#111c2c;--line:#28364b;--text:#edf3fc;--muted:#95a5bd;--accent:#79c9ff;--green:#74e6a0;--red:#ff9094}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse 90% 50% at 10% 0%,#182c47 0%,transparent 75%),var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);font-size:14px}button,select,input{font:inherit}
+.wrap{max-width:1580px;margin:auto;padding:24px 22px 65px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:800}h1{font-size:clamp(26px,4vw,41px);letter-spacing:-.045em;margin:8px 0}h1 span{color:var(--accent)}
+.sub{margin:0;color:var(--muted);line-height:1.6;max-width:650px}.pill{border:1px solid var(--line);border-radius:99px;padding:8px 13px;color:var(--muted);font-size:12px;background:#101c2c}
+.controls{background:rgba(17,28,44,.9);border:1px solid var(--line);border-radius:17px;margin:25px 0 14px;padding:15px;display:flex;flex-wrap:wrap;align-items:end;gap:15px}
+.ctl{display:flex;flex-direction:column;gap:7px;min-width:140px}.ctl label{font-size:11px;letter-spacing:.045em;text-transform:uppercase;color:var(--muted);font-weight:800}
+select,input{border:1px solid #34445e;background:#0a1423;color:var(--text);border-radius:9px;min-height:38px;padding:8px 10px;outline-color:var(--accent)}
+.periods{display:flex;flex-wrap:wrap;gap:4px;border:1px solid #304058;background:#0a1423;border-radius:11px;padding:4px}
+.periods button{background:none;border:0;color:#b5c2d4;border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:700;min-width:42px}
+.periods button.active{background:#315a79;color:#fff}
+.periods button:hover{background:#263b54}.dates{display:none;align-items:end;gap:8px;flex-wrap:wrap}.dates.active{display:flex}
+.status{display:flex;gap:15px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:12px 2px 16px;color:var(--muted);font-size:12px}
+#health{display:inline-flex;align-items:center;gap:7px}.dot{height:7px;width:7px;background:#64748b;border-radius:50%;display:inline-block}.dot.good{background:var(--green)}.dot.warn{background:#edb66d}
+.tblbox{border:1px solid var(--line);border-radius:16px;overflow:auto;background:#0e1828;box-shadow:0 18px 65px #0003}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:1480px;table-layout:fixed}th,td{border-right:1px solid #243146;border-bottom:1px solid #243146;text-align:left;vertical-align:top}
+thead th{background:#17273a;position:sticky;top:0;z-index:2;padding:15px 11px;font-size:12px;white-space:nowrap;color:#b9cce4}
+thead th:first-child{left:0;z-index:4;width:170px}.neghead{color:#ffbabd}tbody tr:last-child td{border-bottom:0}td:first-child{position:sticky;left:0;z-index:1;background:#152337;padding:18px 13px}
+.stock{font-size:19px;font-weight:850;letter-spacing:-.035em}.stockname{color:var(--muted);font-size:12px;margin-top:6px}
+td{padding:9px;min-width:145px}.cell{display:flex;flex-direction:column;gap:5px;min-height:75px}.fund{background:#172538;border:1px solid #2b3b52;padding:9px 8px;border-radius:9px;width:100%;color:var(--text);text-align:left;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:space-between}
+.fund:hover{border-color:var(--accent);background:#233950}.ticker{font-weight:750;letter-spacing:.02em}.return{font-weight:800;font-variant-numeric:tabular-nums;font-size:12px}.up{color:var(--green)}.down{color:var(--red)}.na{color:#6d809a;font-weight:500}
+.empty{font-size:22px;padding:15px;color:#45556e;text-align:center}.hint{font-size:10px;color:#8fa6c2;padding:0 3px}.below{margin-top:17px;display:flex;gap:14px;flex-wrap:wrap}
+.info{flex:1 1 360px;background:#111c2c;border:1px solid var(--line);border-radius:14px;padding:16px;line-height:1.6;color:#a9b8ce}
+.info strong{color:#e8f1fc}.info a{color:#8fcfff;text-decoration:none}.info a:hover{text-decoration:underline}
+#modal{position:fixed;inset:0;background:#02070fba;display:none;align-items:center;justify-content:center;z-index:10;padding:15px}#modal.open{display:flex}
+.dialog{width:min(650px,100%);background:#101e30;border:1px solid #38516c;border-radius:18px;padding:23px;box-shadow:0 22px 75px #0008}
+.dialogtop{display:flex;justify-content:space-between;gap:15px}.dialog h2{margin:0;font-size:26px}.close{background:#26384f;border:0;border-radius:9px;color:#fff;font-size:21px;padding:2px 10px;cursor:pointer;height:37px}
+.detail{font-size:14px;line-height:1.8;color:#bacbe0;margin:12px 0}.big{font-size:32px;font-weight:850;font-variant-numeric:tabular-nums}.chart{background:#0b1625;border:1px solid #283b53;border-radius:12px;padding:10px;margin:14px 0}.chart svg{width:100%;height:190px;display:block}.chart .axis{stroke:#283b53;stroke-width:1}.charttext{color:#92a6bf;font-size:11px;margin-top:5px}
+.links{display:flex;gap:15px;flex-wrap:wrap;margin-top:15px}.links a{color:#8dcfff;text-decoration:none;font-weight:650}
+footer{color:#768ba7;margin:25px 2px;font-size:11px;line-height:1.6}
+@media(max-width:650px){.wrap{padding:17px 10px 45px}.controls{padding:11px;gap:10px}.periods button{padding:7px 9px}thead th:first-child{width:124px}td:first-child{padding:13px 8px}.stock{font-size:15px}.stockname{font-size:10px}table{min-width:1310px}td{padding:6px}.fund{padding:8px 6px}.ticker,.return{font-size:11px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div><div class="eyebrow">Single-stock leverage monitor</div><h1>Leverage <span>Matrix</span></h1><p class="sub">MSTR, COIN, Alphabet and NVDA · Compare actual historical returns across leveraged and inverse exchange-traded products.</p></div><div class="pill" id="asof">Data not loaded</div></header>
+<section class="controls" aria-label="Return settings">
+<div class="ctl" style="flex:1 1 425px"><label>Holding period</label><div class="periods" id="periods"></div></div>
+<div class="ctl"><label for="mode">Return type</label><select id="mode"><option value="adjusted">Adjusted return (distributions)</option><option value="price">Price return only</option></select></div>
+<div class="dates" id="dates"><div class="ctl"><label for="start">Start</label><input type="date" id="start"></div><div class="ctl"><label for="end">End</label><input type="date" id="end"></div></div>
+</section>
+<div class="status"><span id="health"><span class="dot"></span><span id="healthtext">Loading daily historical closes…</span></span><span id="count">Select a ticker for its chart and dates</span></div>
+<div class="tblbox"><table aria-label="Leveraged stock funds by leverage and holding period"><thead><tr id="heads"></tr></thead><tbody id="matrix"></tbody></table></div>
+<div class="below">
+<div class="info"><strong>How to read the returns</strong> — Each ticker displays its own measured return for the selected holding period. The calculations use available historical daily closing prices; no value is inferred by multiplying the stock return by leverage. A dash means data is unavailable or the fund did not exist for the whole period.</div>
+<div class="info"><strong>Adjusted vs. price returns</strong> — Adjusted-close returns account for splits and historical distributions when available from the data feed. Price returns exclude cash distributions. WeeklyPay funds (1.2×) pay frequent distributions, so price-only comparisons can be especially misleading. The 1.5–2× product is an income strategy, not a fixed multiplier.</div>
+<div class="info"><strong>Market and data caution</strong> — The 3× instruments are European exchange-traded products, not U.S. ETFs; some have multiple listings/currencies. Figures are end-of-day, delayed and indicative, not a live quote. Data provider: Yahoo Finance chart history (unofficial). Missing or stale data is labeled, not guessed.</div>
+</div>
+<footer>Auto-refreshed by a scheduled GitHub Actions workflow when available. Click a ticker to inspect the historical window and data source. Daily-reset leverage compounds over time and can diverge substantially from its advertised multiplier. Not investment advice.</footer>
+</div>
+<div id="modal" role="dialog" aria-modal="true" aria-label="Ticker details"><div class="dialog"><div class="dialogtop"><div><div class="eyebrow" id="detailtag">Instrument details</div><h2 id="detailtitle">—</h2></div><button class="close" id="close" aria-label="Close">×</button></div><div id="detailbody" class="detail"></div><div class="chart"><svg id="spark" viewBox="0 0 600 190" preserveAspectRatio="none" role="img" aria-label="Price history chart"></svg><div id="charttext" class="charttext"></div></div><div id="links" class="links"></div></div></div>
+<script>
+'use strict';
+const LEVERS=[
+ {key:'one',label:'1× Stock'},{key:'weekly',label:'+1.2× Weekly'},{key:'income',label:'+1.5–2× Income'},
+ {key:'long2',label:'+2× Daily'},{key:'long3',label:'+3× Daily'},
+ {key:'short1',label:'−1× Daily'},{key:'short15',label:'−1.5× Daily'},{key:'short2',label:'−2× Daily'},{key:'short3',label:'−3× Daily'}
+];
+const ROWS=[
+ {symbol:'MSTR',name:'Strategy',one:['MSTR'],weekly:['MSTW'],income:['MST'],long2:['MSTU','MSTX','MSTP','MSTC'],long3:['3LMI','MST3'],short2:['MSTZ','SMST'],short3:['MSTS','3SMI']},
+ {symbol:'COIN',name:'Coinbase',one:['COIN'],weekly:['COIW'],long2:['CONL','CONX','COIA','COIG','COIX'],long3:['CON3','3LCO'],short2:['CONI'],short3:['CO3S']},
+ {symbol:'GOOGL',name:'Alphabet',one:['GOOGL','GOOG'],weekly:['GOOW'],long2:['GGLL','GOOX','GOU','GOOL','GOGL'],long3:['GOO3','3LAL'],short1:['GGLS'],short3:['GG3S','3SAL']},
+ {symbol:'NVDA',name:'NVIDIA',one:['NVDA'],weekly:['NVDW'],long2:['NVDL','NVDU','NVDX','NVDG','NVDB','NVC'],long3:['NVD3','3LNV'],short1:['NVDD'],short15:['NVDS'],short2:['NVD','NVDQ'],short3:['NV3S','3SNV']}
+];
+const PERIODS=['1D','5D','1M','3M','6M','YTD','1Y','3Y','5Y','MAX','CUSTOM'];
+const state={period:'1M',mode:'adjusted',data:null,selected:null};
+const $=id=>document.getElementById(id);
+const yyyy=d=>d.toISOString().slice(0,10);
+function shift(date,n,unit){const d=new Date(date+'T12:00:00Z');if(unit==='day')d.setUTCDate(d.getUTCDate()+n);else if(unit==='month')d.setUTCMonth(d.getUTCMonth()+n);else d.setUTCFullYear(d.getUTCFullYear()+n);return yyyy(d);}
+function dataFor(ticker){return state.data && state.data.symbols && state.data.symbols[ticker];}
+function valueAt(bar){return state.mode==='price'?bar[1]:(bar[2]>0?bar[2]:bar[1]);}
+function periodCalc(ticker){
+ const rec=dataFor(ticker);if(!rec||!Array.isArray(rec.bars)||rec.bars.length<2)return null;
+ const bars=rec.bars.filter(b=>b[1]>0 && valueAt(b)>0);if(bars.length<2)return null;
+ let endDate=state.period==='CUSTOM'?$('end').value:bars[bars.length-1][0];
+ let end=bars.length-1;while(end>=0&&bars[end][0]>endDate)end--;if(end<1)return null;
+ let start=-1,target='';
+ if(state.period==='MAX')start=0;
+ else if(state.period==='1D')start=end-1;
+ else if(state.period==='5D')start=end-5;
+ else{
+  const p=state.period;const last=bars[end][0];
+  target=p==='CUSTOM'?$('start').value:p==='YTD'?last.slice(0,4)+'-01-01':p==='1M'?shift(last,-1,'month'):p==='3M'?shift(last,-3,'month'):p==='6M'?shift(last,-6,'month'):p==='1Y'?shift(last,-1,'year'):p==='3Y'?shift(last,-3,'year'):shift(last,-5,'year');
+  if(!target)return null;
+  for(let i=end-1;i>=0;i--)if(bars[i][0]<=target){start=i;break;}
+ }
+ if(start<0 || start>=end)return null;
+ const initial=valueAt(bars[start]),final=valueAt(bars[end]);
+ if(initial<=0)return null;
+ return {pct:(final/initial-1)*100,from:bars[start][0],to:bars[end][0],value:final,base:initial,bars:bars.slice(start,end+1),rec};
+}
+const pct=n=>n===null?'—':(n>=0?'+':'')+n.toFixed(2)+'%';
+const numeric=n=>n===null?'na':n>=0?'up':'down';
+function setPeriod(p){state.period=p;$('dates').classList.toggle('active',p==='CUSTOM');document.querySelectorAll('#periods button').forEach(b=>b.classList.toggle('active',b.textContent===p));render();}
+function render(){
+ const head=$('heads');head.innerHTML='';const first=document.createElement('th');first.textContent='Underlying';head.append(first);
+ for(const lev of LEVERS){const th=document.createElement('th');th.textContent=lev.label;if(lev.key.startsWith('short'))th.classList.add('neghead');head.append(th);}
+ const tb=$('matrix');tb.innerHTML='';let available=0,total=0;
+ for(const row of ROWS){const tr=document.createElement('tr');const name=document.createElement('td');name.innerHTML='<div class="stock"></div><div class="stockname"></div>';name.querySelector('.stock').textContent=row.symbol;name.querySelector('.stockname').textContent=row.name;tr.append(name);
+  for(const lev of LEVERS){const cell=document.createElement('td');const box=document.createElement('div');box.className='cell';const tickers=row[lev.key]||[];
+   if(!tickers.length){const none=document.createElement('div');none.className='empty';none.textContent='—';box.append(none);}
+   for(const t of tickers){total++;const calc=periodCalc(t);if(calc)available++;const b=document.createElement('button');b.className='fund';b.setAttribute('aria-label',t+' '+(calc?pct(calc.pct):'return unavailable')+'; show details');const title=document.createElement('span');title.className='ticker';title.textContent=t;const perf=document.createElement('span');perf.className='return '+(calc?numeric(calc.pct):'na');perf.textContent=calc?pct(calc.pct):'—';b.append(title,perf);b.addEventListener('click',()=>showTicker(t,row,lev));box.append(b);}
+   cell.append(box);tr.append(cell);}
+  tb.append(tr);
+ }
+ $('count').textContent=available+' / '+total+' instruments with period data';
+ if(state.selected){const {t,r,l}=state.selected;fillDetails(t,r,l);}
+}
+function showTicker(t,r,l){state.selected={t,r,l};fillDetails(t,r,l);$('modal').classList.add('open');}
+function fillDetails(t,r,l){
+ const calc=periodCalc(t),rec=dataFor(t);$('detailtag').textContent=r.name+' · '+l.label;
+ $('detailtitle').textContent=t;const body=$('detailbody');body.innerHTML='';
+ const big=document.createElement('div');big.className='big '+(calc?numeric(calc.pct):'na');big.textContent=calc?pct(calc.pct):'No historical return';body.append(big);
+ const p=document.createElement('div');p.textContent=calc?'From '+calc.from+' through '+calc.to+' · '+state.mode+' close · '+(rec.currency||'currency unlisted'):'The price feed lacks enough history for '+state.period+'. This is not a zero return.';body.append(p);
+ if(rec){const meta=document.createElement('div');meta.textContent='Quote symbol: '+(rec.source_ticker||t)+' · Exchange: '+(rec.exchange||'unknown')+' · Last observation: '+(rec.bars&&rec.bars.length?rec.bars[rec.bars.length-1][0]:'unknown');body.append(meta);}
+ else if(state.data&&state.data.errors&&state.data.errors[t]){const e=document.createElement('div');e.textContent='Price feed: '+state.data.errors[t];body.append(e);}
+ const s=$('spark');s.innerHTML='';$('charttext').textContent='';
+ if(calc&&calc.bars.length>1){
+  const vals=calc.bars.map(valueAt),lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1;
+  const ps=vals.map((n,i)=>[(i/(vals.length-1))*584+8,176-((n-lo)/range)*158]);
+  for(let y of [48,100,152]){const axis=document.createElementNS('http://www.w3.org/2000/svg','line');axis.setAttribute('x1','8');axis.setAttribute('x2','592');axis.setAttribute('y1',y);axis.setAttribute('y2',y);axis.setAttribute('class','axis');s.append(axis);}
+  const path=document.createElementNS('http://www.w3.org/2000/svg','polyline');path.setAttribute('points',ps.map(v=>v[0].toFixed(1)+','+v[1].toFixed(1)).join(' '));path.setAttribute('fill','none');path.setAttribute('stroke',calc.pct>=0?'#74e6a0':'#ff9094');path.setAttribute('stroke-width','3');path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');s.append(path);
+  $('charttext').textContent=calc.bars.length+' daily observations · start '+calc.base.toFixed(4)+' · end '+calc.value.toFixed(4)+' · '+(rec.currency||'');
+ }else $('charttext').textContent='Chart unavailable until enough historical data is fetched.';
+ const links=$('links');links.innerHTML='';
+ const link=document.createElement('a');link.href='https://finance.yahoo.com/quote/'+encodeURIComponent(rec&&rec.source_ticker||t)+'/history/';link.target='_blank';link.rel='noopener noreferrer';link.textContent='Yahoo price history ↗';links.append(link);
+ const src=document.createElement('a');src.href='https://github.com/mikesheer001-source/map-canvas/tree/main/leverage-matrix';src.target='_blank';src.rel='noopener noreferrer';src.textContent='Data & source code ↗';links.append(src);
+}
+function health(){
+ const symbols=state.data&&state.data.symbols||{},success=Object.keys(symbols).length,stamp=state.data&&state.data.generated_at;
+ $('asof').textContent=stamp?'Updated '+new Date(stamp).toLocaleString():'Data refresh pending';
+ const age=stamp?(Date.now()-Date.parse(stamp))/86400000:Infinity;
+ $('health').querySelector('.dot').className='dot '+(success>0&&age<3?'good':'warn');
+ $('healthtext').textContent=success?success+' ticker histories loaded'+(age>3?' · Feed is stale':' · End-of-day data'):'Price history not available yet — check refresh workflow';
+}
+$('close').addEventListener('click',()=>$('modal').classList.remove('open'));
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').classList.remove('open')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').classList.remove('open')});
+for(const p of PERIODS){const b=document.createElement('button');b.textContent=p;b.type='button';b.addEventListener('click',()=>setPeriod(p));$('periods').append(b);}
+$('mode').addEventListener('change',e=>{state.mode=e.target.value;render()});
+const now=new Date(),today=yyyy(now);$('end').value=today;$('start').value=shift(today,-1,'month');
+$('start').addEventListener('change',render);$('end').addEventListener('change',render);setPeriod('1M');
+fetch('./data/prices.json?v='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{state.data=data;health();render()}).catch(e=>{state.data={symbols:{},errors:{}};health();$('healthtext').textContent='Price history unavailable: '+e.message;render()});
+</script>
+</body>
+</html>
