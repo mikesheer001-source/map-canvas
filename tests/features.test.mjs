@@ -23,7 +23,8 @@ assert.match(app,/SHARED_MAP_URL/);
 assert.doesNotMatch(app,/script\.google\.com|SHEETS_URL|sheetRequest/);
 assert.match(sw,/caches\.open\(SHELL\)/);
 assert.match(sw,/public-map\.json/);
-assert.match(sw,/keys\.length>180/);
+assert.match(sw,/map-canvas-area-/);
+assert.match(sw,/map-canvas-offline-base/);
 assert.ok(!sw.includes("tile.openstreetmap.org"));
 const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS",
  app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+

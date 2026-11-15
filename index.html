@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Map Canvas">
+<link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f9faf7">
 <meta name="description" content="A shared public map canvas for places, notes and photos. No sign-in needed.">
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=card-layout-20261115">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="stylesheet" href="./vendor/maplibre-gl.css">
+<link rel="stylesheet" href="./style.css?v=offline-20261115">
 </head>
 <body>
 <div id="app">
@@ -54,12 +58,14 @@
    <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
    <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
    <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
+   <button id="offlineButton" title="Offline areas" aria-label="Offline areas">⇩</button>
    <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
   </nav>
   <div class="basemap-switch hidden" id="basemapSwitch" role="group" aria-label="Choose map imagery">
    <button data-basemap="openfreemap"><b>OpenFreeMap</b><small>MapLibre vector streets</small></button>
    <button data-basemap="openstreetmap"><b>OpenStreetMap</b><small>Classic raster streets</small></button>
   </div>
+  <div id="offlineFrame" class="offline-frame hidden"><div id="offlineBox" class="offline-box"></div><div class="offline-actions"><span>Move and zoom the map to select an area</span><span id="offlineDownloadStatus" role="status"></span><button id="offlineCancel" class="secondary">Cancel</button><button id="offlineDownload" class="primary">Download</button></div></div>
   <div id="mapNotice" class="map-notice hidden" role="status"></div>
   <div id="canvasOverlay" class="canvas-overlay" aria-label="Map notes pictures and drawings"><svg id="canvasDrawing" class="canvas-drawing" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div id="canvasObjects"></div></div>
 
@@ -68,6 +74,7 @@
   <div class="mobile-tab"><button id="listButton">☷ List</button></div>
  </section>
 </div>
+<dialog id="offlinePanel" class="settings-dialog"><div class="settings-header"><h2>Offline areas</h2><button id="offlineClose" class="icon-button" aria-label="Close">✕</button></div><p>Save a Hanoi area with its pins, notes and photos for offline use. Map edits require a connection. On iPhone, use Share → Add to Home Screen and download areas in that app. Some photo hosts prevent verifying saved images.</p><button id="offlineChoose" class="primary">Choose an area</button><h3>Saved on this device</h3><div id="offlineAreas"></div></dialog>
 <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
  <div class="settings-header"><div><div class="eyebrow">YOUR MAP · YOUR CONTROLS</div><h2 id="settingsTitle">Settings</h2></div><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">✕</button></div>
  <p class="settings-note">Choose which tools and details appear. Preferences are saved automatically <strong>on this browser</strong> and remain after refreshing. They don't change anyone else's settings.</p>
@@ -109,6 +116,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=card-layout-20261115"></script>
+<script type="module" src="./app.js?v=offline-20261115"></script>
 </body>
 </html>

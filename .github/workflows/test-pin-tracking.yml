@@ -36,10 +36,15 @@ jobs:
           npx playwright install --with-deps chromium webkit
       - name: Run real-browser geometry tests
         run: |
+          if [[ -f scripts/build-offline-basemap.sh && ! -s data/offline/hanoi.pmtiles ]]; then
+            bash scripts/build-offline-basemap.sh
+          fi
           mkdir -p test-artifacts
           python3 -m http.server 8765 --bind 127.0.0.1 &
           node tests/pin-browser.test.mjs
           MAP_BROWSER_ENGINE=webkit node tests/pin-browser.test.mjs
+          node tests/offline-browser.test.mjs
+          MAP_BROWSER_ENGINE=webkit node tests/offline-browser.test.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

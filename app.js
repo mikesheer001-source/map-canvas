@@ -4,6 +4,8 @@ const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
+let savedAreas=async()=>[];
+let offlineProtocolReady=false;
 const openDetails=new Map();
 let detailFrame=0;
 
@@ -175,6 +177,7 @@ async function loadHostels(){
     if(state.localReady&&state.revision===data.revision)return;
     state.revision=data.revision;
     state.localReady=true;
+    state.offlineMode=false;
     storeMapSnapshot(data.entries);
     for(const [id,card] of [...openDetails]){
       const selected=state.entries.find(entry=>entry.id===id);
@@ -187,6 +190,7 @@ async function loadHostels(){
   $("statusPip").classList.add("connected");
 }
 async function reloadShared(silent){
+  if(navigator.onLine===false)return;
   try{await loadHostels();if(!silent)notify("Shared map refreshed.");}
   catch(error){
     state.localReady=false;
@@ -450,6 +454,7 @@ function openFreeMapStyle(){
     :"https://tiles.openfreemap.org/styles/liberty";
 }
 function changeProvider(provider) {
+  if (navigator.onLine===false) {notify("Reconnect to change map imagery.",true);return;}
   if (!["openfreemap","openstreetmap"].includes(provider)) return;
   state.provider = provider;
   document.documentElement.dataset.mapProvider=provider;
@@ -518,14 +523,56 @@ async function fallbackLeaflet(reason) {
   paintProvider();renderMarkers(filterEntries());updateLabels();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
 }
+async function prepareOfflineProtocol(lib) {
+  if(offlineProtocolReady)return;
+  const pmtiles=await import("./vendor/pmtiles.mjs");
+  const url=new URL("./data/offline/hanoi.pmtiles",location.href).href;
+  const cache=await caches.open("map-canvas-offline-base-v1");
+  const response=await cache.match(url);
+  if(!response)throw new Error("Saved offline map is unavailable");
+  const blob=await response.blob();
+  const source={getKey:()=>url,getBytes:async(offset,length)=>({data:await blob.slice(offset,offset+length).arrayBuffer()})};
+  const protocol=new pmtiles.Protocol();
+  protocol.add(new pmtiles.PMTiles(source));
+  lib.addProtocol("pmtiles",protocol.tile);
+  offlineProtocolReady=true;
+}
+async function useOfflineArea() {
+  const areas=await savedAreas();
+  if(!areas.length || !state.map || state.library!=="maplibre")return;
+  const area=areas.sort((a,b)=>b.created-a.created)[0];
+  await prepareOfflineProtocol(window.maplibregl);
+  state.offlineMode=true;state.localReady=false;
+  setMapEntries(area.entries);
+  state.styleReady=false;clearLabelMarkers();
+  state.map.setStyle(await offlineStyle());
+  state.map.fitBounds([[area.bounds[0],area.bounds[1]],[area.bounds[2],area.bounds[3]]],{padding:35,duration:0});
+  $("syncState").textContent="Offline · saved area";
+  $("statusText").textContent="Showing saved area · reconnect to edit";
+}
+async function offlineStyle() {
+  const path=state.features.darkTheme ? "./data/offline/style-dark.json" : "./data/offline/style.json";
+  const response=await fetch(path);
+  if(!response.ok)throw new Error("Offline map style is unavailable");
+  const style=await response.json();
+  style.sources.hanoi.url="pmtiles://"+new URL("./data/offline/hanoi.pmtiles",location.href).href;
+  if(style.glyphs)style.glyphs=new URL(style.glyphs,location.href).href.replace(/%7B/gi,"{").replace(/%7D/gi,"}");
+  if(style.sprite)style.sprite=new URL(style.sprite,location.href).href;
+  return style;
+}
 async function initMap() {
   announce("Loading street map…");
   try {
-    const lib = await import("https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.mjs");
+    const lib = await import("./vendor/maplibre-gl.mjs");
+    let initialStyle=openFreeMapStyle();
+    if(state.offlineMode && (await savedAreas()).length){
+      await prepareOfflineProtocol(lib);
+      initialStyle=await offlineStyle();
+    }
     window.maplibregl=lib;
     const map=new lib.Map({
       container:"map",center:[105.8503,21.0345],zoom:15.5,
-      style:openFreeMapStyle(),
+      style:initialStyle,
       attributionControl:true,maxZoom:19
     });
     state.map=map;state.library="maplibre";
@@ -1022,7 +1069,7 @@ function setupOffline() {
   window.addEventListener("online",refresh);
   window.addEventListener("offline",refresh);
   refresh();
-  if("serviceWorker" in navigator && location.protocol==="https:")
+  if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1"))
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
 
@@ -1066,7 +1113,8 @@ function applyFeatureSettings(changedKey=null){
   if(oldTheme!==requestedTheme && state.map && state.library==="maplibre" && state.provider==="openfreemap"){
     state.styleReady=false;
     clearLabelMarkers();
-    state.map.setStyle(openFreeMapStyle());
+    if(state.offlineMode)offlineStyle().then(style=>state.map?.setStyle(style)).catch(()=>notify("Offline map style is unavailable.",true));
+    else state.map.setStyle(openFreeMapStyle());
   }
   updateLabels();
   render();
@@ -1146,6 +1194,8 @@ function wire() {
   });
 }
 async function main() {
+  const {setupAreaDownload, savedAreas: getSavedAreas} = await import("./offline.js");
+  savedAreas=getSavedAreas;
   state.features=readFeatureSettings();
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
@@ -1177,13 +1227,20 @@ async function main() {
     }
   });
   setupOffline();
+  setupAreaDownload({getMap:()=>state.map,getEntries:allEntries,isReady:()=>state.localReady,notify,viewArea:a=>{if(state.offlineMode)setMapEntries(a.entries);}});
   try {
     if(localStorage.getItem(LOCAL_MAP_KEY)){
       $("downloadLegacyBtn").classList.remove("hidden");
       $("legacyHelp").classList.remove("hidden");
     }
   }catch{}
-  try {await loadHostels();}catch(error){
+  try {if(!navigator.onLine)throw new Error("Offline");await loadHostels();}catch(error){
+    const areas=await savedAreas().catch(()=>[]);
+    if(areas.length){
+      state.offlineMode=true;
+      const latest=areas.sort((a,b)=>b.created-a.created)[0];setMapEntries(latest.entries);
+      state.offlineBounds=latest.bounds;
+    } else {
     const cached=readMapCache();
     if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
       catch(e){notify(e.message,true);}}
@@ -1194,16 +1251,25 @@ async function main() {
       }catch{}
       notify("Shared map unavailable: "+error.message,true);
     }
+    }
     state.localReady=false;
     $("syncState").textContent="Connection lost · retry";
     $("statusText").textContent="Showing saved map · reconnect to edit";
   }
   render();
   await initMap();
+  if(state.offlineBounds&&state.map)state.map.fitBounds([[state.offlineBounds[0],state.offlineBounds[1]],[state.offlineBounds[2],state.offlineBounds[3]]],{padding:35,duration:0});
   render();
   applyDeepLink();
   setInterval(()=>reloadShared(true),5000);
-  window.addEventListener("online",()=>reloadShared(true));
+  window.addEventListener("offline",()=>{state.localReady=false;render();useOfflineArea().catch(error=>notify(error.message,true));});
+  window.addEventListener("online",async()=>{
+    const wasOffline=state.offlineMode;await reloadShared(true);
+    if(wasOffline&&state.localReady&&state.map&&state.library==="maplibre"){
+      state.styleReady=false;clearLabelMarkers();
+      state.map.setStyle(state.provider==="openfreemap"?openFreeMapStyle():osmStyle);
+    }
+  });
   const detailLayer=$("detailLayer");
   detailLayer.addEventListener("load",scheduleDetailLayout,true);
   new ResizeObserver(scheduleDetailLayout).observe(detailLayer);
