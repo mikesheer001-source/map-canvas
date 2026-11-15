@@ -21,10 +21,15 @@ async function transaction(mode, fn) {
 }
 export const savedAreas = () => transaction('readonly', store => store.getAll());
 const putArea = area => transaction('readwrite', store => store.put(area));
+const withAreaStorage = operation => navigator.locks
+  ? navigator.locks.request(DB, operation)
+  : operation();
 async function removeArea(id) {
-  await transaction('readwrite', store => store.delete(id));
-  await caches.delete(CACHE_PREFIX + id);
-  if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
+  await withAreaStorage(async () => {
+    await transaction('readwrite', store => store.delete(id));
+    await caches.delete(CACHE_PREFIX + id);
+    if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
+  });
 }
 
 async function fetchPhoto(url, mode) {
@@ -111,6 +116,26 @@ async function cacheBasemap(manifest, status) {
   }
 }
 
+async function downloadArea({id,bounds,entries,manifest,status}) {
+  return withAreaStorage(async () => {
+    const cacheName = CACHE_PREFIX + id;
+    try {
+      const cache = await caches.open(cacheName);
+      await cacheBasemap(manifest, status);
+      status.textContent = 'Saving pins and photos…';
+      const saved = await snapshotPhotos(entries, id, (count, total) => {
+        status.textContent = `Saving photos (${count}/${total})…`;
+      }, cache);
+      await putArea({id,bounds,entries:saved.entries,missing:saved.missing,created:Date.now()});
+      return saved;
+    } catch (error) {
+      await caches.delete(cacheName);
+      if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
+      throw error;
+    }
+  });
+}
+
 function selectedBounds(map) {
   const mapRect = map.getContainer().getBoundingClientRect();
   const rect = document.getElementById('offlineBox').getBoundingClientRect();
@@ -161,13 +186,12 @@ export function setupAreaDownload({getMap, getEntries, isReady, notify, viewArea
   cancel.onclick = () => { selecting = false; frame.classList.add('hidden'); };
   document.getElementById('offlineDownload').onclick = async () => {
     if (!selecting || busy) return;
-    if (!isReady()) { notify('Connect to the shared map before downloading.', true); return; }
+    if (!isReady()) { notify('Connect to the internet before downloading.', true); return; }
     busy = true;
     const button = document.getElementById('offlineDownload');
     button.disabled = cancel.disabled = true;
     navigator.storage?.persist?.().catch(() => {});
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const cacheName = CACHE_PREFIX + id;
     try {
       if (!('serviceWorker' in navigator)) throw new Error('Offline storage is unavailable in this browser.');
       await Promise.race([navigator.serviceWorker.ready, new Promise((_,reject) =>
@@ -180,19 +204,11 @@ export function setupAreaDownload({getMap, getEntries, isReady, notify, viewArea
       if (!b || bounds[0]<b[0] || bounds[1]<b[1] || bounds[2]>b[2] || bounds[3]>b[3])
         throw new Error('Move and zoom the selection inside the available Hanoi map.');
       const entries = getEntries().filter(e => e.lng>=bounds[0] && e.lng<=bounds[2] && e.lat>=bounds[1] && e.lat<=bounds[3]);
-      const cache = await caches.open(cacheName);
-      await cacheBasemap(manifest, status);
-      status.textContent = 'Saving pins and photos…';
-      const saved = await snapshotPhotos(entries, id, (count, total) => {
-        status.textContent = `Saving photos (${count}/${total})…`;
-      }, cache);
-      await putArea({id, bounds, entries:saved.entries, missing:saved.missing, created:Date.now()});
+      const saved = await downloadArea({id,bounds,entries,manifest,status});
       selecting = false; frame.classList.add('hidden'); status.textContent = '';
       notify(saved.missing ? `Area saved. ${saved.missing} photos could not be saved.` : 'Offline area saved on this device.');
       await refresh(); panel.showModal();
     } catch (error) {
-      await caches.delete(cacheName);
-      if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
       status.textContent = error.message; notify(error.message, true);
     } finally { busy = false; button.disabled = cancel.disabled = false; }
   };

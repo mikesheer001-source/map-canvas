@@ -14,6 +14,12 @@ A browser with edits from the previous local-only version can download its old s
 
 The GitHub Pages frontend connects to the shared map service at `https://map-canvas.mikesheer001.chatgpt.site/api/shared-map`. If the service is unavailable, the last loaded snapshot stays visible and editing resumes after the connection returns. Existing browser-only feature and theme settings remain on that browser.
 
+## Offline areas
+
+On iPhone, open the site in Safari and use **Share → Add to Home Screen → Open as Web App**. Open Map Canvas from the Home Screen and select **Offline areas → Choose an area** while connected. Pan and zoom to frame the area, then tap **Download**. The first download includes about 18 MB of Hanoi map data plus any saved photos.
+
+The app opens the newest saved area when offline. Use **Offline areas** to view or remove an area. Streets, local pins and their available photos remain usable. Edits resume after the shared map reconnects. Downloads stay with the browser or Home Screen app used to save them.
+
 ## Testing
 
 GitHub Actions runs Node tests and Chromium/WebKit browser checks.

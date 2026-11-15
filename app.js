@@ -1255,9 +1255,13 @@ async function main() {
     }
   });
   setupOffline();
-  setupAreaDownload({getMap:()=>state.map,getEntries:allEntries,isReady:()=>state.localReady,notify,viewArea:area=>{
-    if(state.offlineMode)displayOfflineArea(area);
-  }});
+  setupAreaDownload({
+    getMap:()=>state.map,
+    getEntries:()=>state.offlineMode ? readMapCache() || allEntries() : allEntries(),
+    isReady:()=>navigator.onLine!==false,
+    notify,
+    viewArea:area=>{if(state.offlineMode)displayOfflineArea(area);}
+  });
   try {
     if(localStorage.getItem(LOCAL_MAP_KEY)){
       $("downloadLegacyBtn").classList.remove("hidden");
