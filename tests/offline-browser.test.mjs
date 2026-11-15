@@ -70,7 +70,14 @@ try {
   assert.ok(area.bounds[2] > area.bounds[0]);
 
   await page.close();
-  await context.setOffline(true);
+  // Older Playwright WebKit rejects even service-worker responses under its
+  // simulated offline flag (microsoft/playwright#42775). Stop both real origin
+  // servers and make the app see the phone's offline indicator in this engine.
+  if (engine === "webkit") {
+    await context.addInitScript(() => Object.defineProperty(navigator,"onLine",{value:false}));
+  } else {
+    await context.setOffline(true);
+  }
   await context.unrouteAll();
   await Promise.all(servers.map(server => {
     const exitServer = once(server,"exit");
@@ -79,7 +86,8 @@ try {
   }));
   page = await context.newPage();
   watch(page);
-  await page.goto(site);
+  const offlineNavigation = await page.goto(site);
+  assert.equal(offlineNavigation?.fromServiceWorker(),true,"The offline page comes from the service worker");
   await page.waitForFunction(() => window.__mapCanvasTest?.getMap()?.isStyleLoaded(),null,{timeout:30000});
   assert.equal(await page.evaluate(() => navigator.onLine),false);
   assert.equal(await page.evaluate(() => window.__mapCanvasTest.getEntries().length),area.entries.length);
