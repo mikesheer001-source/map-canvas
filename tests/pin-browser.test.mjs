@@ -19,7 +19,7 @@ let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
 // The fixtures represent saved pins, so their images already have URLs.
-const testImage="http://127.0.0.1:8765/test-photo.png";
+const testImage="https://map-canvas-photos.example/test-photo.png";
 await page.route(testImage,route=>route.fulfill({contentType:"image/png",
   body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=","base64")}));
 shared[0].photo=testImage;shared[0].gallery=[testImage,testImage,testImage];
