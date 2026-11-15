@@ -7,6 +7,10 @@ const browser = await engine.launch({
   headless:true,...(engineName === "chromium" ? {args:["--use-gl=angle","--use-angle=swiftshader","--enable-webgl"]} : {})
 });
 const page = await browser.newPage({viewport:{width:1200,height:800},deviceScaleFactor:1});
+// This suite mocks the shared API. Offline worker behavior has its own suite.
+await page.addInitScript(() => {
+  if (navigator.serviceWorker) navigator.serviceWorker.register = async () => null;
+});
 const errors=[];
 const consoleMessages=[];
 const failedRequests=[];
