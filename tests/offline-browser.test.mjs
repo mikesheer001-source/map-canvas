@@ -6,13 +6,15 @@ import {chromium, webkit} from "playwright";
 
 const port = 18764;
 const site = `http://127.0.0.1:${port}/`;
-const server = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1"], {stdio:"ignore"});
+const photoSite = `http://127.0.0.1:${port + 1}/`;
+const serve = port => spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1"], {stdio:"ignore"});
+const servers = [serve(port), serve(port + 1)];
 const engine = process.env.MAP_BROWSER_ENGINE === "webkit" ? "webkit" : "chromium";
 let browser, page;
 const messages = [];
 try {
   for (let attempt = 0; attempt < 50; attempt++) {
-    try { await fetch(site); break; }
+    try { await Promise.all([fetch(site), fetch(photoSite)]); break; }
     catch { await new Promise(resolve => setTimeout(resolve, 100)); }
   }
   const args = engine === "chromium" ? ["--use-gl=angle", "--use-angle=swiftshader", "--enable-webgl"] : [];
@@ -24,12 +26,8 @@ try {
   Object.assign(entries[1], {lat:21.0347,lng:105.8505});
   entries[0].photo = new URL("./tests/offline-photo.svg", site).href;
   entries[0].notes = "Offline note fixture";
-  entries[1].photo = "https://mapcanvas-test-photos.example/offline.svg";
+  entries[1].photo = new URL("./tests/offline-photo.svg", photoSite).href;
   entries.at(-1).lat = 21.14;
-  const fixture = readFileSync(new URL("./offline-photo.svg", import.meta.url), "utf8");
-  await context.route("https://mapcanvas-test-photos.example/**", route =>
-    route.fulfill({contentType:"image/svg+xml", body:fixture})
-  );
   await context.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**", route =>
     route.fulfill({headers:{"Access-Control-Allow-Origin":"*"},json:{entries,revision:1}})
   );
@@ -74,9 +72,11 @@ try {
   await page.close();
   await context.setOffline(true);
   await context.unrouteAll();
-  const exitServer = once(server,"exit");
-  server.kill();
-  await exitServer;
+  await Promise.all(servers.map(server => {
+    const exitServer = once(server,"exit");
+    server.kill();
+    return exitServer;
+  }));
   page = await context.newPage();
   watch(page);
   await page.goto(site);
@@ -85,7 +85,8 @@ try {
   assert.equal(await page.evaluate(() => window.__mapCanvasTest.getEntries().length),area.entries.length);
   assert.ok(await page.locator("#addButton").isDisabled());
   const savedPhotos = area.entries.map(entry => entry.photo).filter(Boolean);
-  assert.ok(savedPhotos.length > 0 && savedPhotos.every(url => url.includes("/data/offline/photos/")));
+  assert.equal(savedPhotos.length,2,"The downloaded area retains both same-origin and opaque photos");
+  assert.ok(savedPhotos.every(url => url.includes("/data/offline/photos/")));
   for (const savedPhoto of savedPhotos) {
     assert.ok(await page.evaluate(url => new Promise(resolve => {
       const image = new Image();
@@ -99,6 +100,7 @@ try {
   ,null,{timeout:30000});
   assert.equal(await page.evaluate(() => window.__mapCanvasTest.getMap().getStyle().sources.hanoi.type),"vector");
   await page.click("#offlineButton");
+  await page.getByRole("button",{name:"Remove",exact:true}).waitFor();
   assert.match(await page.locator("#offlineAreas").innerText(),/pins/);
   await page.getByRole("button",{name:"Remove",exact:true}).click();
   await page.waitForFunction(() => document.querySelector("#offlineAreas").textContent.includes("No saved"));
@@ -112,5 +114,5 @@ try {
   throw new Error(`${engine} offline flow: ${JSON.stringify(status)}. ${messages.slice(-12).join(" | ")}`,{cause:error});
 } finally {
   await browser?.close();
-  if (!server.killed) server.kill();
+  for (const server of servers) if (!server.killed) server.kill();
 }
