@@ -16,7 +16,7 @@ async function transaction(mode, fn) {
     const tx = db.transaction('areas', mode);
     const request = fn(tx.objectStore('areas'));
     tx.oncomplete = () => { db.close(); resolve(request?.result); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error || new Error('Offline storage was interrupted.')); };
   });
 }
 export const savedAreas = () => transaction('readonly', store => store.getAll());
@@ -27,39 +27,74 @@ async function removeArea(id) {
   if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
 }
 
-async function snapshotPhotos(entries, progress, cache) {
-  let count = 0, total = 0, opaque = 0, missing = 0;
-  const images = new Set();
-  async function image(url) {
-    if (!url || url.startsWith('data:') || images.has(url)) return url;
+async function fetchPhoto(url, mode) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(url, {mode, signal:controller.signal, referrerPolicy:'no-referrer'});
+    if (response.type === 'opaque') return response;
+    if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) return null;
+    const blob = await response.blob();
+    return new Response(blob, {headers:{'Content-Type':blob.type}});
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function imageDecodes(url) {
+  return new Promise(resolve => {
+    const image = new Image();
+    const timer = setTimeout(finish, 4000, false);
+    function finish(ok) {
+      clearTimeout(timer);
+      image.onload = image.onerror = null;
+      resolve(ok);
+    }
+    image.onload = () => finish(image.naturalWidth > 0);
+    image.onerror = () => finish(false);
+    image.src = url;
+  });
+}
+
+async function snapshotPhotos(entries, id, progress, cache) {
+  let completed = 0, total = 0, opaque = 0;
+  const urls = [...new Set(entries.flatMap(entry => [entry.photo, ...(entry.gallery || [])])
+    .filter(url => typeof url === 'string' && /^https?:\/\//i.test(url)))];
+  const images = new Map();
+
+  async function saveImage(url, index) {
     let response;
-    try { response = await fetch(url, {mode:'cors'}); }
-    catch {
-      try { response = await fetch(url, {mode:'no-cors'}); }
-      catch { missing++; return url; }
-    }
+    try { response = await fetchPhoto(url, 'cors'); }
+    catch { response = await fetchPhoto(url, 'no-cors'); }
+    if (!response) return '';
     if (response.type === 'opaque') {
-      if (++opaque > 40) { missing++; return url; }
+      if (++opaque > 40) return '';
     } else {
-      if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) {
-        missing++; return url;
-      }
-      total += (await response.clone().blob()).size;
-      if (total > 50 * 1024 * 1024) { missing++; return url; }
+      const size = (await response.clone().blob()).size;
+      if (total + size > 50 * 1024 * 1024) return '';
+      total += size;
     }
-    try { await cache.put(url, response); }
-    catch { missing++; return url; }
-    images.add(url);
-    progress(++count);
-    return url;
+    const key = new URL('./data/offline/photos/' + id + '/' + index, location.href).href;
+    await cache.put(key, response);
+    if (await imageDecodes(key)) return key;
+    await cache.delete(key);
+    return '';
   }
-  const saved = [];
-  for (const entry of entries) {
-    const photo = await image(entry.photo), gallery = [];
-    for (const url of entry.gallery || []) gallery.push(await image(url));
-    saved.push({...entry, photo, gallery});
+  for (let start = 0; start < urls.length; start += 4) {
+    await Promise.all(urls.slice(start, start + 4).map(async (url, index) => {
+      images.set(url, await saveImage(url, start + index).catch(() => ''));
+      progress(++completed, urls.length);
+    }));
   }
-  return {entries:saved, missing, opaque};
+  const local = url => typeof url === 'string' && (url.startsWith('data:image/') ? url : images.get(url));
+  return {
+    entries:entries.map(entry => ({
+      ...entry,
+      photo:local(entry.photo) || '',
+      gallery:(entry.gallery || []).map(local).filter(Boolean)
+    })),
+    missing:[...images.values()].filter(value => !value).length
+  };
 }
 
 async function cacheBasemap(manifest, status) {
@@ -100,8 +135,7 @@ export function setupAreaDownload({getMap, getEntries, isReady, notify, viewArea
       row.className = 'offline-area-row';
       const label = document.createElement('span');
       label.textContent = `${new Date(area.created).toLocaleString()} · ${area.entries.length} pins` +
-        (area.missing ? ` · ${area.missing} photos unavailable` : '') +
-        (area.opaque ? ' · some photos unverified' : '');
+        (area.missing ? ` · ${area.missing} photos unavailable` : '');
       const view = document.createElement('button');
       view.textContent = 'View'; view.className = 'secondary';
       view.onclick = () => {
@@ -123,13 +157,15 @@ export function setupAreaDownload({getMap, getEntries, isReady, notify, viewArea
     if (!getMap()) { notify('Wait for the map to load.', true); return; }
     panel.close(); selecting = true; frame.classList.remove('hidden');
   };
-  document.getElementById('offlineCancel').onclick = () => { selecting = false; frame.classList.add('hidden'); };
+  const cancel = document.getElementById('offlineCancel');
+  cancel.onclick = () => { selecting = false; frame.classList.add('hidden'); };
   document.getElementById('offlineDownload').onclick = async () => {
     if (!selecting || busy) return;
     if (!isReady()) { notify('Connect to the shared map before downloading.', true); return; }
     busy = true;
     const button = document.getElementById('offlineDownload');
-    button.disabled = true;
+    button.disabled = cancel.disabled = true;
+    navigator.storage?.persist?.().catch(() => {});
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
     const cacheName = CACHE_PREFIX + id;
     try {
@@ -147,17 +183,18 @@ export function setupAreaDownload({getMap, getEntries, isReady, notify, viewArea
       const cache = await caches.open(cacheName);
       await cacheBasemap(manifest, status);
       status.textContent = 'Saving pins and photos…';
-      const saved = await snapshotPhotos(entries, n => status.textContent = `Saving photos (${n})…`, cache);
-      await putArea({id, bounds, entries:saved.entries, missing:saved.missing, opaque:saved.opaque, created:Date.now()});
+      const saved = await snapshotPhotos(entries, id, (count, total) => {
+        status.textContent = `Saving photos (${count}/${total})…`;
+      }, cache);
+      await putArea({id, bounds, entries:saved.entries, missing:saved.missing, created:Date.now()});
       selecting = false; frame.classList.add('hidden'); status.textContent = '';
-      notify(saved.missing ? `Area saved; ${saved.missing} photos could not be saved.` :
-        saved.opaque ? 'Area saved. Some photo hosts cannot confirm offline availability.' : 'Offline area saved on this device.');
+      notify(saved.missing ? `Area saved. ${saved.missing} photos could not be saved.` : 'Offline area saved on this device.');
       await refresh(); panel.showModal();
     } catch (error) {
       await caches.delete(cacheName);
       if (!(await savedAreas()).length) await caches.delete(BASE_CACHE);
       status.textContent = error.message; notify(error.message, true);
-    } finally { busy = false; button.disabled = false; }
+    } finally { busy = false; button.disabled = cancel.disabled = false; }
   };
   return {refresh};
 }

@@ -6,11 +6,13 @@ const corePaths = [
   "./index.html", "./app.js?v=offline-20261115", "./enhancements.js?v=photo-grid-20261115",
   "./offline.js", "./manifest.webmanifest", "./style.css?v=offline-20261115",
   "./data/public-map.json", "./favicon.svg", "./apple-touch-icon.png",
-  "./vendor/maplibre-gl.mjs", "./vendor/maplibre-gl.css", "./vendor/pmtiles.mjs"
+  "./vendor/maplibre-gl.mjs", "./vendor/maplibre-gl-worker.mjs?v=6.18.0", "./vendor/maplibre-gl.css", "./vendor/pmtiles.mjs"
 ];
 const scope = new URL(self.registration.scope);
 const shellURLs = new Set(corePaths.map(path => new URL(path, scope).href));
-const shellDocument = new URL("./index.html", scope).href;
+const shellDocument = new URL("./index.html", scope);
+const dataPath = new URL("./data/offline/", scope).pathname;
+const photoPath = dataPath + "photos/";
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(
@@ -47,29 +49,28 @@ async function viewedMapResource(request) {
   return response;
 }
 
-async function savedImageOrNetwork(request) {
-  for (const cacheName of await caches.keys()) {
-    if (!cacheName.startsWith(AREA_PREFIX)) continue;
-    const image = await caches.match(request.url, {cacheName});
-    if (image && (image.type !== "opaque" || request.mode === "no-cors")) return image;
-  }
-  return fetch(request);
-}
-
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.href.startsWith(scope.href)) {
-    if (request.mode === "navigate" && (url.pathname === scope.pathname || url.pathname === new URL(shellDocument).pathname)) {
-      event.respondWith(networkOr(request, SHELL, shellDocument));
+    if (request.mode === "navigate" && (url.pathname === scope.pathname || url.pathname === shellDocument.pathname)) {
+      event.respondWith(networkOr(request, SHELL, shellDocument.href));
       return;
     }
     if (shellURLs.has(url.href)) {
       event.respondWith(caches.match(request, {cacheName:SHELL}).then(saved => saved || fetch(request)));
       return;
     }
-    if (url.pathname.startsWith(new URL("./data/offline/", scope).pathname)) {
+    if (url.pathname.startsWith(photoPath) && request.destination === "image") {
+      const [areaId, index] = url.pathname.slice(photoPath.length).split("/");
+      if (/^[a-z0-9]+$/.test(areaId) && /^\d+$/.test(index)) {
+        event.respondWith(caches.match(request.url, {cacheName:AREA_PREFIX + areaId})
+          .then(image => image || Response.error()));
+      }
+      return;
+    }
+    if (url.pathname.startsWith(dataPath)) {
       event.respondWith(networkOr(request, BASE));
       return;
     }
@@ -78,5 +79,4 @@ self.addEventListener("fetch", event => {
     event.respondWith(viewedMapResource(request));
     return;
   }
-  if (request.destination === "image") event.respondWith(savedImageOrNetwork(request));
 });

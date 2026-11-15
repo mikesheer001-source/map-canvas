@@ -191,7 +191,16 @@ async function loadHostels(){
 }
 async function reloadShared(silent){
   if(navigator.onLine===false)return;
-  try{await loadHostels();if(!silent)notify("Shared map refreshed.");}
+  const wasOffline=state.offlineMode;
+  try{
+    await loadHostels();
+    if(wasOffline && !state.offlineMode && state.map && state.library==="maplibre"){
+      state.styleReady=false;
+      clearLabelMarkers();
+      state.map.setStyle(state.provider==="openfreemap"?openFreeMapStyle():osmStyle);
+    }
+    if(!silent)notify("Shared map refreshed.");
+  }
   catch(error){
     state.localReady=false;
     $("syncState").textContent="Connection lost · retry";
@@ -244,7 +253,9 @@ function render() {
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
-  $("pinCount").textContent = allEntries().length + " pins · shared map";
+  $("addButton").disabled = !state.localReady;
+  $("importBtn").disabled = !state.localReady;
+  $("pinCount").textContent = allEntries().length + (state.offlineMode ? " pins · saved area" : " pins · shared map");
   $("resultCount").textContent = shown.length + (shown.length === 1 ? " entry" : " entries");
   $("mapSub").textContent = shown.length + " pins · " +
     (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : "Labels and photos visible");
@@ -542,13 +553,26 @@ async function useOfflineArea() {
   if(!areas.length || !state.map || state.library!=="maplibre")return;
   const area=areas.sort((a,b)=>b.created-a.created)[0];
   await prepareOfflineProtocol(window.maplibregl);
-  state.offlineMode=true;state.localReady=false;
-  setMapEntries(area.entries);
+  const style=await offlineStyle();
+  if(navigator.onLine!==false && state.localReady)return;
+  displayOfflineArea(area);
   state.styleReady=false;clearLabelMarkers();
-  state.map.setStyle(await offlineStyle());
+  state.map.setStyle(style);
   state.map.fitBounds([[area.bounds[0],area.bounds[1]],[area.bounds[2],area.bounds[3]]],{padding:35,duration:0});
+}
+function displayOfflineArea(area) {
+  state.offlineMode=true;
+  state.localReady=false;
+  state.offlineBounds=area.bounds;
+  setMapEntries(area.entries);
+  for(const [id, card] of [...openDetails]){
+    const entry=allEntries().find(pin=>pin.id===id);
+    if(entry)renderDetail(entry,card.node);
+    else hideDetail(id);
+  }
   $("syncState").textContent="Offline · saved area";
   $("statusText").textContent="Showing saved area · reconnect to edit";
+  $("statusPip").classList.remove("connected");
 }
 async function offlineStyle() {
   const path=state.features.darkTheme ? "./data/offline/style-dark.json" : "./data/offline/style.json";
@@ -750,7 +774,9 @@ function renderDetail(entry,detail){
     anchor.href=entry.link;anchor.rel="noopener noreferrer";anchor.target="_blank";actions.append(anchor);
   }
   actions.append(button("Share link",()=>sharePin(entry),"secondary"));
-  actions.append(button("Edit",()=>{hideDetail(entry.id);openEditor(entry);},"secondary"));
+  const editButton=button("Edit",()=>{hideDetail(entry.id);openEditor(entry);},"secondary");
+  editButton.disabled=!state.localReady;
+  actions.append(editButton);
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.className+=" delete-selected-pin";
   deleteButton.disabled=!state.localReady;
@@ -803,6 +829,7 @@ function toggleList(open) {
 }
 function showMobileMap(){toggleList(false);}
 function startPlacement(kind, draft) {
+  if(!state.localReady){notify("Reconnect to edit the shared map.",true);return;}
   state.placing={kind:kind||"place", draft:draft||null};
   $("placementBar").classList.remove("hidden");
   $("cancelPlace").focus();
@@ -824,6 +851,7 @@ async function placeAt({lng,lat}) {
   openEditor(draft);
 }
 function openEditor(entry) {
+  if(!state.localReady){notify("Reconnect to edit the shared map.",true);return;}
   state.draft={...entry};
   $("editorTitle").textContent=allEntries().some(e=>e.id===entry.id)?"Edit map entry":"New map entry";
   $("title").value=entry.title||"";
@@ -1227,34 +1255,34 @@ async function main() {
     }
   });
   setupOffline();
-  setupAreaDownload({getMap:()=>state.map,getEntries:allEntries,isReady:()=>state.localReady,notify,viewArea:a=>{if(state.offlineMode)setMapEntries(a.entries);}});
+  setupAreaDownload({getMap:()=>state.map,getEntries:allEntries,isReady:()=>state.localReady,notify,viewArea:area=>{
+    if(state.offlineMode)displayOfflineArea(area);
+  }});
   try {
     if(localStorage.getItem(LOCAL_MAP_KEY)){
       $("downloadLegacyBtn").classList.remove("hidden");
       $("legacyHelp").classList.remove("hidden");
     }
   }catch{}
-  try {if(!navigator.onLine)throw new Error("Offline");await loadHostels();}catch(error){
+  try {if(navigator.onLine===false)throw new Error("Offline");await loadHostels();}catch(error){
     const areas=await savedAreas().catch(()=>[]);
     if(areas.length){
-      state.offlineMode=true;
-      const latest=areas.sort((a,b)=>b.created-a.created)[0];setMapEntries(latest.entries);
-      state.offlineBounds=latest.bounds;
+      displayOfflineArea(areas.sort((a,b)=>b.created-a.created)[0]);
     } else {
-    const cached=readMapCache();
-    if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
-      catch(e){notify(e.message,true);}}
-    else {
-      try{
-        const response=await fetch("./data/public-map.json",{cache:"no-store"});
-        if(response.ok)setMapEntries(await response.json());
-      }catch{}
-      notify("Shared map unavailable: "+error.message,true);
+      const cached=readMapCache();
+      if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
+        catch(e){notify(e.message,true);}}
+      else {
+        try{
+          const response=await fetch("./data/public-map.json",{cache:"no-store"});
+          if(response.ok)setMapEntries(await response.json());
+        }catch{}
+        notify("Shared map unavailable: "+error.message,true);
+      }
+      state.localReady=false;
+      $("syncState").textContent="Connection lost · retry";
+      $("statusText").textContent="Showing saved map · reconnect to edit";
     }
-    }
-    state.localReady=false;
-    $("syncState").textContent="Connection lost · retry";
-    $("statusText").textContent="Showing saved map · reconnect to edit";
   }
   render();
   await initMap();
@@ -1263,13 +1291,7 @@ async function main() {
   applyDeepLink();
   setInterval(()=>reloadShared(true),5000);
   window.addEventListener("offline",()=>{state.localReady=false;render();useOfflineArea().catch(error=>notify(error.message,true));});
-  window.addEventListener("online",async()=>{
-    const wasOffline=state.offlineMode;await reloadShared(true);
-    if(wasOffline&&state.localReady&&state.map&&state.library==="maplibre"){
-      state.styleReady=false;clearLabelMarkers();
-      state.map.setStyle(state.provider==="openfreemap"?openFreeMapStyle():osmStyle);
-    }
-  });
+  window.addEventListener("online",()=>reloadShared(true));
   const detailLayer=$("detailLayer");
   detailLayer.addEventListener("load",scheduleDetailLayout,true);
   new ResizeObserver(scheduleDetailLayout).observe(detailLayer);

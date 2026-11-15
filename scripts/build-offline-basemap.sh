@@ -90,7 +90,7 @@ for asset in json.loads((base / "manifest.json").read_text())["assets"]:
     if relative.startswith("sprites/"):
         relative = relative.replace("sprites/", "sprites/v4/", 1)
     sources.append((path, "https://protomaps.github.io/basemaps-assets/" + quote(relative, safe="/@")))
-for filename in ("maplibre-gl.mjs", "maplibre-gl.css"):
+for filename in ("maplibre-gl.mjs", "maplibre-gl-worker.mjs", "maplibre-gl.css"):
     sources.append((Path("vendor") / filename, "https://unpkg.com/maplibre-gl@6.18.0/dist/" + filename))
 sources.append((Path("vendor/maplibre-gl.LICENSE.txt"), "https://unpkg.com/maplibre-gl@6.18.0/LICENSE.txt"))
 sources.append((Path("vendor/pmtiles.LICENSE.txt"), "https://raw.githubusercontent.com/protomaps/PMTiles/main/LICENSE"))
