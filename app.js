@@ -5,6 +5,7 @@ const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const openDetails=new Map();
+let detailFrame=0;
 
 const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
 let popupSensitivity=2;
@@ -506,8 +507,8 @@ async function fallbackLeaflet(reason) {
     if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});
   });
   state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-  state.map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
+  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();scheduleDetailLayout();});
+  state.map.on("move",()=>{enhanced?.renderOverlay();scheduleDetailLayout();});
   state.map.on("mousemove",e=>enhanced?.updateHover({lng:e.latlng.lng,lat:e.latlng.lat}));
   state.map.on("zoomend",updateLabels);
   state.library="leaflet";
@@ -533,8 +534,8 @@ async function initMap() {
     map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
     map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-    map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
+    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();scheduleDetailLayout();});
+    map.on("move",()=>{enhanced?.renderOverlay();scheduleDetailLayout();});
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{
@@ -556,22 +557,120 @@ async function initMap() {
     catch {announce("Map tiles couldn't load. Check your connection and refresh.");}
   }
 }
-function positionDetail() {
-  if(!state.map)return;
-  for(const {entry, node:detail} of openDetails.values()){
-    const point=state.library === "maplibre" ? state.map.project([entry.lng,entry.lat]) : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
-    const map=$("map");
-    const visible=point.x>=0 && point.y>=0 && point.x<=map.clientWidth && point.y<=map.clientHeight;
-    detail.style.visibility=visible?"visible":"hidden";
-    const scale=Math.max(0.3,Math.min(1.35,Math.exp((mapZoom()-17)*0.12*popupSensitivity)));
-    const halfWidth=detail.offsetWidth*scale/2;
-    const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
-    detail.style.left=centerX+"px";
-    detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
-    detail.style.setProperty("--detail-scale",scale);
-    const below=point.y<detail.offsetHeight*scale+24;
-    detail.style.top=(point.y+(below?22:-22))+"px";
-    detail.classList.toggle("below-pin",below);
+const DETAIL_GAP = 8;
+const DETAIL_PIN_EDGE = 17;
+const DETAIL_CONTROLS = ".map-tag, .map-tools, .mobile-tab button, .maplibregl-ctrl-bottom-right .maplibregl-ctrl, .leaflet-bottom .leaflet-control";
+
+function detailBounds(left, top, right, bottom, padding = 0) {
+  return {left:left-padding,top:top-padding,right:right+padding,bottom:bottom+padding};
+}
+
+function placeDetail(point, width, height, viewport, obstacles) {
+  const maxTop=viewport.height-DETAIL_GAP-height;
+  const rightEdge=viewport.width-DETAIL_GAP;
+  if(maxTop<DETAIL_GAP || width>rightEdge-DETAIL_GAP)return null;
+
+  const clampTop=(top)=>Math.max(DETAIL_GAP,Math.min(top,maxTop));
+  const centerLeft=point.x-width/2;
+  const offset=DETAIL_PIN_EDGE+DETAIL_GAP;
+  const tops=new Set([clampTop(point.y-offset-height),clampTop(point.y+offset),
+    clampTop(point.y-height/2),DETAIL_GAP,maxTop]);
+  for(const obstacle of obstacles){
+    tops.add(clampTop(obstacle.top-height));
+    tops.add(clampTop(obstacle.bottom));
+  }
+
+  const sorted=[...obstacles].sort((a,b)=>a.left-b.left);
+  let best=null;
+  let bestScore=Infinity;
+  for(const top of tops){
+    const bottom=top+height;
+    let start=DETAIL_GAP;
+    // At this height, look for gaps between occupied horizontal spans.
+    const considerGap=(end)=>{
+      if(end-start<width)return;
+      const left=Math.max(start,Math.min(centerLeft,end-width));
+      const offsetY=top+height/2-point.y;
+      const score=Math.hypot(left-centerLeft,offsetY)+(offsetY>0?6:0);
+      if(score<bestScore){
+        best=detailBounds(left,top,left+width,bottom);
+        bestScore=score;
+      }
+    };
+    for(const obstacle of sorted){
+      if(obstacle.top>=bottom || obstacle.bottom<=top || obstacle.right<=start)continue;
+      if(obstacle.left>=rightEdge)break;
+      considerGap(obstacle.left);
+      start=Math.max(start,obstacle.right);
+    }
+    considerGap(rightEdge);
+  }
+  return best;
+}
+
+function scheduleDetailLayout() {
+  if(detailFrame || !openDetails.size)return;
+  detailFrame=requestAnimationFrame(()=>{
+    detailFrame=0;
+    positionDetails();
+  });
+}
+
+function positionDetails() {
+  if(!state.map || !openDetails.size)return;
+  const layer=$("detailLayer");
+  const viewport={width:layer.clientWidth,height:layer.clientHeight};
+  if(!viewport.width || !viewport.height)return;
+  const scale=Math.max(0.3,Math.min(1.35,Math.exp((mapZoom()-17)*0.12*popupSensitivity)));
+  layer.style.setProperty("--detail-scale",scale);
+  const frame=layer.getBoundingClientRect();
+  const obstacles=[];
+  for(const control of $("mapArea").querySelectorAll(DETAIL_CONTROLS)){
+    const box=control.getBoundingClientRect();
+    if(box.width && box.height)obstacles.push(detailBounds(box.left-frame.left,box.top-frame.top,
+      box.right-frame.left,box.bottom-frame.top,DETAIL_GAP));
+  }
+
+  const mobile=window.matchMedia("(max-width:750px)").matches;
+  const heightLimit=Math.min(mobile?255:320,Math.floor(viewport.height*(mobile?0.39:0.42)/scale));
+  const visible=[];
+  for(const card of openDetails.values()){
+    const {entry,node,line}=card;
+    const point=state.library==="maplibre" ? state.map.project([entry.lng,entry.lat])
+      : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
+    if(!(point.x>=0 && point.y>=0 && point.x<=viewport.width && point.y<=viewport.height)){
+      node.style.visibility=line.style.visibility="hidden";
+      continue;
+    }
+    const width=node.offsetWidth*scale;
+    // scrollHeight also measures the content of a previously shortened card.
+    const height=Math.min(heightLimit,node.scrollHeight+node.offsetHeight-node.clientHeight);
+    const compactHeight=Math.min(height,Math.max(88,node.firstElementChild.offsetHeight+24));
+    visible.push({card,point,width,height,compactHeight});
+    const pinPadding=DETAIL_PIN_EDGE+DETAIL_GAP;
+    obstacles.push(detailBounds(point.x,point.y,point.x,point.y,pinPadding));
+  }
+
+  // Give the newest selection first choice when the map is crowded.
+  for(const {card,point,width,height,compactHeight} of visible.reverse()){
+    const {node,line}=card;
+    const box=placeDetail(point,width,height*scale,viewport,obstacles) ||
+      (compactHeight<height && placeDetail(point,width,compactHeight*scale,viewport,obstacles));
+    node.style.visibility=line.style.visibility=box?"visible":"hidden";
+    if(!box)continue;
+    node.style.left=box.left+"px";
+    node.style.top=box.top+"px";
+    node.style.maxHeight=(box.bottom-box.top)/scale+"px";
+    obstacles.push(detailBounds(box.left,box.top,box.right,box.bottom,DETAIL_GAP));
+
+    // Draw from inside the card's rounded edge to the edge of its pin.
+    const x=Math.max(box.left+6,Math.min(box.right-6,point.x));
+    const y=Math.max(box.top+6,Math.min(box.bottom-6,point.y));
+    const pinEdge=DETAIL_PIN_EDGE/Math.max(Math.abs(x-point.x),Math.abs(y-point.y));
+    attr(line,"x1",point.x+(x-point.x)*pinEdge);
+    attr(line,"y1",point.y+(y-point.y)*pinEdge);
+    attr(line,"x2",x);
+    attr(line,"y2",y);
   }
 }
 function renderDetail(entry,detail){
@@ -609,7 +708,7 @@ function renderDetail(entry,detail){
   const card=openDetails.get(entry.id);
   if(card)card.entry=entry;
   detail.classList.remove("hidden");
-  positionDetail();
+  scheduleDetailLayout();
 }
 function raiseDetail(id) {
   const card=openDetails.get(id);if(!card)return;
@@ -627,7 +726,9 @@ function choose(entry, focus) {
   if(focus){showMobileMap();mapFocus(entry);}
   const node=document.createElement("aside");
   node.className="side-panel";node.setAttribute("aria-label","Entry details");
-  const card={entry,node};openDetails.set(entry.id,card);
+  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+  $("detailLeaders").append(line);
+  const card={entry,node,line};openDetails.set(entry.id,card);
   node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
   $("detailLayer").append(node);
   raiseDetail(entry.id);
@@ -635,10 +736,11 @@ function choose(entry, focus) {
 }
 function hideDetail(id=state.current?.id) {
   const card=openDetails.get(id);
-  if(card){card.node.remove();openDetails.delete(id);}
+  if(card){card.node.remove();card.line.remove();openDetails.delete(id);}
   if(state.current?.id===id)state.current=[...openDetails.values()].sort((a,b)=>Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]?.entry||null;
   history.replaceState(null,"",pinUrl(state.current?.id||null));
   render();
+  scheduleDetailLayout();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -1054,15 +1156,15 @@ async function main() {
   settingsUI.init();
   const sensitivity=$("popupSensitivity");
   sensitivity.value=String(popupSensitivity);
-  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}positionDetail();});
+  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}scheduleDetailLayout();});
   sensitivity.addEventListener("input",()=>{
     popupSensitivity=Number(sensitivity.value);
     try{localStorage.setItem(SENSITIVITY_KEY,String(popupSensitivity));}catch{}
-    positionDetail();
+    scheduleDetailLayout();
   });
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
-    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);positionDetail();}
+    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);scheduleDetailLayout();}
     if(event.key===FEATURE_STORAGE_KEY){
       state.features=readFeatureSettings();
       applyFeatureSettings();
@@ -1097,7 +1199,9 @@ async function main() {
   applyDeepLink();
   setInterval(()=>reloadShared(true),5000);
   window.addEventListener("online",()=>reloadShared(true));
-  window.addEventListener("resize",positionDetail);
+  const detailLayer=$("detailLayer");
+  detailLayer.addEventListener("load",scheduleDetailLayout,true);
+  new ResizeObserver(scheduleDetailLayout).observe(detailLayer);
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {
