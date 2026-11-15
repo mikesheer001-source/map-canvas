@@ -645,17 +645,22 @@ function positionDetails() {
     const width=node.offsetWidth*scale;
     // scrollHeight also measures the content of a previously shortened card.
     const height=Math.min(heightLimit,node.scrollHeight+node.offsetHeight-node.clientHeight);
-    const compactHeight=Math.min(height,Math.max(88,node.firstElementChild.offsetHeight+24));
-    visible.push({card,point,width,height,compactHeight});
+    const minimumHeight=Math.min(height,node.firstElementChild.offsetHeight+24);
+    visible.push({card,point,width,height,minimumHeight});
     const pinPadding=DETAIL_PIN_EDGE+DETAIL_GAP;
     obstacles.push(detailBounds(point.x,point.y,point.x,point.y,pinPadding));
   }
 
   // Give the newest selection first choice when the map is crowded.
-  for(const {card,point,width,height,compactHeight} of visible.reverse()){
+  for(const {card,point,width,height,minimumHeight} of visible.reverse()){
     const {node,line}=card;
-    const box=placeDetail(point,width,height*scale,viewport,obstacles) ||
-      (compactHeight<height && placeDetail(point,width,compactHeight*scale,viewport,obstacles));
+    const compactHeight=Math.min(height,Math.max(88,minimumHeight));
+    const heights=new Set([height,compactHeight,minimumHeight]);
+    let box=null;
+    for(const availableHeight of heights){
+      box=placeDetail(point,width,availableHeight*scale,viewport,obstacles);
+      if(box)break;
+    }
     node.style.visibility=line.style.visibility=box?"visible":"hidden";
     if(!box)continue;
     node.style.left=box.left+"px";

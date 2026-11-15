@@ -244,13 +244,26 @@ try {
         pinDistance>=16 && pinDistance<=18 && x>box.left && x<box.right && y>box.top && y<box.bottom;
     });
   };
-  await page.waitForFunction(separated);
+  async function checkCardLayout(){
+    try{
+      await page.waitForFunction(separated,null,{timeout:5000});
+    }catch(error){
+      const cards=await page.locator(".side-panel").evaluateAll(nodes=>nodes.map((node,i)=>({
+        title:node.querySelector("h2").textContent,
+        box:node.getBoundingClientRect().toJSON(),
+        visibility:getComputedStyle(node).visibility,
+        leader:document.querySelectorAll(".detail-leaders line")[i].outerHTML
+      })));
+      throw new Error(`Cards need separate, tethered positions: ${JSON.stringify(cards)}`,{cause:error});
+    }
+  }
+  await checkCardLayout();
   await page.evaluate(()=>{
     const map=window.__mapCanvasTest.getMap();
     map.panBy([50,110],{duration:0,animate:false});
     map.setZoom(18,{animate:false});
   });
-  await page.waitForFunction(separated);
+  await checkCardLayout();
   await page.setViewportSize({width:1200,height:800});
 
   await page.locator("#entries .entry").first().click();
