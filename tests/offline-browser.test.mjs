@@ -20,6 +20,8 @@ try {
   const context = await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1});
   const entries = JSON.parse(readFileSync(new URL("../data/public-map.json", import.meta.url), "utf8"));
   for (const entry of entries) { entry.photo = ""; entry.gallery = []; }
+  Object.assign(entries[0], {lat:21.0345,lng:105.8503});
+  Object.assign(entries[1], {lat:21.0347,lng:105.8505});
   entries[0].photo = new URL("./tests/offline-photo.svg", site).href;
   entries[0].notes = "Offline note fixture";
   entries[1].photo = "https://mapcanvas-test-photos.example/offline.svg";
@@ -45,7 +47,7 @@ try {
   page = await context.newPage();
   watch(page);
   await page.goto(site);
-  await page.waitForFunction(() => window.__mapCanvasTest?.getLibrary() === "maplibre");
+  await page.waitForFunction(() => window.__mapCanvasTest?.getMap()?.getLayer?.("canvas-pin-dots"));
   await page.waitForFunction(() => navigator.serviceWorker.controller);
   await page.waitForFunction(() => document.querySelector("#syncState").textContent.includes("synced"));
   await page.click("#offlineButton");
