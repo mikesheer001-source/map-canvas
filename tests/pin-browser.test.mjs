@@ -18,7 +18,10 @@ page.on("requestfailed",request=>failedRequests.push(`${request.url()} - ${reque
 let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
-const testImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=";
+// The fixtures represent saved pins, so their images already have URLs.
+const testImage="http://127.0.0.1:8765/test-photo.png";
+await page.route(testImage,route=>route.fulfill({contentType:"image/png",
+  body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=","base64")}));
 shared[0].photo=testImage;shared[0].gallery=[testImage,testImage,testImage];
 shared[1].photo=testImage;shared[1].gallery=[testImage,testImage,testImage];
 shared[1].lat=shared[0].lat-0.00022;shared[1].lng=shared[0].lng;
