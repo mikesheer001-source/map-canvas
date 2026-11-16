@@ -1,39 +1,82 @@
-/* Offline app shell and previously viewed map resources only.
- * No tile prefetching or offline-area downloads. Provider usage policies apply.
- */
-const SHELL="map-canvas-shell-v18",TILES="map-canvas-viewed-v18";
-const CORE=["./","./index.html","./app.js?v=photo-grid-20261115",
-  "./enhancements.js?v=photo-grid-20261115","./style.css?v=photo-grid-20261115","./data/public-map.json","./favicon.svg"];
-self.addEventListener("install",event=>{
-  event.waitUntil(caches.open(SHELL).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));
+const SHELL = "map-canvas-shell-v20";
+const VIEWED = "map-canvas-viewed-v18";
+const BASE = "map-canvas-offline-base-v1";
+const AREA_PREFIX = "map-canvas-area-";
+const corePaths = [
+  "./index.html", "./app.js?v=offline-20261115", "./enhancements.js?v=photo-grid-20261115",
+  "./offline.js", "./manifest.webmanifest", "./style.css?v=offline-20261115",
+  "./data/public-map.json", "./favicon.svg", "./apple-touch-icon.png",
+  "./vendor/maplibre-gl.mjs", "./vendor/maplibre-gl-worker.mjs?v=6.18.0", "./vendor/maplibre-gl.css", "./vendor/pmtiles.mjs"
+];
+const scope = new URL(self.registration.scope);
+const shellURLs = new Set(corePaths.map(path => new URL(path, scope).href));
+const shellDocument = new URL("./index.html", scope);
+const dataPath = new URL("./data/offline/", scope).pathname;
+const photoPath = dataPath + "photos/";
+
+self.addEventListener("install", event => {
+  event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(
+    [...shellURLs].map(url => new Request(url, {cache:"reload"}))
+  )).then(() => self.skipWaiting()));
 });
-self.addEventListener("activate",event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==SHELL&&k!==TILES)
-    .map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+
+self.addEventListener("activate", event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys
+    .filter(key => key.startsWith("map-canvas-shell-") && key !== SHELL)
+    .map(key => caches.delete(key))
+  )).then(() => self.clients.claim()));
 });
-self.addEventListener("fetch",event=>{
-  const req=event.request;
-  if(req.method!=="GET")return;
-  const url=new URL(req.url);
-  if(url.origin===self.location.origin){
-    event.respondWith(fetch(req,{cache:"no-store"}).then(res=>{
-      if(res.ok&&url.pathname.match(/(?:\/|\.html|\.js|\.css|\.json|\.svg)$/))
-        caches.open(SHELL).then(c=>c.put(req,res.clone())).catch(()=>{});
-      return res;
-    }).catch(async()=>await caches.match(req)||await caches.match("./index.html")));
+
+async function networkOr(request, cacheName, fallback = request.url) {
+  try { return await fetch(request); }
+  catch { return await caches.match(fallback, {cacheName}) || Response.error(); }
+}
+
+async function viewedMapResource(request) {
+  const cache = await caches.open(VIEWED);
+  const saved = await cache.match(request);
+  if (saved) return saved;
+  const response = await fetch(request);
+  if (response.ok) {
+    try {
+      await cache.put(request, response.clone());
+      const keys = await cache.keys();
+      await Promise.all(keys.slice(0, Math.max(0, keys.length - 180)).map(key => cache.delete(key)));
+    } catch {
+      // Rendering can continue if the optional cache runs out of space.
+    }
+  }
+  return response;
+}
+
+self.addEventListener("fetch", event => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.href.startsWith(scope.href)) {
+    if (request.mode === "navigate" && (url.pathname === scope.pathname || url.pathname === shellDocument.pathname)) {
+      event.respondWith(networkOr(request, SHELL, shellDocument.href));
+      return;
+    }
+    if (shellURLs.has(url.href)) {
+      event.respondWith(caches.match(request, {cacheName:SHELL}).then(saved => saved || fetch(request)));
+      return;
+    }
+    if (url.pathname.startsWith(photoPath) && request.destination === "image") {
+      const [areaId, index] = url.pathname.slice(photoPath.length).split("/");
+      if (/^[a-z0-9]+$/.test(areaId) && /^\d+$/.test(index)) {
+        event.respondWith(caches.match(request.url, {cacheName:AREA_PREFIX + areaId})
+          .then(image => image || Response.error()));
+      }
+      return;
+    }
+    if (url.pathname.startsWith(dataPath)) {
+      event.respondWith(networkOr(request, BASE));
+      return;
+    }
+  }
+  if (url.protocol === "https:" && /^(tiles\.openfreemap\.org|unpkg\.com|cdn\.jsdelivr\.net)$/.test(url.hostname)) {
+    event.respondWith(viewedMapResource(request));
     return;
   }
-  // Cache only resources naturally encountered while browsing; bounded LRU-ish cache.
-  // Never download additional map tiles for offline coverage.
-  const allowed=/^(tiles\.openfreemap\.org|unpkg\.com|cdn\.jsdelivr\.net)$/;
-  if(url.protocol!=="https:"||!allowed.test(url.hostname))return;
-  event.respondWith(caches.match(req).then(cached=>cached||fetch(req).then(async res=>{
-    if(res.ok&&res.type!=="opaque"){
-      const cache=await caches.open(TILES);
-      await cache.put(req,res.clone());
-      const keys=await cache.keys();
-      if(keys.length>180)await Promise.all(keys.slice(0,keys.length-180).map(k=>cache.delete(k)));
-    }
-    return res;
-  })));
 });

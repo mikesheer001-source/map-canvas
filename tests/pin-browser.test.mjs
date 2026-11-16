@@ -7,6 +7,10 @@ const browser = await engine.launch({
   headless:true,...(engineName === "chromium" ? {args:["--use-gl=angle","--use-angle=swiftshader","--enable-webgl"]} : {})
 });
 const page = await browser.newPage({viewport:{width:1200,height:800},deviceScaleFactor:1});
+// This suite mocks the shared API. Offline worker behavior has its own suite.
+await page.addInitScript(() => {
+  if (navigator.serviceWorker) navigator.serviceWorker.register = async () => null;
+});
 const errors=[];
 const consoleMessages=[];
 const failedRequests=[];
@@ -18,8 +22,13 @@ page.on("requestfailed",request=>failedRequests.push(`${request.url()} - ${reque
 let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
-const testImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=";
+// The fixtures represent saved pins, so their images already have URLs.
+const testImage="https://map-canvas-photos.example/test-photo.png";
+await page.route(testImage,route=>route.fulfill({contentType:"image/png",
+  body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=","base64")}));
 shared[0].photo=testImage;shared[0].gallery=[testImage,testImage,testImage];
+shared[1].photo=testImage;shared[1].gallery=[testImage,testImage,testImage];
+shared[1].lat=shared[0].lat-0.00022;shared[1].lng=shared[0].lng;
 const deleted=new Map();
 await page.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**",async route=>{
   const request=route.request(),url=new URL(request.url());
@@ -208,6 +217,62 @@ try {
   assert.ok(Math.abs(tiles[0].right-tiles[1].left)<1 && Math.abs(tiles[0].bottom-tiles[2].top)<1,"Gallery tiles touch");
   await page.locator("#entries .entry").nth(1).click();
   assert.equal(await page.locator(".side-panel").count(),2,"Two pins remain open");
+
+  // Two nearby photo cards must stay separate and tethered through a viewport
+  // change, pan and zoom on a phone-sized map.
+  await page.setViewportSize({width:390,height:720});
+  await page.evaluate(()=>{
+    const api=window.__mapCanvasTest, map=api.getMap();
+    const [a,b]=api.getEntries();
+    const lat=(a.lat+b.lat)/2;
+    map.stop();
+    if(api.getLibrary()==="maplibre")map.resize().jumpTo({center:[a.lng,lat],zoom:17.3});
+    else map.invalidateSize().setView([lat,a.lng],17,{animate:false});
+  });
+  const separated=()=>{
+    const layer=document.getElementById("detailLayer").getBoundingClientRect();
+    const cards=[...document.querySelectorAll(".side-panel")];
+    const leaders=[...document.querySelectorAll(".detail-leaders line")];
+    if(cards.length!==2 || leaders.length!==2)return false;
+    const [a,b]=cards.map(card=>card.getBoundingClientRect());
+    if(a.left<b.right && a.right>b.left && a.top<b.bottom && a.bottom>b.top)return false;
+    const api=window.__mapCanvasTest, map=api.getMap();
+    const [first,second]=api.getEntries();
+    return [a,b].every((box,i)=>{
+      const entry=[first,second][i], line=leaders[i];
+      const point=api.getLibrary()==="maplibre" ? map.project([entry.lng,entry.lat])
+        : map.latLngToContainerPoint([entry.lat,entry.lng]);
+      const pinDistance=Math.max(Math.abs(Number(line.getAttribute("x1"))-point.x),
+        Math.abs(Number(line.getAttribute("y1"))-point.y));
+      const x=Number(line.getAttribute("x2"))+layer.left;
+      const y=Number(line.getAttribute("y2"))+layer.top;
+      return getComputedStyle(cards[i]).visibility==="visible" && getComputedStyle(line).visibility==="visible" &&
+        box.left>=layer.left && box.right<=layer.right && box.top>=layer.top && box.bottom<=layer.bottom &&
+        pinDistance>=16 && pinDistance<=18 && x>box.left && x<box.right && y>box.top && y<box.bottom;
+    });
+  };
+  async function checkCardLayout(){
+    try{
+      await page.waitForFunction(separated,null,{timeout:5000});
+    }catch(error){
+      const cards=await page.locator(".side-panel").evaluateAll(nodes=>nodes.map((node,i)=>({
+        title:node.querySelector("h2").textContent,
+        box:node.getBoundingClientRect().toJSON(),
+        visibility:getComputedStyle(node).visibility,
+        leader:document.querySelectorAll(".detail-leaders line")[i].outerHTML
+      })));
+      throw new Error(`Cards need separate, tethered positions: ${JSON.stringify(cards)}`,{cause:error});
+    }
+  }
+  await checkCardLayout();
+  await page.evaluate(()=>{
+    const map=window.__mapCanvasTest.getMap();
+    map.panBy([50,110],{duration:0,animate:false});
+    map.setZoom(18,{animate:false});
+  });
+  await checkCardLayout();
+  await page.setViewportSize({width:1200,height:800});
+
   await page.locator("#entries .entry").first().click();
   assert.equal(await page.locator(".side-panel").count(),1,"Clicking the same pin closes only its panel");
   await page.locator("#entries .entry").first().click();

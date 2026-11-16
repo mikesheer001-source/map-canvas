@@ -44,8 +44,20 @@ const fakeWindow={maplibregl:{Marker},L:null};
 const appForTest=app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
 assert.notEqual(appForTest.length,app.length,"test runner must suppress the startup sequence");
 const api=new Function("document","window","location","FEATURE_DEFAULTS",appForTest+
-  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"},FEATURE_DEFAULTS);
-const {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider}=api;
+  "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries,placeDetail,detailBounds};")(dom,fakeWindow,{hostname:"test.invalid"},FEATURE_DEFAULTS);
+const {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,placeDetail,detailBounds}=api;
+const bounds={width:390,height:662};
+const nearPins=[{x:170,y:320},{x:170,y:358}];
+const obstacles=nearPins.map(({x,y})=>detailBounds(x,y,x,y,25));
+const firstCard=placeDetail(nearPins[0],230,230,bounds,obstacles);
+assert.ok(firstCard && firstCard.bottom<=295,"The first photo card opens above its pin");
+obstacles.push(detailBounds(firstCard.left,firstCard.top,firstCard.right,firstCard.bottom,8));
+const secondCard=placeDetail(nearPins[1],230,230,bounds,obstacles);
+assert.ok(secondCard && secondCard.top>=383,"The second photo card opens below its nearby pin");
+assert.ok(secondCard.bottom<=bounds.height-8,"Both cards stay inside the phone viewport");
+const crowded=[...obstacles,detailBounds(8,510,382,654)];
+assert.equal(placeDetail(nearPins[1],230,230,bounds,crowded),null,"A full card never overlaps to fit");
+assert.ok(placeDetail(nearPins[1],230,88,bounds,crowded),"A shorter card fits in the available gap");
 const hostels=[
   {id:"hostel-1",title:"North",kind:"place",lat:21.0342937,lng:105.8526123,price:"$4.25",rating:"4.6"},
   {id:"hostel-2",title:"East",kind:"place",lat:21.0329587,lng:105.8442971,price:"$4.35",rating:"4.5"},

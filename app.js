@@ -4,7 +4,10 @@ const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
+let savedAreas=async()=>[];
+let offlineProtocolReady=false;
 const openDetails=new Map();
+let detailFrame=0;
 
 const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
 let popupSensitivity=2;
@@ -174,6 +177,7 @@ async function loadHostels(){
     if(state.localReady&&state.revision===data.revision)return;
     state.revision=data.revision;
     state.localReady=true;
+    state.offlineMode=false;
     storeMapSnapshot(data.entries);
     for(const [id,card] of [...openDetails]){
       const selected=state.entries.find(entry=>entry.id===id);
@@ -186,7 +190,17 @@ async function loadHostels(){
   $("statusPip").classList.add("connected");
 }
 async function reloadShared(silent){
-  try{await loadHostels();if(!silent)notify("Shared map refreshed.");}
+  if(navigator.onLine===false)return;
+  const wasOffline=state.offlineMode;
+  try{
+    await loadHostels();
+    if(wasOffline && !state.offlineMode && state.map && state.library==="maplibre"){
+      state.styleReady=false;
+      clearLabelMarkers();
+      state.map.setStyle(state.provider==="openfreemap"?openFreeMapStyle():osmStyle);
+    }
+    if(!silent)notify("Shared map refreshed.");
+  }
   catch(error){
     state.localReady=false;
     $("syncState").textContent="Connection lost · retry";
@@ -239,7 +253,9 @@ function render() {
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
-  $("pinCount").textContent = allEntries().length + " pins · shared map";
+  $("addButton").disabled = !state.localReady;
+  $("importBtn").disabled = !state.localReady;
+  $("pinCount").textContent = allEntries().length + (state.offlineMode ? " pins · saved area" : " pins · shared map");
   $("resultCount").textContent = shown.length + (shown.length === 1 ? " entry" : " entries");
   $("mapSub").textContent = shown.length + " pins · " +
     (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : "Labels and photos visible");
@@ -449,6 +465,7 @@ function openFreeMapStyle(){
     :"https://tiles.openfreemap.org/styles/liberty";
 }
 function changeProvider(provider) {
+  if (navigator.onLine===false) {notify("Reconnect to change map imagery.",true);return;}
   if (!["openfreemap","openstreetmap"].includes(provider)) return;
   state.provider = provider;
   document.documentElement.dataset.mapProvider=provider;
@@ -506,8 +523,8 @@ async function fallbackLeaflet(reason) {
     if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});
   });
   state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-  state.map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
+  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();scheduleDetailLayout();});
+  state.map.on("move",()=>{enhanced?.renderOverlay();scheduleDetailLayout();});
   state.map.on("mousemove",e=>enhanced?.updateHover({lng:e.latlng.lng,lat:e.latlng.lat}));
   state.map.on("zoomend",updateLabels);
   state.library="leaflet";
@@ -517,14 +534,69 @@ async function fallbackLeaflet(reason) {
   paintProvider();renderMarkers(filterEntries());updateLabels();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
 }
+async function prepareOfflineProtocol(lib) {
+  if(offlineProtocolReady)return;
+  const pmtiles=await import("./vendor/pmtiles.mjs");
+  const url=new URL("./data/offline/hanoi.pmtiles",location.href).href;
+  const cache=await caches.open("map-canvas-offline-base-v1");
+  const response=await cache.match(url);
+  if(!response)throw new Error("Saved offline map is unavailable");
+  const blob=await response.blob();
+  const source={getKey:()=>url,getBytes:async(offset,length)=>({data:await blob.slice(offset,offset+length).arrayBuffer()})};
+  const protocol=new pmtiles.Protocol();
+  protocol.add(new pmtiles.PMTiles(source));
+  lib.addProtocol("pmtiles",protocol.tile);
+  offlineProtocolReady=true;
+}
+async function useOfflineArea() {
+  const areas=await savedAreas();
+  if(!areas.length || !state.map || state.library!=="maplibre")return;
+  const area=areas.sort((a,b)=>b.created-a.created)[0];
+  await prepareOfflineProtocol(window.maplibregl);
+  const style=await offlineStyle();
+  if(navigator.onLine!==false && state.localReady)return;
+  displayOfflineArea(area);
+  state.styleReady=false;clearLabelMarkers();
+  state.map.setStyle(style);
+  state.map.fitBounds([[area.bounds[0],area.bounds[1]],[area.bounds[2],area.bounds[3]]],{padding:35,duration:0});
+}
+function displayOfflineArea(area) {
+  state.offlineMode=true;
+  state.localReady=false;
+  state.offlineBounds=area.bounds;
+  setMapEntries(area.entries);
+  for(const [id, card] of [...openDetails]){
+    const entry=allEntries().find(pin=>pin.id===id);
+    if(entry)renderDetail(entry,card.node);
+    else hideDetail(id);
+  }
+  $("syncState").textContent="Offline · saved area";
+  $("statusText").textContent="Showing saved area · reconnect to edit";
+  $("statusPip").classList.remove("connected");
+}
+async function offlineStyle() {
+  const path=state.features.darkTheme ? "./data/offline/style-dark.json" : "./data/offline/style.json";
+  const response=await fetch(path);
+  if(!response.ok)throw new Error("Offline map style is unavailable");
+  const style=await response.json();
+  style.sources.hanoi.url="pmtiles://"+new URL("./data/offline/hanoi.pmtiles",location.href).href;
+  if(style.glyphs)style.glyphs=new URL(style.glyphs,location.href).href.replace(/%7B/gi,"{").replace(/%7D/gi,"}");
+  if(style.sprite)style.sprite=new URL(style.sprite,location.href).href;
+  return style;
+}
 async function initMap() {
   announce("Loading street map…");
   try {
-    const lib = await import("https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.mjs");
+    const lib = await import("./vendor/maplibre-gl.mjs");
+    let initialStyle=openFreeMapStyle();
+    if(state.offlineMode && (await savedAreas()).length){
+      await prepareOfflineProtocol(lib);
+      initialStyle=await offlineStyle();
+    }
     window.maplibregl=lib;
     const map=new lib.Map({
       container:"map",center:[105.8503,21.0345],zoom:15.5,
-      style:openFreeMapStyle(),
+      style:initialStyle,
       attributionControl:true,maxZoom:19
     });
     state.map=map;state.library="maplibre";
@@ -533,8 +605,8 @@ async function initMap() {
     map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
     map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
-    map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
+    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();scheduleDetailLayout();});
+    map.on("move",()=>{enhanced?.renderOverlay();scheduleDetailLayout();});
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{
@@ -556,22 +628,125 @@ async function initMap() {
     catch {announce("Map tiles couldn't load. Check your connection and refresh.");}
   }
 }
-function positionDetail() {
-  if(!state.map)return;
-  for(const {entry, node:detail} of openDetails.values()){
-    const point=state.library === "maplibre" ? state.map.project([entry.lng,entry.lat]) : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
-    const map=$("map");
-    const visible=point.x>=0 && point.y>=0 && point.x<=map.clientWidth && point.y<=map.clientHeight;
-    detail.style.visibility=visible?"visible":"hidden";
-    const scale=Math.max(0.3,Math.min(1.35,Math.exp((mapZoom()-17)*0.12*popupSensitivity)));
-    const halfWidth=detail.offsetWidth*scale/2;
-    const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
-    detail.style.left=centerX+"px";
-    detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
-    detail.style.setProperty("--detail-scale",scale);
-    const below=point.y<detail.offsetHeight*scale+24;
-    detail.style.top=(point.y+(below?22:-22))+"px";
-    detail.classList.toggle("below-pin",below);
+const DETAIL_GAP = 8;
+const DETAIL_PIN_EDGE = 17;
+const DETAIL_CONTROLS = ".map-tag, .map-tools, .mobile-tab button, .maplibregl-ctrl-bottom-right .maplibregl-ctrl, .leaflet-bottom .leaflet-control";
+
+function detailBounds(left, top, right, bottom, padding = 0) {
+  return {left:left-padding,top:top-padding,right:right+padding,bottom:bottom+padding};
+}
+
+function placeDetail(point, width, height, viewport, obstacles) {
+  const maxTop=viewport.height-DETAIL_GAP-height;
+  const rightEdge=viewport.width-DETAIL_GAP;
+  if(maxTop<DETAIL_GAP || width>rightEdge-DETAIL_GAP)return null;
+
+  const clampTop=(top)=>Math.max(DETAIL_GAP,Math.min(top,maxTop));
+  const centerLeft=point.x-width/2;
+  const offset=DETAIL_PIN_EDGE+DETAIL_GAP;
+  const tops=new Set([clampTop(point.y-offset-height),clampTop(point.y+offset),
+    clampTop(point.y-height/2),DETAIL_GAP,maxTop]);
+  for(const obstacle of obstacles){
+    tops.add(clampTop(obstacle.top-height));
+    tops.add(clampTop(obstacle.bottom));
+  }
+
+  const sorted=[...obstacles].sort((a,b)=>a.left-b.left);
+  let best=null;
+  let bestScore=Infinity;
+  for(const top of tops){
+    const bottom=top+height;
+    let start=DETAIL_GAP;
+    // At this height, look for gaps between occupied horizontal spans.
+    const considerGap=(end)=>{
+      if(end-start<width)return;
+      const left=Math.max(start,Math.min(centerLeft,end-width));
+      const offsetY=top+height/2-point.y;
+      const score=Math.hypot(left-centerLeft,offsetY)+(offsetY>0?6:0);
+      if(score<bestScore){
+        best=detailBounds(left,top,left+width,bottom);
+        bestScore=score;
+      }
+    };
+    for(const obstacle of sorted){
+      if(obstacle.top>=bottom || obstacle.bottom<=top || obstacle.right<=start)continue;
+      if(obstacle.left>=rightEdge)break;
+      considerGap(obstacle.left);
+      start=Math.max(start,obstacle.right);
+    }
+    considerGap(rightEdge);
+  }
+  return best;
+}
+
+function scheduleDetailLayout() {
+  if(detailFrame || !openDetails.size)return;
+  detailFrame=requestAnimationFrame(()=>{
+    detailFrame=0;
+    positionDetails();
+  });
+}
+
+function positionDetails() {
+  if(!state.map || !openDetails.size)return;
+  const layer=$("detailLayer");
+  const viewport={width:layer.clientWidth,height:layer.clientHeight};
+  if(!viewport.width || !viewport.height)return;
+  const scale=Math.max(0.3,Math.min(1.35,Math.exp((mapZoom()-17)*0.12*popupSensitivity)));
+  layer.style.setProperty("--detail-scale",scale);
+  const frame=layer.getBoundingClientRect();
+  const obstacles=[];
+  for(const control of $("mapArea").querySelectorAll(DETAIL_CONTROLS)){
+    const box=control.getBoundingClientRect();
+    if(box.width && box.height)obstacles.push(detailBounds(box.left-frame.left,box.top-frame.top,
+      box.right-frame.left,box.bottom-frame.top,DETAIL_GAP));
+  }
+
+  const mobile=window.matchMedia("(max-width:750px)").matches;
+  const heightLimit=Math.min(mobile?255:320,Math.floor(viewport.height*(mobile?0.39:0.42)/scale));
+  const visible=[];
+  for(const card of openDetails.values()){
+    const {entry,node,line}=card;
+    const point=state.library==="maplibre" ? state.map.project([entry.lng,entry.lat])
+      : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
+    if(!(point.x>=0 && point.y>=0 && point.x<=viewport.width && point.y<=viewport.height)){
+      node.style.visibility=line.style.visibility="hidden";
+      continue;
+    }
+    const width=node.offsetWidth*scale;
+    // scrollHeight also measures the content of a previously shortened card.
+    const height=Math.min(heightLimit,node.scrollHeight+node.offsetHeight-node.clientHeight);
+    const minimumHeight=Math.min(height,node.firstElementChild.offsetHeight+24);
+    visible.push({card,point,width,height,minimumHeight});
+    const pinPadding=DETAIL_PIN_EDGE+DETAIL_GAP;
+    obstacles.push(detailBounds(point.x,point.y,point.x,point.y,pinPadding));
+  }
+
+  // Give the newest selection first choice when the map is crowded.
+  for(const {card,point,width,height,minimumHeight} of visible.reverse()){
+    const {node,line}=card;
+    const compactHeight=Math.min(height,Math.max(88,minimumHeight));
+    const heights=new Set([height,compactHeight,minimumHeight]);
+    let box=null;
+    for(const availableHeight of heights){
+      box=placeDetail(point,width,availableHeight*scale,viewport,obstacles);
+      if(box)break;
+    }
+    node.style.visibility=line.style.visibility=box?"visible":"hidden";
+    if(!box)continue;
+    node.style.left=box.left+"px";
+    node.style.top=box.top+"px";
+    node.style.maxHeight=(box.bottom-box.top)/scale+"px";
+    obstacles.push(detailBounds(box.left,box.top,box.right,box.bottom,DETAIL_GAP));
+
+    // Draw from inside the card's rounded edge to the edge of its pin.
+    const x=Math.max(box.left+6,Math.min(box.right-6,point.x));
+    const y=Math.max(box.top+6,Math.min(box.bottom-6,point.y));
+    const pinEdge=DETAIL_PIN_EDGE/Math.max(Math.abs(x-point.x),Math.abs(y-point.y));
+    attr(line,"x1",point.x+(x-point.x)*pinEdge);
+    attr(line,"y1",point.y+(y-point.y)*pinEdge);
+    attr(line,"x2",x);
+    attr(line,"y2",y);
   }
 }
 function renderDetail(entry,detail){
@@ -599,7 +774,9 @@ function renderDetail(entry,detail){
     anchor.href=entry.link;anchor.rel="noopener noreferrer";anchor.target="_blank";actions.append(anchor);
   }
   actions.append(button("Share link",()=>sharePin(entry),"secondary"));
-  actions.append(button("Edit",()=>{hideDetail(entry.id);openEditor(entry);},"secondary"));
+  const editButton=button("Edit",()=>{hideDetail(entry.id);openEditor(entry);},"secondary");
+  editButton.disabled=!state.localReady;
+  actions.append(editButton);
   const deleteButton=button("Delete pin",()=>removeEntry(entry),"danger");
   deleteButton.className+=" delete-selected-pin";
   deleteButton.disabled=!state.localReady;
@@ -609,7 +786,7 @@ function renderDetail(entry,detail){
   const card=openDetails.get(entry.id);
   if(card)card.entry=entry;
   detail.classList.remove("hidden");
-  positionDetail();
+  scheduleDetailLayout();
 }
 function raiseDetail(id) {
   const card=openDetails.get(id);if(!card)return;
@@ -627,7 +804,9 @@ function choose(entry, focus) {
   if(focus){showMobileMap();mapFocus(entry);}
   const node=document.createElement("aside");
   node.className="side-panel";node.setAttribute("aria-label","Entry details");
-  const card={entry,node};openDetails.set(entry.id,card);
+  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+  $("detailLeaders").append(line);
+  const card={entry,node,line};openDetails.set(entry.id,card);
   node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
   $("detailLayer").append(node);
   raiseDetail(entry.id);
@@ -635,10 +814,11 @@ function choose(entry, focus) {
 }
 function hideDetail(id=state.current?.id) {
   const card=openDetails.get(id);
-  if(card){card.node.remove();openDetails.delete(id);}
+  if(card){card.node.remove();card.line.remove();openDetails.delete(id);}
   if(state.current?.id===id)state.current=[...openDetails.values()].sort((a,b)=>Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]?.entry||null;
   history.replaceState(null,"",pinUrl(state.current?.id||null));
   render();
+  scheduleDetailLayout();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -649,6 +829,7 @@ function toggleList(open) {
 }
 function showMobileMap(){toggleList(false);}
 function startPlacement(kind, draft) {
+  if(!state.localReady){notify("Reconnect to edit the shared map.",true);return;}
   state.placing={kind:kind||"place", draft:draft||null};
   $("placementBar").classList.remove("hidden");
   $("cancelPlace").focus();
@@ -670,6 +851,7 @@ async function placeAt({lng,lat}) {
   openEditor(draft);
 }
 function openEditor(entry) {
+  if(!state.localReady){notify("Reconnect to edit the shared map.",true);return;}
   state.draft={...entry};
   $("editorTitle").textContent=allEntries().some(e=>e.id===entry.id)?"Edit map entry":"New map entry";
   $("title").value=entry.title||"";
@@ -915,7 +1097,7 @@ function setupOffline() {
   window.addEventListener("online",refresh);
   window.addEventListener("offline",refresh);
   refresh();
-  if("serviceWorker" in navigator && location.protocol==="https:")
+  if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1"))
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
 
@@ -959,7 +1141,8 @@ function applyFeatureSettings(changedKey=null){
   if(oldTheme!==requestedTheme && state.map && state.library==="maplibre" && state.provider==="openfreemap"){
     state.styleReady=false;
     clearLabelMarkers();
-    state.map.setStyle(openFreeMapStyle());
+    if(state.offlineMode)offlineStyle().then(style=>state.map?.setStyle(style)).catch(()=>notify("Offline map style is unavailable.",true));
+    else state.map.setStyle(openFreeMapStyle());
   }
   updateLabels();
   render();
@@ -1039,6 +1222,8 @@ function wire() {
   });
 }
 async function main() {
+  const {setupAreaDownload, savedAreas: getSavedAreas} = await import("./offline.js");
+  savedAreas=getSavedAreas;
   state.features=readFeatureSettings();
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
@@ -1054,15 +1239,15 @@ async function main() {
   settingsUI.init();
   const sensitivity=$("popupSensitivity");
   sensitivity.value=String(popupSensitivity);
-  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}positionDetail();});
+  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}scheduleDetailLayout();});
   sensitivity.addEventListener("input",()=>{
     popupSensitivity=Number(sensitivity.value);
     try{localStorage.setItem(SENSITIVITY_KEY,String(popupSensitivity));}catch{}
-    positionDetail();
+    scheduleDetailLayout();
   });
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
-    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);positionDetail();}
+    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);scheduleDetailLayout();}
     if(event.key===FEATURE_STORAGE_KEY){
       state.features=readFeatureSettings();
       applyFeatureSettings();
@@ -1070,34 +1255,50 @@ async function main() {
     }
   });
   setupOffline();
+  setupAreaDownload({
+    getMap:()=>state.map,
+    getEntries:()=>state.offlineMode ? readMapCache() || allEntries() : allEntries(),
+    isReady:()=>navigator.onLine!==false,
+    notify,
+    viewArea:area=>{if(state.offlineMode)displayOfflineArea(area);}
+  });
   try {
     if(localStorage.getItem(LOCAL_MAP_KEY)){
       $("downloadLegacyBtn").classList.remove("hidden");
       $("legacyHelp").classList.remove("hidden");
     }
   }catch{}
-  try {await loadHostels();}catch(error){
-    const cached=readMapCache();
-    if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
-      catch(e){notify(e.message,true);}}
-    else {
-      try{
-        const response=await fetch("./data/public-map.json",{cache:"no-store"});
-        if(response.ok)setMapEntries(await response.json());
-      }catch{}
-      notify("Shared map unavailable: "+error.message,true);
+  try {if(navigator.onLine===false)throw new Error("Offline");await loadHostels();}catch(error){
+    const areas=await savedAreas().catch(()=>[]);
+    if(areas.length){
+      displayOfflineArea(areas.sort((a,b)=>b.created-a.created)[0]);
+    } else {
+      const cached=readMapCache();
+      if(cached){try{setMapEntries(cached);notify("Offline: using saved browser map.");}
+        catch(e){notify(e.message,true);}}
+      else {
+        try{
+          const response=await fetch("./data/public-map.json",{cache:"no-store"});
+          if(response.ok)setMapEntries(await response.json());
+        }catch{}
+        notify("Shared map unavailable: "+error.message,true);
+      }
+      state.localReady=false;
+      $("syncState").textContent="Connection lost · retry";
+      $("statusText").textContent="Showing saved map · reconnect to edit";
     }
-    state.localReady=false;
-    $("syncState").textContent="Connection lost · retry";
-    $("statusText").textContent="Showing saved map · reconnect to edit";
   }
   render();
   await initMap();
+  if(state.offlineBounds&&state.map)state.map.fitBounds([[state.offlineBounds[0],state.offlineBounds[1]],[state.offlineBounds[2],state.offlineBounds[3]]],{padding:35,duration:0});
   render();
   applyDeepLink();
   setInterval(()=>reloadShared(true),5000);
+  window.addEventListener("offline",()=>{state.localReady=false;render();useOfflineArea().catch(error=>notify(error.message,true));});
   window.addEventListener("online",()=>reloadShared(true));
-  window.addEventListener("resize",positionDetail);
+  const detailLayer=$("detailLayer");
+  detailLayer.addEventListener("load",scheduleDetailLayout,true);
+  new ResizeObserver(scheduleDetailLayout).observe(detailLayer);
 }
 // Read-only development inspection. Unavailable on public GitHub Pages.
 if (["127.0.0.1","localhost"].includes(location.hostname)) {
