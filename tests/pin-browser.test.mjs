@@ -21,6 +21,7 @@ let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta
 const testImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=";
 shared[0].photo=testImage;
 shared[0].gallery=[1,2,3].map(i=>`https://pin-images.example.test/gallery-${i}.png`);
+shared.find(entry=>entry.id==="hostel-8").photo=testImage;
 await page.route("https://pin-images.example.test/**",route=>route.fulfill({
   contentType:"image/png",body:Buffer.from(testImage.split(",")[1],"base64")
 }));
@@ -149,6 +150,27 @@ try {
   await page.evaluate(()=>window.__mapCanvasTest.getMap().panBy([75,0],{duration:0,animate:false}));
   await page.waitForFunction(x=>Math.abs(document.querySelector('#pinPhotos [data-pin-id="hostel-1"]')
     .getBoundingClientRect().x-x)>40,beforePan.x);
+  const zoomToPhotos=zoom=>page.evaluate(zoom=>{
+    const api=window.__mapCanvasTest;
+    const map=api.getMap(), {lat,lng}=api.getEntries()[0];
+    if(api.getLibrary()==="maplibre")map.jumpTo({center:[lng,lat],zoom});
+    else map.setView([lat,lng],zoom,{animate:false});
+  },zoom);
+  await zoomToPhotos(14);
+  await page.waitForFunction(()=>{
+    const rect=id=>document.querySelector(`#pinPhotos [data-pin-id="${id}"]`)?.getBoundingClientRect();
+    const a=rect("hostel-1"),b=rect("hostel-8");
+    return a&&b&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
+  });
+  const smallPhoto=await floatingPhotos.locator("img").first().boundingBox();
+  await zoomToPhotos(19);
+  await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
+    ?.getBoundingClientRect().width>width*1.5,smallPhoto.width);
+  await zoomToPhotos(13);
+  await floatingPhotos.waitFor({state:"detached"});
+  assert.equal(await page.locator("#pinPhotos img").count(),0,"Floating photos are hidden at wide zoom levels");
+  await zoomToPhotos(15);
+  await floatingPhotos.waitFor();
   await page.locator("#search").fill("AprilBox");
   await floatingPhotos.waitFor({state:"detached"});
   await page.locator("#search").fill("");
