@@ -19,7 +19,11 @@ let revision=1;
 let shared=JSON.parse(readFileSync(new URL("../data/public-map.json",import.meta.url),"utf8"))
   .map(entry=>({...entry,version:1}));
 const testImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCioAAAAASUVORK5CYII=";
-shared[0].photo=testImage;shared[0].gallery=[testImage,testImage,testImage];
+shared[0].photo=testImage;
+shared[0].gallery=[1,2,3].map(i=>`https://pin-images.example.test/gallery-${i}.png`);
+await page.route("https://pin-images.example.test/**",route=>route.fulfill({
+  contentType:"image/png",body:Buffer.from(testImage.split(",")[1],"base64")
+}));
 const deleted=new Map();
 await page.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**",async route=>{
   const request=route.request(),url=new URL(request.url());
@@ -128,6 +132,35 @@ try {
   let renderer=await waitForRenderer();
   assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getEntries().length),12);
   assert.equal(await page.locator("#entries .entry").filter({hasText:"Rebel Rooster Hostel"}).count(),0);
+  const photoSetting=page.getByRole("checkbox",{name:"Show all pictures",exact:true});
+  const floatingPhotos=page.locator('#pinPhotos [data-pin-id="hostel-1"]');
+  assert.equal(await floatingPhotos.count(),0,"Photos are off by default");
+  await page.locator("#settingsButton").click();
+  await photoSetting.check();
+  await page.locator("#settingsDone").click();
+  await floatingPhotos.waitFor();
+  await page.waitForFunction(()=>{
+    const images=[...document.querySelectorAll('#pinPhotos [data-pin-id="hostel-1"] img')];
+    return images.length===4 && images.every(image=>image.complete&&image.naturalWidth>0);
+  });
+  assert.equal(await floatingPhotos.textContent(),"","The map overlay contains only images");
+  assert.equal(await page.locator(".side-panel").count(),0,"Enabling photos opens no panels");
+  const beforePan=await floatingPhotos.boundingBox();
+  await page.evaluate(()=>window.__mapCanvasTest.getMap().panBy([75,0],{duration:0,animate:false}));
+  await page.waitForFunction(x=>Math.abs(document.querySelector('#pinPhotos [data-pin-id="hostel-1"]')
+    .getBoundingClientRect().x-x)>40,beforePan.x);
+  await page.locator("#search").fill("AprilBox");
+  await floatingPhotos.waitFor({state:"detached"});
+  await page.locator("#search").fill("");
+  await floatingPhotos.waitFor();
+  await page.reload({waitUntil:"domcontentloaded"});
+  renderer=await waitForRenderer();
+  await floatingPhotos.waitFor();
+  await page.locator("#settingsButton").click();
+  assert.equal(await photoSetting.isChecked(),true,"Photo mode survives reload");
+  await photoSetting.uncheck();
+  await page.locator("#settingsDone").click();
+  await floatingPhotos.waitFor({state:"detached"});
   if(renderer==="maplibre"){
   assert.equal(await page.locator(".maplibregl-marker.emoji-pin").count(),12,"Every remaining hostel has a visible emoji");
   assert.equal(await page.locator(".maplibregl-marker.emoji-pin").first().textContent(),"🏨",

@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=photo-grid-20261115";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photos-20261118";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -326,7 +326,8 @@ function makeCard(entry) {
 }
 function updateLabels() {
   clearLabelMarkers();
-  const expanded = state.showLabels && state.features.labels && mapZoom() >= DETAIL_ZOOM &&
+  const labelsEnabled = state.showLabels && state.features.labels && !state.features.showAllPictures;
+  const expanded = labelsEnabled && mapZoom() >= DETAIL_ZOOM &&
     !state.mapMoving;
   if (expanded && state.map && state.library === "maplibre") {
     for (const entry of state.visiblePins || []) {
@@ -355,9 +356,10 @@ function updateLabels() {
       }).addTo(state.map));
     }
   }
-  attr($("toggleLabels"), "aria-pressed", state.showLabels && state.features.labels);
+  attr($("toggleLabels"), "aria-pressed", labelsEnabled);
   $("mapSub").textContent = filterEntries().length + " pins · " +
-    (mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
+    (state.features.showAllPictures ? "Pictures visible" :
+      mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
 }
 function attachMapPinClicks(map) {
   if (state.pinEventsAttached) return;
@@ -925,7 +927,7 @@ const FEATURE_TARGETS={
   layers:[".collection-selects",".layers-panel"],
   importExport:[".io-actions"],addPins:["#addButton"],
   canvasObjects:[],galleries:["#galleryControls"],
-  undoRedo:["#undoBtn","#redoBtn"],labels:["#toggleLabels"],
+  undoRedo:["#undoBtn","#redoBtn"],
   gps:["#locateButton"],
   basemaps:["#basemapButton"],navigation:["#zoomIn","#zoomOut","#fitPins"],
 };
@@ -935,6 +937,7 @@ function applyFeatureSettings(changedKey=null){
       document.querySelectorAll(selector).forEach(node=>
         node.classList.toggle("feature-hidden",!state.features[key]));
   }
+  $("toggleLabels").classList.toggle("feature-hidden",!state.features.labels||state.features.showAllPictures);
   if(!state.features.basemaps){
     $("basemapSwitch").classList.add("hidden");
     $("basemapButton").setAttribute("aria-expanded","false");

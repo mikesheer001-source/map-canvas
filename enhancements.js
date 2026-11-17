@@ -107,12 +107,13 @@ export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,gps:true,basemaps:true,navigation:true,darkTheme:false
+  labels:true,showAllPictures:false,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
     ["darkTheme","Dark theme","Dark interface and a matching dark map"],
     ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
+    ["showAllPictures","Show all pictures","Float every photo around its pin as you browse the map"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
     ["gps","Find my location","Show the GPS location button"],
@@ -204,6 +205,8 @@ export function createEnhancements(api){
   let activeTool=null,firstPoint=null,hoverPoint=null,measure=[],measureDone=false;
   let refreshBusy=false,updatingUi=false;
   let uploadedGallery=[];
+  let photoFrame=0;
+  const photoGroups=new Map();
   const localMeta=(entry)=>({layer:entry.layer||defaultLayer(entry),group:entry.group||"",
     gallery:Array.isArray(entry.gallery)?entry.gallery:[],canvas:entry.canvas||null});
   const defaultLayer=e=>e.source==="hostel"?"Hostels":
@@ -269,6 +272,90 @@ export function createEnhancements(api){
     const point=state.library==="maplibre"?state.map.project([lng,lat]):
       state.map.latLngToContainerPoint([lat,lng]);
     return {x:point.x,y:point.y};
+  }
+  function renderPinPhotos(){
+    photoFrame=0;
+    const overlay=$("pinPhotos");
+    if(!state.features.showAllPictures || !state.map){
+      if(photoGroups.size)overlay.replaceChildren();
+      photoGroups.clear();
+      return;
+    }
+    const width=overlay.clientWidth, height=overlay.clientHeight;
+    if(!width || !height)return;
+    const pins=(state.visiblePins||[]).flatMap(entry=>{
+      const p=project(entry.lng,entry.lat);
+      return p && p.x>=0 && p.x<width && p.y>=0 && p.y<height ? [{entry,...p}] : [];
+    });
+    const size=width<540 ? 30 : 44;
+    const gap=3;
+    const occupied=pins.map(({x,y})=>({left:x-19,top:y-19,width:38,height:38}));
+    const shown=new Set();
+    overlay.style.setProperty("--pin-photo-size",size+"px");
+    for(const {entry,x,y} of pins){
+      const gallery=Array.isArray(entry.gallery)?entry.gallery:[];
+      const urls=[...new Set([entry.photo,...gallery].map(safeImage).filter(Boolean))];
+      if(!urls.length)continue;
+      shown.add(entry.id);
+      const columns=urls.length===4 ? 2 : Math.min(4,urls.length);
+      const groupWidth=columns*(size+gap)-gap;
+      const groupHeight=Math.ceil(urls.length/columns)*(size+gap)-gap;
+      const box=placePhotoGroup(x,y,groupWidth,groupHeight,width,height,occupied);
+      occupied.push(box);
+      const signature=JSON.stringify(urls);
+      let group=photoGroups.get(entry.id);
+      if(group?.signature!==signature){
+        const node=document.createElement("div");
+        node.className="pin-photo-group";
+        node.dataset.pinId=entry.id;
+        node.style.setProperty("--pin-photo-columns",columns);
+        for(const url of urls){
+          const image=document.createElement("img");
+          image.alt="";
+          image.decoding="async";
+          image.referrerPolicy="no-referrer";
+          image.addEventListener("error",()=>{image.style.visibility="hidden";},{once:true});
+          image.src=url;
+          node.append(image);
+        }
+        if(group)group.node.replaceWith(node);
+        else overlay.append(node);
+        group={node,signature};
+        photoGroups.set(entry.id,group);
+      }
+      group.node.style.transform=`translate(${Math.round(box.left)}px,${Math.round(box.top)}px)`;
+    }
+    for(const [id,{node}] of photoGroups){
+      if(shown.has(id))continue;
+      node.remove();
+      photoGroups.delete(id);
+    }
+  }
+
+  // Keep each gallery together. Try nearby positions first, then use the
+  // least crowded position when the current zoom leaves no clear space.
+  function placePhotoGroup(x,y,width,height,viewWidth,viewHeight,occupied){
+    let best, bestOverlap=Infinity;
+    for(const distance of [22,52,86,122]){
+      const left=x-distance-width, centerX=x-width/2, right=x+distance;
+      const top=y-distance-height, centerY=y-height/2, bottom=y+distance;
+      const positions=[[centerX,top],[centerX,bottom],[right,centerY],[left,centerY],
+        [right,top],[left,top],[right,bottom],[left,bottom]];
+      for(const [px,py] of positions){
+        const l=Math.max(0,Math.min(px,viewWidth-width));
+        const t=Math.max(0,Math.min(py,viewHeight-height));
+        const box={left:l,top:t,width,height};
+        let overlap=0;
+        for(const other of occupied){
+          overlap+=Math.max(0,Math.min(l+width,other.left+other.width)-Math.max(l,other.left))
+            * Math.max(0,Math.min(t+height,other.top+other.height)-Math.max(t,other.top));
+          if(overlap>=bestOverlap)break;
+        }
+        if(overlap===0)return box;
+        if(overlap<bestOverlap){best=box;bestOverlap=overlap;}
+      }
+    }
+    return best;
   }
   function unproject(x,y){
     if(state.library==="maplibre"){
@@ -339,6 +426,8 @@ export function createEnhancements(api){
     el.addEventListener("pointercancel",()=>{start=null;api.render();});
   }
   function renderOverlay(){
+    if(!photoFrame&&(state.features.showAllPictures||photoGroups.size))
+      photoFrame=requestAnimationFrame(renderPinPhotos);
     const objects=$("canvasObjects"),svg=$("canvasDrawing");
     if(!objects||!svg||!state.map)return;
     objects.replaceChildren();svg.replaceChildren();
