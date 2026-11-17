@@ -166,6 +166,13 @@ try {
   await zoomToPhotos(19);
   await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
     ?.getBoundingClientRect().width>width*1.5,smallPhoto.width);
+  const defaultSize=(await floatingPhotos.locator("img").first().boundingBox()).width;
+  await page.locator("#settingsButton").click();
+  await page.locator("#popupSensitivity").fill("4");
+  await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
+    ?.getBoundingClientRect().width>width*2,defaultSize);
+  await page.locator("#popupSensitivity").fill("2");
+  await page.locator("#settingsDone").click();
   await zoomToPhotos(13);
   await floatingPhotos.waitFor({state:"detached"});
   assert.equal(await page.locator("#pinPhotos img").count(),0,"Floating photos are hidden at wide zoom levels");

@@ -285,7 +285,8 @@ export function createEnhancements(api){
     }
     const width=overlay.clientWidth, height=overlay.clientHeight;
     if(!width || !height)return;
-    const size=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(1.8,api.zoomScale(zoom)));
+    const size=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(3.5,api.photoZoomScale(zoom)));
+    const maxColumns=Math.max(1,Math.floor((width+3)/(size+3)));
     const shown=new Set();
     overlay.style.setProperty("--pin-photo-size",size+"px");
     for(const entry of state.visiblePins||[]){
@@ -295,14 +296,13 @@ export function createEnhancements(api){
       const p=project(entry.lng,entry.lat);
       if(!p || p.x<0 || p.x>=width || p.y<0 || p.y>=height)continue;
       shown.add(entry.id);
-      const columns=urls.length===4 ? 2 : Math.min(4,urls.length);
+      const columns=Math.min(urls.length===4 ? 2 : Math.min(4,urls.length),maxColumns);
       const signature=JSON.stringify(urls);
       let group=photoGroups.get(entry.id);
       if(group?.signature!==signature){
         const node=document.createElement("div");
         node.className="pin-photo-group";
         node.dataset.pinId=entry.id;
-        node.style.setProperty("--pin-photo-columns",columns);
         for(const url of urls){
           const image=document.createElement("img");
           image.alt="";
@@ -317,6 +317,7 @@ export function createEnhancements(api){
         group={node,signature};
         photoGroups.set(entry.id,group);
       }
+      group.node.style.setProperty("--pin-photo-columns",columns);
       group.node.style.transform=`translate(${p.x}px,${p.y-22}px) translate(-50%,-100%)`;
     }
     for(const [id,{node}] of photoGroups){

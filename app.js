@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photo-zoom-20261118";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photo-size-20261118";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -436,7 +436,11 @@ function renderMarkers(entries) {
 }
 
 function mapZoom() { return state.map ? state.map.getZoom() : 15; }
-function zoomScale(zoom){return Math.exp((zoom-17)*0.12*popupSensitivity);}
+function zoomScale(zoom,sensitivity=popupSensitivity){return Math.exp((zoom-17)*0.12*sensitivity);}
+function photoZoomScale(zoom){
+  const boost=zoom>17 ? Math.max(0,popupSensitivity-2) : 0;
+  return zoomScale(zoom,popupSensitivity+boost);
+}
 const osmStyle = {
   version:8, sources:{osm:{type:"raster",tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],tileSize:256,attribution:"© OpenStreetMap contributors"}},
   layers:[{id:"osm-base",type:"raster",source:"osm"}]
@@ -1047,7 +1051,7 @@ async function main() {
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
-    reloadShared,importPins,mapZoom,zoomScale});
+    reloadShared,importPins,mapZoom,photoZoomScale});
   wire();
   // An optional feature must never prevent the base map from initializing.
   try{enhanced.init();}catch(error){
