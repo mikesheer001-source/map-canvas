@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photo-size-slider-20261118";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-ratings-20261118";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -89,14 +89,28 @@ function clearEmojiMarkers(){
   for(const marker of state.emojiMarkers){try{marker.remove();}catch{}}
   state.emojiMarkers=[];
 }
+function makeEmojiPin(entry,className){
+  const emoji=pinEmoji(entry);
+  const pin=text("span",emoji,className);
+  pin.title=entry.title||"Map pin";
+  if(!state.features.pinRatings)return pin;
+  const rating=String(entry.rating??"").trim().match(/^([0-5](?:\.\d+)?)(?:\s*\(([\d,]+) reviews?\))?$/i);
+  if(!rating || Number(rating[1])>5)return pin;
+  const count=(rating[2]||String(entry.notes??"").match(/^Listed rating: [\d.]+ \(([\d,]+) reviews?\)$/im)?.[1]||"").replaceAll(",","");
+  const score=Number(rating[1]).toFixed(1);
+  pin.className+=" has-rating";
+  pin.textContent="";
+  pin.append(text("span",emoji),text("span",count ? `${score}·${count}` : score,"pin-rating"));
+  pin.title+=` · Google ${score}/5${count ? ` (${Number(count).toLocaleString("en-US")} ratings)` : ""}`;
+  return pin;
+}
 function renderEmojiMarkers(entries){
   clearEmojiMarkers();
   if(!state.map||state.library!=="maplibre")return;
   for(const entry of entries){
     if(!Number.isFinite(Number(entry.lat))||!Number.isFinite(Number(entry.lng)))continue;
-    const el=text("div",pinEmoji(entry),"emoji-pin");
+    const el=makeEmojiPin(entry,"emoji-pin");
     el.setAttribute("aria-hidden","true");
-    el.title=entry.title||"Map pin";
     el.style.pointerEvents="none";
     const marker=new window.maplibregl.Marker({
       element:el,anchor:"center",subpixelPositioning:true
@@ -418,12 +432,11 @@ function renderMarkers(entries) {
     state.markers = [];
     for (const entry of entries) {
       if (!Number.isFinite(Number(entry.lat)) || !Number.isFinite(Number(entry.lng))) continue;
-      const emoji=pinEmoji(entry);
       const marker=window.L.marker([Number(entry.lat),Number(entry.lng)],{
         keyboard:true,bubblingMouseEvents:false,
         icon:window.L.divIcon({
           className:"leaflet-emoji-marker",
-          html:'<span class="emoji-pin-inner">'+emoji+'</span>',
+          html:makeEmojiPin(entry,"emoji-pin-inner").outerHTML,
           iconSize:[34,34],iconAnchor:[17,17]
         })
       }).addTo(state.map);

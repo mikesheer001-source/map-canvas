@@ -108,12 +108,13 @@ export const PIN_PHOTO_MIN_ZOOM=14;
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,showAllPictures:false,gps:true,basemaps:true,navigation:true,darkTheme:false
+  labels:true,showAllPictures:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
     ["darkTheme","Dark theme","Dark interface and a matching dark map"],
     ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
+    ["pinRatings","Google ratings on pins","Show rating and review count under each pin emoji"],
     ["showAllPictures","Show all pictures","Show photos above their pins when zoomed in"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],

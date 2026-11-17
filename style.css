@@ -92,6 +92,8 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .maplibregl-marker.emoji-pin{position:absolute;top:0;left:0}
 .leaflet-emoji-marker{border:0!important;background:none!important}
 .leaflet-emoji-marker .emoji-pin-inner{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#fffffff2;border:1px solid #bfd0c3;box-shadow:0 2px 8px #163d3059;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif;font-size:23px;line-height:1}
+.emoji-pin.has-rating,.emoji-pin-inner.has-rating{grid-template-rows:18px 8px;align-content:center;font-size:18px}
+.pin-rating{font:750 6.5px/8px system-ui,sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
 
 /* Dark mode: per-device setting, including the basemap, canvas, panels and dialogs. */
 :root[data-theme="dark"]{

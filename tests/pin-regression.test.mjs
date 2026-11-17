@@ -26,7 +26,7 @@ class Element {
   setAttribute(k,v){this.attrs[k]=v;}
   querySelectorAll(){return [];}
   querySelector(sel){return this.children.find(x=>sel===".pin-label"&&x.className==="pin-label")??null;}
-  get outerHTML(){return "<span class='pin-label'></span>";}
+  get outerHTML(){return `<span class="${this.className||""}">${this.textContent}${this.children.map(child=>child.outerHTML).join("")}</span>`;}
 }
 const dom = {
   getElementById(id){if(!this.nodes[id])this.nodes[id]=new Element();return this.nodes[id]},
@@ -47,8 +47,8 @@ const api=new Function("document","window","location","FEATURE_DEFAULTS",appForT
   "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"},FEATURE_DEFAULTS);
 const {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider}=api;
 const hostels=[
-  {id:"hostel-1",title:"North",kind:"place",lat:21.0342937,lng:105.8526123,price:"$4.25",rating:"4.6"},
-  {id:"hostel-2",title:"East",kind:"place",lat:21.0329587,lng:105.8442971,price:"$4.35",rating:"4.5"},
+  {id:"hostel-1",title:"North",kind:"place",lat:21.0342937,lng:105.8526123,price:"$4.25",rating:"4.6 (232 reviews)"},
+  {id:"hostel-2",title:"East",kind:"place",lat:21.0329587,lng:105.8442971,price:"$4.35",rating:"4.5",notes:"Listed rating: 4.5 (1,034 reviews)"},
   {id:"note-1",title:"Note",kind:"note",lat:21.0369192,lng:105.8500837,notes:"test"},
   {id:"photo-1",title:"Photo",kind:"photo",lat:21.0295722,lng:105.8441379,
     photo:"https://example.com/image.jpg"}
@@ -85,6 +85,12 @@ assert.deepEqual([...map.layers.store.keys()],["canvas-pin-dots","canvas-pin-tou
 assert.equal(map.getSource("canvas-geo-pins").data.features.length,4);
 assert.equal(map.getSource("canvas-geo-pins").cluster,false,"Individual pins are never clustered");
 assert.equal(state.emojiMarkers.length,4,"Every point gets a theme emoji marker");
+assert.equal(state.emojiMarkers[0].options.element.children.length,0,"Rating line starts off");
+state.features.pinRatings=true;
+renderMarkers(hostels);
+assert.equal(state.emojiMarkers[0].options.element.children[1].textContent,"4.6·232");
+assert.equal(state.emojiMarkers[1].options.element.children[1].textContent,"4.5·1034");
+assert.equal(state.emojiMarkers[2].options.element.children.length,0,"Unrated pins show only the icon");
 assert.deepEqual(state.emojiMarkers.map(x=>x.ll),hostels.map(e=>[e.lng,e.lat]));
 assert.equal(map.events.filter(x=>x[0]==="click" && x[1]==="canvas-pin-touch-targets").length,1,"Only one delegated click handler");
 renderMarkers(hostels.slice(0,2));
@@ -135,4 +141,5 @@ assert.deepEqual(leaf[0].latlng,[hostels[0].lat,hostels[0].lng],
   "Leaflet uses [latitude, longitude]");
 assert.ok(leaf.every(x=>x.options.bubblingMouseEvents===false));
 assert.ok(leaf.every(x=>x.options.icon.html.includes("emoji-pin-inner")));
+assert.match(leaf[0].options.icon.html,/pin-rating">4\.6·232/);
 console.log("PASS: coordinates, individual emoji pins, styles, label zoom gating, gestures, fallback");
