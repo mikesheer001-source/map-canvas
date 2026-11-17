@@ -285,7 +285,8 @@ export function createEnhancements(api){
     }
     const width=overlay.clientWidth, height=overlay.clientHeight;
     if(!width || !height)return;
-    const size=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(3.5,api.photoZoomScale(zoom)));
+    const baseSize=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(3.5,api.photoZoomScale(zoom)));
+    const size=Math.max(baseSize,Math.min(baseSize*api.photoSize(),Math.min(width,height)*0.48));
     const maxColumns=Math.max(1,Math.floor((width+3)/(size+3)));
     const shown=new Set();
     overlay.style.setProperty("--pin-photo-size",size+"px");

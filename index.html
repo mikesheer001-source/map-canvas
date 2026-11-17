@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=pin-photo-size-20261118">
+<link rel="stylesheet" href="./style.css?v=pin-photo-size-slider-20261118">
 </head>
 <body>
 <div id="app">
@@ -73,6 +73,7 @@
  <div class="settings-header"><div><div class="eyebrow">YOUR MAP · YOUR CONTROLS</div><h2 id="settingsTitle">Settings</h2></div><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">✕</button></div>
  <p class="settings-note">Choose which tools and details appear. Preferences are saved automatically <strong>on this browser</strong> and remain after refreshing. They don't change anyone else's settings.</p>
  <label class="settings-switch-row"><span class="settings-copy"><strong>Popup zoom sensitivity</strong><small>Controls how quickly popups and floating photos resize as you zoom.</small></span><input id="popupSensitivity" type="range" min="0.5" max="4" step="0.5" value="2" aria-label="Popup zoom sensitivity"></label>
+ <label class="settings-switch-row"><span class="settings-copy"><strong>Photo size <output id="photoSizeValue" for="photoSize">100%</output></strong><small>Enlarge floating photos at every visible zoom level.</small></span><input id="photoSize" type="range" min="100" max="300" step="25" value="100" aria-label="Photo size"></label>
  <div id="settingsGroups" class="settings-groups"></div>
  <div class="settings-hidden-controls"><button type="button" id="downloadLegacyBtn" class="secondary hidden">Download previous browser edits</button><small id="legacyHelp" class="hidden">This is an older full map snapshot. Review it before importing with Merge. It can overwrite newer edits or restore deleted pins.</small></div>
  <div class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this device</span><button type="button" class="primary" id="settingsDone">Done</button></div>
@@ -110,6 +111,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=pin-photo-size-20261118"></script>
+<script type="module" src="./app.js?v=pin-photo-size-slider-20261118"></script>
 </body>
 </html>

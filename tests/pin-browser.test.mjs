@@ -163,6 +163,14 @@ try {
     return a&&b&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
   });
   const smallPhoto=await floatingPhotos.locator("img").first().boundingBox();
+  await page.locator("#settingsButton").click();
+  await page.getByRole("slider",{name:"Photo size",exact:true}).fill("300");
+  assert.equal(await page.locator("#photoSizeValue").textContent(),"300%");
+  assert.equal(await page.locator("#popupSensitivity").inputValue(),"2");
+  await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
+    ?.getBoundingClientRect().width>width*2.9,smallPhoto.width);
+  await page.getByRole("slider",{name:"Photo size",exact:true}).fill("100");
+  await page.locator("#settingsDone").click();
   await zoomToPhotos(19);
   await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
     ?.getBoundingClientRect().width>width*1.5,smallPhoto.width);
@@ -358,6 +366,7 @@ try {
   assert.equal(await page.locator('#settingsDialog input[data-feature="measure"]').count(),0);
   assert.equal(await page.locator('#settingsDialog input[data-feature="canvasTools"]').count(),0);
   await page.locator("#popupSensitivity").fill("3");
+  await page.getByRole("slider",{name:"Photo size",exact:true}).fill("200");
   await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="labels"]').uncheck();
   await page.locator('#settingsDialog input[data-feature="galleries"]').uncheck();
@@ -373,8 +382,10 @@ try {
   if(renderer==="maplibre")assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
   await page.locator("#settingsButton").click();
   assert.equal(await page.locator("#popupSensitivity").inputValue(),"3","Sensitivity persists after reload");
+  assert.equal(await page.getByRole("slider",{name:"Photo size",exact:true}).inputValue(),"200","Photo size persists after reload");
   await page.locator("#settingsReset").click();
   assert.equal(await page.locator("#popupSensitivity").inputValue(),"2","Reset restores sensitivity");
+  assert.equal(await page.getByRole("slider",{name:"Photo size",exact:true}).inputValue(),"100","Reset restores photo size");
   assert.ok(await page.locator(".searchwrap").isVisible(),"Reset restores search");
   assert.equal(await page.locator('#settingsDialog input[data-feature="labels"]').isChecked(),true);
   assert.equal(await page.locator("#galleryControls").evaluate(el=>el.classList.contains("feature-hidden")),false,"Reset restores galleries");

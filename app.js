@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photo-size-20261118";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-photo-size-slider-20261118";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -7,8 +7,12 @@ const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const openDetails=new Map();
 
 const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
+const PHOTO_SIZE_KEY="map-canvas:photo-size";
+const normalizePhotoSize=value=>Math.max(100,Math.min(300,Number(value)||100));
 let popupSensitivity=2;
+let photoSize=100;
 try{popupSensitivity=Number(globalThis.localStorage?.getItem(SENSITIVITY_KEY))||2;}catch{}
+try{photoSize=normalizePhotoSize(globalThis.localStorage?.getItem(PHOTO_SIZE_KEY));}catch{}
 popupSensitivity=Math.max(0.5,Math.min(4,popupSensitivity));
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 let enhanced = null;
@@ -1051,7 +1055,7 @@ async function main() {
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
-    reloadShared,importPins,mapZoom,photoZoomScale});
+    reloadShared,importPins,mapZoom,photoZoomScale,photoSize:()=>photoSize/100});
   wire();
   // An optional feature must never prevent the base map from initializing.
   try{enhanced.init();}catch(error){
@@ -1061,7 +1065,18 @@ async function main() {
   settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
   settingsUI.init();
   const sensitivity=$("popupSensitivity");
+  const photoSizeSlider=$("photoSize");
   const resizePopups=()=>{positionDetail();enhanced.renderOverlay();};
+  function setPhotoSize(value,persist=false){
+    photoSize=normalizePhotoSize(value);
+    photoSizeSlider.value=String(photoSize);
+    $("photoSizeValue").value=photoSize+"%";
+    if(persist){try{localStorage.setItem(PHOTO_SIZE_KEY,String(photoSize));}catch{}}
+    enhanced.renderOverlay();
+  }
+  setPhotoSize(photoSize);
+  photoSizeSlider.addEventListener("input",()=>setPhotoSize(photoSizeSlider.value,true));
+  $("settingsReset").addEventListener("click",()=>setPhotoSize(100,true));
   sensitivity.value=String(popupSensitivity);
   $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}resizePopups();});
   sensitivity.addEventListener("input",()=>{
@@ -1071,6 +1086,7 @@ async function main() {
   });
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
+    if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
     if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);resizePopups();}
     if(event.key===FEATURE_STORAGE_KEY){
       state.features=readFeatureSettings();
