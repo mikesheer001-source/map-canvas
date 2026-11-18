@@ -40,6 +40,11 @@ const roundtrip=parseImport(JSON.stringify(original),"map.json");
 assert.equal(roundtrip.length,original.length);
 assert.deepEqual(roundtrip.map(p=>p.id),original.map(p=>p.id));
 assert.equal(roundtrip[0].source,"hostel");
+const credited={...original[0],photoCredits:[{
+  src:"https://example.com/image.jpg",source:"https://example.com/photo",
+  title:"Example photo",author:"Example photographer",license:"CC BY 4.0"
+}]};
+assert.deepEqual(parseImport(JSON.stringify([credited]),"map.json")[0].photoCredits,credited.photoCredits);
 const geo=parseImport(JSON.stringify({type:"FeatureCollection",features:[{
  type:"Feature",geometry:{type:"Point",coordinates:[105.85,21.03]},
  properties:{title:"Geo Pin",layer:"Drawings"}}]}),"pins.geojson");
@@ -48,7 +53,7 @@ assert.throws(()=>parseImport("title,lat,lng\nBad,100,105\n","pins.csv"),/invali
 assert.ok(Math.abs(metersBetween([105,21],[105,22])-111195)<500);
 assert.ok(polygonAreaMeters([[0,0],[.001,0],[.001,.001],[0,.001]])>12000);
 assert.equal(polygonAreaMeters([[0,0],[1,0]]),0);
-assert.match(app,/enhancements\.js\?v=pin-foreground-20261118/);
+assert.match(app,/enhancements\.js\?v=photo-credits-20261118/);
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
 assert.match(app,/storeMapSnapshot\(/);
 assert.match(app,/downloadLegacyEdits\(/);

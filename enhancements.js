@@ -59,6 +59,10 @@ export function parseImport(content, filename) {
     if(typeof gallery==="string"){
       try{gallery=JSON.parse(gallery);}catch{gallery=gallery.split(/\r?\n|\s*;\s*/).filter(Boolean);}
     }
+    let photoCredits=x.photoCredits??x.photocredits;
+    if(typeof photoCredits==="string"){
+      try{photoCredits=JSON.parse(photoCredits);}catch{photoCredits=null;}
+    }
     let canvas=x.canvas||null;
     if(typeof canvas==="string"){try{canvas=JSON.parse(canvas);}catch{canvas=null;}}
     const kind=["place","note","photo"].includes(x.kind||x.type)?(x.kind||x.type):"place";
@@ -73,6 +77,7 @@ export function parseImport(content, filename) {
       layer:String(x.layer||"Imported").slice(0,40),
       group:String(x.group||"").slice(0,100),
       gallery:Array.isArray(gallery)?gallery.filter(u=>typeof u==="string" && (/^https:\/\//.test(u)||(/^data:image\/jpeg;base64,/.test(u)&&u.length<=5500))).slice(0,12):[],
+      ...(Array.isArray(photoCredits) ? {photoCredits:photoCredits.slice(0,13)} : {}),
       canvas:canvas&&typeof canvas==="object"?canvas:null,
       source:x.source==="hostel"?"hostel":"local",
       link:typeof x.link==="string"?x.link.slice(0,2000):"",
@@ -497,6 +502,23 @@ export function createEnhancements(api){
       link.append(image);grid.append(link);
     }
     detail.insertBefore(grid,detail.querySelector(".detail-pills"));
+    if(!Array.isArray(entry.photoCredits))return;
+    const credits=document.createElement("details");
+    credits.className="muted";
+    const summary=document.createElement("summary");
+    summary.textContent="Photo credits";
+    credits.append(summary);
+    for(const src of imgs){
+      const credit=entry.photoCredits.find(item=>item?.src===src);
+      if(!credit || typeof credit.source!=="string" || !safeImage(credit.source)?.startsWith("https://"))continue;
+      const line=document.createElement("div");
+      const source=document.createElement("a");
+      source.href=credit.source;source.target="_blank";source.rel="noopener noreferrer";
+      source.textContent=[credit.title,credit.author,credit.license].filter(Boolean).join(" · ");
+      line.append(source);
+      credits.append(line);
+    }
+    if(credits.childElementCount>1)detail.insertBefore(credits,detail.querySelector(".detail-pills"));
   }
   function showGalleryPreviews(){
     const box=$("galleryPreview");box.replaceChildren();
@@ -586,7 +608,7 @@ export function createEnhancements(api){
         properties:{...e,lat:undefined,lng:undefined}}));
       download("map-canvas.geojson",JSON.stringify({type:"FeatureCollection",features},null,2),"application/geo+json");return;
     }
-    const columns=["id","title","lat","lng","kind","category","layer","group","notes","price","rating","photo","gallery","canvas","icon","color","source","link","breakfast","bookingRating"];
+    const columns=["id","title","lat","lng","kind","category","layer","group","notes","price","rating","photo","gallery","canvas","icon","color","source","link","breakfast","bookingRating","photoCredits"];
     download("map-canvas.csv","\uFEFF"+columns.join(",")+"\n"+
       entries.map(e=>columns.map(c=>csvCell(e[c])).join(",")).join("\n"),"text/csv;charset=utf-8");
   }
