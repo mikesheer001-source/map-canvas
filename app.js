@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-ratings-20261118";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=pin-foreground-20261118";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";

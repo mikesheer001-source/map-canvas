@@ -162,6 +162,29 @@ try {
     const a=rect("hostel-1"),b=rect("hostel-8");
     return a&&b&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
   });
+  // Force a neighboring photo across the center of the pin to check actual paint order.
+  const pinPoint=await page.evaluate(()=>{
+    const pin=document.querySelector('.emoji-pin[title="Viet Vintage Hostel"], .leaflet-emoji-marker:has([title="Viet Vintage Hostel"])');
+    const image=document.querySelector('#pinPhotos [data-pin-id="hostel-8"] img');
+    const pinBox=pin.getBoundingClientRect(), imageBox=image.getBoundingClientRect();
+    const x=pinBox.left+pinBox.width/2, y=pinBox.top+pinBox.height/2;
+    image.style.transform=`translate(${x-imageBox.left-imageBox.width/2}px,${y-imageBox.top-imageBox.height/2}px)`;
+    // Include the normally pointer-transparent layers in the hit-test stack.
+    const pinPointerEvents=pin.style.pointerEvents;
+    pin.style.pointerEvents="auto";
+    image.style.pointerEvents="auto";
+    const stack=document.elementsFromPoint(x,y);
+    pin.style.pointerEvents=pinPointerEvents;
+    image.style.pointerEvents="";
+    if(!stack.includes(pin)||!stack.includes(image)||stack.indexOf(pin)>stack.indexOf(image))
+      throw Error("The floating photo painted over a neighboring pin");
+    return {x,y};
+  });
+  await page.mouse.click(pinPoint.x,pinPoint.y);
+  const pinDetails=page.getByRole("complementary",{name:"Entry details"});
+  await pinDetails.getByRole("heading",{name:"Viet Vintage Hostel"}).waitFor();
+  await pinDetails.getByRole("button",{name:"Close details"}).click();
+  await page.locator('#pinPhotos [data-pin-id="hostel-8"] img').evaluate(image=>{image.style.transform="";});
   const smallPhoto=await floatingPhotos.locator("img").first().boundingBox();
   await page.locator("#settingsButton").click();
   await page.getByRole("slider",{name:"Photo size",exact:true}).fill("300");

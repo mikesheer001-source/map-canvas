@@ -209,6 +209,7 @@ export function createEnhancements(api){
   let uploadedGallery=[];
   let photoFrame=0;
   const photoGroups=new Map();
+  const pinPhotos=$("pinPhotos");
   const localMeta=(entry)=>({layer:entry.layer||defaultLayer(entry),group:entry.group||"",
     gallery:Array.isArray(entry.gallery)?entry.gallery:[],canvas:entry.canvas||null});
   const defaultLayer=e=>e.source==="hostel"?"Hostels":
@@ -277,14 +278,21 @@ export function createEnhancements(api){
   }
   function renderPinPhotos(){
     photoFrame=0;
-    const overlay=$("pinPhotos");
+    const overlay=pinPhotos;
     const zoom=api.mapZoom();
     if(!state.features.showAllPictures || !state.map || zoom<PIN_PHOTO_MIN_ZOOM){
       if(photoGroups.size)overlay.replaceChildren();
       photoGroups.clear();
       return;
     }
-    const width=overlay.clientWidth, height=overlay.clientHeight;
+    const map=$("map");
+    const width=map.clientWidth, height=map.clientHeight;
+    const leaflet=state.library==="leaflet";
+    const pane=leaflet ? state.map.getPane("mapPane") : state.map.getCanvasContainer();
+    if(overlay.parentNode!==pane)pane.append(overlay);
+    // Leaflet moves its map pane while panning. Keep the photo origin in viewport pixels.
+    const origin=leaflet ? state.map.containerPointToLayerPoint([0,0]) : null;
+    overlay.style.transform=origin ? `translate(${origin.x}px,${origin.y}px)` : "";
     if(!width || !height)return;
     const baseSize=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(3.5,api.photoZoomScale(zoom)));
     const size=Math.max(baseSize,Math.min(baseSize*api.photoSize(),Math.min(width,height)*0.48));

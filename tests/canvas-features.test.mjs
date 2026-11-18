@@ -48,7 +48,7 @@ assert.throws(()=>parseImport("title,lat,lng\nBad,100,105\n","pins.csv"),/invali
 assert.ok(Math.abs(metersBetween([105,21],[105,22])-111195)<500);
 assert.ok(polygonAreaMeters([[0,0],[.001,0],[.001,.001],[0,.001]])>12000);
 assert.equal(polygonAreaMeters([[0,0],[1,0]]),0);
-assert.match(app,/enhancements\.js\?v=pin-ratings-20261118/);
+assert.match(app,/enhancements\.js\?v=pin-foreground-20261118/);
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
 assert.match(app,/storeMapSnapshot\(/);
 assert.match(app,/downloadLegacyEdits\(/);
