@@ -137,6 +137,18 @@ try {
   const floatingPhotos=page.locator('#pinPhotos [data-pin-id="hostel-1"]');
   assert.equal(await floatingPhotos.count(),0,"Photos are off by default");
   await page.locator("#settingsButton").click();
+  const hotels=page.getByRole("checkbox",{name:"Hotels",exact:true});
+  const hotelCategories=page.getByRole("button",{name:"Hotels categories",exact:true});
+  assert.equal(await hotelCategories.getAttribute("aria-expanded"),"false");
+  await hotels.uncheck();
+  assert.equal(await page.locator("#pin-theme-count-hotels").textContent(),"0 of 12 enabled");
+  assert.equal(await page.locator("#entries .entry").count(),0);
+  await hotelCategories.click();
+  assert.equal(await hotelCategories.getAttribute("aria-expanded"),"true");
+  assert.ok(await page.getByRole("checkbox",{name:"Hostel",exact:true}).isChecked());
+  await hotels.check();
+  assert.equal(await page.locator("#entries .entry").count(),12);
+  await hotelCategories.click();
   await photoSetting.check();
   await page.locator("#settingsDone").click();
   await floatingPhotos.waitFor();
@@ -187,6 +199,7 @@ try {
   await page.locator('#pinPhotos [data-pin-id="hostel-8"] img').evaluate(image=>{image.style.transform="";});
   const smallPhoto=await floatingPhotos.locator("img").first().boundingBox();
   await page.locator("#settingsButton").click();
+  await page.locator("#settingsSizing summary").click();
   await page.getByRole("slider",{name:"Photo size",exact:true}).fill("300");
   assert.equal(await page.locator("#photoSizeValue").textContent(),"300%");
   assert.equal(await page.locator("#popupSensitivity").inputValue(),"2");
@@ -388,6 +401,7 @@ try {
   assert.ok(await page.locator("#settingsDialog").evaluate(el=>el.open));
   assert.equal(await page.locator('#settingsDialog input[data-feature="measure"]').count(),0);
   assert.equal(await page.locator('#settingsDialog input[data-feature="canvasTools"]').count(),0);
+  await page.locator("#settingsSizing summary").click();
   await page.locator("#popupSensitivity").fill("3");
   await page.getByRole("slider",{name:"Photo size",exact:true}).fill("200");
   await page.locator('#settingsDialog input[data-feature="search"]').uncheck();
@@ -404,6 +418,7 @@ try {
   assert.equal(await page.locator("#galleryControls").evaluate(el=>el.classList.contains("feature-hidden")),true,"Gallery choice persists");
   if(renderer==="maplibre")assert.equal(await page.evaluate(()=>window.__mapCanvasTest.getMap().getSource("canvas-geo-pins").getClusterOptions().cluster),false);
   await page.locator("#settingsButton").click();
+  await page.locator("#settingsSizing summary").click();
   assert.equal(await page.locator("#popupSensitivity").inputValue(),"3","Sensitivity persists after reload");
   assert.equal(await page.getByRole("slider",{name:"Photo size",exact:true}).inputValue(),"200","Photo size persists after reload");
   await page.locator("#settingsReset").click();

@@ -210,39 +210,69 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
   const dialog=$("settingsDialog");
   const themeLists=new Map();
 
-  function themeSwitch(key,title,description){
+  function checkbox(key,title,onChange){
+    const box=document.createElement("input");
+    box.type="checkbox";
+    box.className="settings-checkbox";
+    box.setAttribute("aria-label",title);
+    box.addEventListener("change",()=>onChange(key,box.checked));
+    return box;
+  }
+  function switchRow(title,box,description){
     const label=document.createElement("label");label.className="settings-switch-row";
     const copy=document.createElement("span");copy.className="settings-copy";
     const name=document.createElement("strong");name.textContent=title;copy.append(name);
     if(description){
       const info=document.createElement("small");info.textContent=description;copy.append(info);
     }
-    const box=document.createElement("input");
-    box.type="checkbox";box.className="settings-checkbox";box.dataset.pinTheme=key;
-    box.setAttribute("aria-label",title);
-    box.addEventListener("change",()=>onThemeChange(key,box.checked));
     label.append(copy,box);
     return label;
   }
   function fillThemes(groups){
     const section=document.createElement("section");section.className="settings-section";
-    const title=document.createElement("h3");title.textContent="Pin theme visibility";section.append(title);
+    const heading=document.createElement("h3");heading.textContent="Pin visibility";
+    const help=document.createElement("p");help.className="settings-help";
+    help.textContent="Choose which pins appear on the map and in the list.";
+    const card=document.createElement("div");card.className="settings-card";
     for(const [group,name] of PIN_THEME_GROUPS){
       const block=document.createElement("div");block.className="pin-theme-group";
-      block.append(themeSwitch("group:"+group,name,group==="activities"?"Includes all other pins":"Show this group on the map and in the list"));
-      const details=document.createElement("details");details.className="pin-theme-details";details.hidden=true;
-      const summary=document.createElement("summary");summary.textContent=name+" categories";
-      const list=document.createElement("div");
-      details.append(summary,list);block.append(details);section.append(block);
-      themeLists.set(group,{details,list,signature:""});
+      const row=document.createElement("div");row.className="pin-theme-header";
+      const toggle=document.createElement("label");toggle.className="pin-theme-toggle";
+      const box=checkbox("group:"+group,name,onThemeChange);
+      toggle.append(box);
+      const expand=document.createElement("button");
+      expand.type="button";expand.className="pin-theme-expand";
+      expand.setAttribute("aria-label",name+" categories");
+      expand.setAttribute("aria-expanded","false");
+      const copy=document.createElement("span");copy.className="settings-copy";
+      const title=document.createElement("strong");title.textContent=name;
+      const count=document.createElement("small");count.id="pin-theme-count-"+group;
+      expand.setAttribute("aria-describedby",count.id);
+      copy.append(title,count);
+      expand.append(copy);
+      const panel=document.createElement("div");panel.className="pin-theme-details";
+      panel.id="pin-theme-"+group;panel.hidden=true;
+      expand.setAttribute("aria-controls",panel.id);
+      expand.addEventListener("click",()=>{
+        panel.hidden=!panel.hidden;
+        expand.setAttribute("aria-expanded",String(!panel.hidden));
+      });
+      const note=document.createElement("p");note.className="settings-help";
+      note.textContent="Turn on "+name+" to show selected categories.";
+      const list=document.createElement("div");panel.append(note,list);
+      row.append(expand,toggle);
+      block.append(row,panel);card.append(block);
+      themeLists.set(group,{expand,panel,list,box,note,count,items:[],signature:""});
     }
-    groups.append(section);
+    section.append(heading,help,card);groups.append(section);
   }
   function syncThemeOptions(entries){
     const themes=new Map();
     for(const entry of entries){
       const theme=pinTheme(entry);
-      if(!themes.has(theme.key))themes.set(theme.key,theme);
+      const item=themes.get(theme.key);
+      if(item)item.total++;
+      else themes.set(theme.key,{...theme,total:1});
     }
     let changed=false;
     for(const [group,view] of themeLists){
@@ -251,8 +281,17 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
       const signature=JSON.stringify(items);
       if(signature===view.signature)continue;
       view.signature=signature;
-      view.details.hidden=!items.length;
-      view.list.replaceChildren(...items.map(({key,label})=>themeSwitch(key,label)));
+      view.items=items;
+      view.expand.disabled=!items.length;
+      if(!items.length){
+        view.panel.hidden=true;
+        view.expand.setAttribute("aria-expanded","false");
+      }
+      view.list.replaceChildren(...items.map(({key,label})=>{
+        const box=checkbox(key,label,onThemeChange);
+        box.dataset.pinTheme=key;
+        return switchRow(label,box);
+      }));
       changed=true;
     }
     if(changed)sync();
@@ -260,21 +299,18 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
   function fill(){
     const groups=$("settingsGroups");groups.replaceChildren();
     fillThemes(groups);
-    for(const group of FEATURE_GROUPS){
+    for(const [index,group] of FEATURE_GROUPS.entries()){
       const section=document.createElement("section");section.className="settings-section";
-      const h=document.createElement("h3");h.textContent=group.title;section.append(h);
+      const h=document.createElement("h3");h.textContent=group.title;
+      const card=document.createElement("div");card.className="settings-card";
       for(const [key,title,description] of group.features){
-        const label=document.createElement("label");label.className="settings-switch-row";
-        const copy=document.createElement("span");copy.className="settings-copy";
-        const name=document.createElement("strong");name.textContent=title;
-        const info=document.createElement("small");info.textContent=description;
-        copy.append(name,info);
-        const box=document.createElement("input");
-        box.type="checkbox";box.className="settings-checkbox";box.dataset.feature=key;
-        box.checked=!!state.features[key];box.setAttribute("aria-label",title);
-        box.addEventListener("change",()=>onChange(key,box.checked));
-        label.append(copy,box);section.append(label);
+        const box=checkbox(key,title,onChange);
+        box.dataset.feature=key;
+        card.append(switchRow(title,box,description));
       }
+      section.append(h);
+      if(index===0)section.append($("settingsSizing"));
+      section.append(card);
       groups.append(section);
     }
   }
@@ -283,10 +319,19 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
       box.checked=!!state.features[box.dataset.feature];
     for(const box of dialog.querySelectorAll("input[data-pin-theme]"))
       box.checked=!state.hiddenPinThemes.has(box.dataset.pinTheme);
+    for(const [group,view] of themeLists){
+      const enabled=!state.hiddenPinThemes.has("group:"+group);
+      const total=view.items.reduce((sum,item)=>sum+item.total,0);
+      const shown=enabled?view.items.reduce((sum,item)=>sum+(state.hiddenPinThemes.has(item.key)?0:item.total),0):0;
+      view.box.checked=enabled;
+      view.note.hidden=enabled;
+      view.count.textContent=!total?"No pins":shown+" of "+total+" enabled";
+    }
   }
   function init(){
     fill();
-    $("settingsButton").addEventListener("click",()=>{sync();dialog.showModal();});
+    sync();
+    $("settingsButton").addEventListener("click",()=>{sync();dialog.showModal();dialog.querySelector(".settings-body").scrollTop=0;});
     const close=()=>dialog.close();
     $("settingsClose").addEventListener("click",close);
     $("settingsDone").addEventListener("click",close);

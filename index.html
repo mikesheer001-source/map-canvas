@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=pin-themes-20261119">
+<link rel="stylesheet" href="./style.css?v=settings-layout-20261119">
 </head>
 <body>
 <div id="app">
@@ -70,13 +70,25 @@
  </section>
 </div>
 <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
- <div class="settings-header"><div><div class="eyebrow">YOUR MAP · YOUR CONTROLS</div><h2 id="settingsTitle">Settings</h2></div><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">✕</button></div>
- <p class="settings-note">Choose which tools and details appear. Preferences are saved automatically <strong>on this browser</strong> and remain after refreshing. They don't change anyone else's settings.</p>
- <label class="settings-switch-row"><span class="settings-copy"><strong>Popup zoom sensitivity</strong><small>Controls how quickly popups and floating photos resize as you zoom.</small></span><input id="popupSensitivity" type="range" min="0.5" max="4" step="0.5" value="2" aria-label="Popup zoom sensitivity"></label>
- <label class="settings-switch-row"><span class="settings-copy"><strong>Photo size <output id="photoSizeValue" for="photoSize">100%</output></strong><small>Enlarge floating photos at every visible zoom level.</small></span><input id="photoSize" type="range" min="100" max="300" step="25" value="100" aria-label="Photo size"></label>
- <div id="settingsGroups" class="settings-groups"></div>
- <div class="settings-hidden-controls"><button type="button" id="downloadLegacyBtn" class="secondary hidden">Download previous browser edits</button><small id="legacyHelp" class="hidden">This is an older full map snapshot. Review it before importing with Merge. It can overwrite newer edits or restore deleted pins.</small></div>
- <div class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this device</span><button type="button" class="primary" id="settingsDone">Done</button></div>
+ <header class="settings-header"><h2 id="settingsTitle">Settings</h2><button type="button" id="settingsClose" class="icon-button" aria-label="Close settings">×</button></header>
+ <div class="settings-body">
+  <div id="settingsGroups" class="settings-groups"></div>
+  <details id="settingsSizing" class="settings-sizing">
+   <summary>Photo &amp; popup sizing</summary>
+   <div class="settings-range">
+    <label for="popupSensitivity">Popup zoom sensitivity</label><output id="popupSensitivityValue" for="popupSensitivity">2</output>
+    <input id="popupSensitivity" type="range" min="0.5" max="4" step="0.5" value="2" aria-describedby="popupSensitivityHint">
+    <small id="popupSensitivityHint">How quickly popups and photos resize as you zoom.</small>
+   </div>
+   <div class="settings-range">
+    <label for="photoSize">Photo size</label><output id="photoSizeValue" for="photoSize">100%</output>
+    <input id="photoSize" type="range" min="100" max="300" step="25" value="100" aria-describedby="photoSizeHint">
+    <small id="photoSizeHint">Size of floating photos whenever they’re visible.</small>
+   </div>
+  </details>
+  <div class="settings-hidden-controls" id="settingsLegacy" hidden><button type="button" id="downloadLegacyBtn" class="secondary">Download previous browser edits</button><small>Review the older snapshot before importing. It can overwrite newer edits or restore deleted pins.</small></div>
+ </div>
+ <footer class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this browser</span><button type="button" class="primary" id="settingsDone">Done</button></footer>
 </dialog>
 <dialog id="editor">
  <form id="editForm">
@@ -111,6 +123,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=pin-themes-20261119"></script>
+<script type="module" src="./app.js?v=settings-layout-20261119"></script>
 </body>
 </html>

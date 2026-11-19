@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=pin-themes-20261119";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -1073,7 +1073,7 @@ function wire() {
     if(file){event.preventDefault();addImageFile(file);}
   });
   window.addEventListener("keydown",(event)=>{
-    if(event.key==="Escape"){
+    if(event.key==="Escape" && !$("settingsDialog").open){
       $("basemapSwitch").classList.add("hidden");
       if(state.placing) {$("placementBar").classList.add("hidden");state.placing=null;}
       if(openDetails.size)hideDetail();
@@ -1114,17 +1114,20 @@ async function main() {
   setPhotoSize(photoSize);
   photoSizeSlider.addEventListener("input",()=>setPhotoSize(photoSizeSlider.value,true));
   $("settingsReset").addEventListener("click",()=>setPhotoSize(100,true));
-  sensitivity.value=String(popupSensitivity);
-  $("settingsReset").addEventListener("click",()=>{popupSensitivity=2;sensitivity.value="2";try{localStorage.setItem(SENSITIVITY_KEY,"2");}catch{}resizePopups();});
-  sensitivity.addEventListener("input",()=>{
-    popupSensitivity=Number(sensitivity.value);
-    try{localStorage.setItem(SENSITIVITY_KEY,String(popupSensitivity));}catch{}
+  function setPopupSensitivity(value,persist=false){
+    popupSensitivity=Math.max(0.5,Math.min(4,Number(value)||2));
+    sensitivity.value=String(popupSensitivity);
+    $("popupSensitivityValue").value=sensitivity.value;
+    if(persist){try{localStorage.setItem(SENSITIVITY_KEY,sensitivity.value);}catch{}}
     resizePopups();
-  });
+  }
+  setPopupSensitivity(popupSensitivity);
+  $("settingsReset").addEventListener("click",()=>setPopupSensitivity(2,true));
+  sensitivity.addEventListener("input",()=>setPopupSensitivity(sensitivity.value,true));
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
-    if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);resizePopups();}
+    if(event.key===SENSITIVITY_KEY)setPopupSensitivity(event.newValue);
     if(event.key===PIN_VISIBILITY_KEY){
       state.hiddenPinThemes=readPinVisibility();
       settingsUI.sync();
@@ -1140,8 +1143,7 @@ async function main() {
   setupOffline();
   try {
     if(localStorage.getItem(LOCAL_MAP_KEY)){
-      $("downloadLegacyBtn").classList.remove("hidden");
-      $("legacyHelp").classList.remove("hidden");
+      $("settingsLegacy").hidden=false;
     }
   }catch{}
   try {await loadHostels();}catch(error){
