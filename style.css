@@ -75,6 +75,10 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .settings-checkbox:checked{background:#246c50}
 .settings-checkbox:checked::after{transform:translateX(18px)}
 .settings-checkbox:focus-visible{outline:3px solid #75b38d;outline-offset:3px}
+.pin-theme-group{margin-bottom:8px}
+.pin-theme-details{margin:0 0 8px 12px}
+.pin-theme-details summary{padding:6px 4px;cursor:pointer;color:var(--muted);font-size:13px}
+.pin-theme-details .settings-switch-row{min-height:44px;padding-block:6px}
 .settings-footer{display:flex;justify-content:space-between;gap:7px;align-items:center;position:sticky;bottom:0;background:#fff;padding:13px 17px;border-top:1px solid var(--line)}
 .settings-footer button{min-height:36px;font-size:12px;padding:0 10px}
 .settings-footer span{font-size:11px;color:#718178;text-align:center}

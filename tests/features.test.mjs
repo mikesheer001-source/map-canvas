@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {FEATURE_DEFAULTS} from "../enhancements.js";
+import {FEATURE_DEFAULTS,pinTheme,pinThemeVisible,readPinVisibility,savePinVisibility} from "../enhancements.js";
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
 const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const sw=readFileSync(new URL("../sw.js",import.meta.url),"utf8");
@@ -25,11 +25,11 @@ assert.match(sw,/caches\.open\(SHELL\)/);
 assert.match(sw,/public-map\.json/);
 assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"));
-const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS",
+const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS","pinThemeVisible",
  app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
  "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries};")(
  {},{},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
- {onLine:true},FEATURE_DEFAULTS);
+ {onLine:true},FEATURE_DEFAULTS,pinThemeVisible);
 assert.equal(api.validColor("#ffaa22"),true);
 assert.equal(api.validColor("red"),false);
 assert.equal(api.pinUrl("abc"),"/map/?x=1&pin=abc");
@@ -44,4 +44,23 @@ assert.equal(api.pinEmoji({category:"Café",icon:"📍"}),"☕");
 assert.equal(api.pinEmoji({category:"Hostel",title:"Guesthouse"}),"🏨");
 assert.equal(api.pinEmoji({title:"Gym Fitness Club"}),"🏋️");
 assert.equal(api.pinEmoji({category:"Unknown category"}),"📍");
+const pins=[{category:"Hostel"},{category:"Bistro & brunch"},{category:"Café"},
+ {category:"Gym",title:"Fitness at the Hilton Hotel"},{category:"Destination"},{title:"Local coffee house"}];
+assert.deepEqual(pins.map(pin=>pinTheme(pin).group),["hotels","dining","dining","activities","activities","dining"]);
+assert.equal(pinTheme({...pins[2],category:"CAFE"}).key,pinTheme(pins[2]).key);
+const values=new Map();
+const storage={getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value)};
+const hidden=readPinVisibility(storage);
+assert.ok(pins.every(pin=>pinThemeVisible(pin,hidden)));
+hidden.add("group:hotels");
+hidden.add(pinTheme(pins[2]).key);
+assert.ok(savePinVisibility(hidden,storage));
+assert.deepEqual(pins.map(pin=>pinThemeVisible(pin,readPinVisibility(storage))),[false,true,false,true,true,true]);
+api.state.features.filters=false;
+api.state.features.layers=false;
+api.state.hiddenPinThemes=hidden;
+assert.equal(api.filterEntries().length,0);
+api.state.hiddenPinThemes.clear();
+api.state.query="";
+assert.equal(api.filterEntries().length,12);
 console.log("PASS: shared public map, filters, emoji pins, manual Sheets import, and cache");

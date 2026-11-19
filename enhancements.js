@@ -158,11 +158,108 @@ export function saveFeatureSettings(settings,store=globalThis.localStorage){
   }catch{return false;}
 }
 
-export function createSettingsControls({state,onChange}){
+export const PIN_VISIBILITY_KEY="map-canvas:pin-visibility-v1";
+export const PIN_THEME_GROUPS=[
+  ["hotels","Hotels"],
+  ["dining","Restaurants & Cafés"],
+  ["activities","Activities"]
+];
+const hotelTheme=/\b(hotels?|hostels?|guest\s?houses?|home\s?stays?|accommodations?|lodging|inns?|resorts?|motels?|khach san|nha nghi)\b/;
+const diningTheme=/\b(restaurants?|cafes?|coffee|espresso|tea\s?houses?|food|eateries|diners?|bistros?|buffets?|brunch|baker(?:y|ies)|desserts?|ice\s?cream|gelato|pizza|burgers?|sandwich(?:es)?|noodles?|ramen|sushi|steakhouses?|grills?|pho|ca phe|nha hang)\b/;
+const themeSlug=value=>String(value??"").trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu,"").replace(/\s+/g," ");
+
+export function pinTheme(entry){
+  const label=String(entry.category??"").trim();
+  let group="activities";
+  if(entry.source==="hostel")group="hotels";
+  else {
+    for(const value of [label,entry.layer,entry.group,entry.title]){
+      const name=themeSlug(value);
+      if(diningTheme.test(name)){group="dining";break;}
+      if(hotelTheme.test(name)){group="hotels";break;}
+      // A specific category describes the place more reliably than its name.
+      if(value===label && name && !/^(places?|other|uncategorized|unknown)$/.test(name))break;
+    }
+    if(group==="activities"&&!themeSlug(label)){
+      if(entry.icon==="🏨")group="hotels";
+      if(["☕","🍜","🍽️","🍕","🍔","🍰","🥪"].includes(entry.icon))group="dining";
+    }
+  }
+  return {group,label:label||"Uncategorized",key:"theme:"+group+":"+themeSlug(label||"Uncategorized")};
+}
+
+export function readPinVisibility(store=globalThis.localStorage){
+  try{
+    const saved=JSON.parse(store?.getItem(PIN_VISIBILITY_KEY)||"null");
+    if(Array.isArray(saved))return new Set(saved.filter(key=>typeof key==="string"));
+  }catch{}
+  return new Set();
+}
+export function savePinVisibility(hidden,store=globalThis.localStorage){
+  try{store?.setItem(PIN_VISIBILITY_KEY,JSON.stringify([...hidden]));return !!store;}
+  catch{return false;}
+}
+export function pinThemeVisible(entry,hidden){
+  if(!hidden.size)return true;
+  const {group,key}=pinTheme(entry);
+  return !hidden.has("group:"+group)&&!hidden.has(key);
+}
+
+export function createSettingsControls({state,onChange,onThemeChange,onThemeReset}){
   const $=id=>document.getElementById(id);
   const dialog=$("settingsDialog");
+  const themeLists=new Map();
+
+  function themeSwitch(key,title,description){
+    const label=document.createElement("label");label.className="settings-switch-row";
+    const copy=document.createElement("span");copy.className="settings-copy";
+    const name=document.createElement("strong");name.textContent=title;copy.append(name);
+    if(description){
+      const info=document.createElement("small");info.textContent=description;copy.append(info);
+    }
+    const box=document.createElement("input");
+    box.type="checkbox";box.className="settings-checkbox";box.dataset.pinTheme=key;
+    box.setAttribute("aria-label",title);
+    box.addEventListener("change",()=>onThemeChange(key,box.checked));
+    label.append(copy,box);
+    return label;
+  }
+  function fillThemes(groups){
+    const section=document.createElement("section");section.className="settings-section";
+    const title=document.createElement("h3");title.textContent="Pin theme visibility";section.append(title);
+    for(const [group,name] of PIN_THEME_GROUPS){
+      const block=document.createElement("div");block.className="pin-theme-group";
+      block.append(themeSwitch("group:"+group,name,group==="activities"?"Includes all other pins":"Show this group on the map and in the list"));
+      const details=document.createElement("details");details.className="pin-theme-details";details.hidden=true;
+      const summary=document.createElement("summary");summary.textContent=name+" categories";
+      const list=document.createElement("div");
+      details.append(summary,list);block.append(details);section.append(block);
+      themeLists.set(group,{details,list,signature:""});
+    }
+    groups.append(section);
+  }
+  function syncThemeOptions(entries){
+    const themes=new Map();
+    for(const entry of entries){
+      const theme=pinTheme(entry);
+      if(!themes.has(theme.key))themes.set(theme.key,theme);
+    }
+    let changed=false;
+    for(const [group,view] of themeLists){
+      const items=[...themes.values()].filter(theme=>theme.group===group)
+        .sort((a,b)=>a.label.localeCompare(b.label));
+      const signature=JSON.stringify(items);
+      if(signature===view.signature)continue;
+      view.signature=signature;
+      view.details.hidden=!items.length;
+      view.list.replaceChildren(...items.map(({key,label})=>themeSwitch(key,label)));
+      changed=true;
+    }
+    if(changed)sync();
+  }
   function fill(){
     const groups=$("settingsGroups");groups.replaceChildren();
+    fillThemes(groups);
     for(const group of FEATURE_GROUPS){
       const section=document.createElement("section");section.className="settings-section";
       const h=document.createElement("h3");h.textContent=group.title;section.append(h);
@@ -184,6 +281,8 @@ export function createSettingsControls({state,onChange}){
   function sync(){
     for(const box of dialog.querySelectorAll("input[data-feature]"))
       box.checked=!!state.features[box.dataset.feature];
+    for(const box of dialog.querySelectorAll("input[data-pin-theme]"))
+      box.checked=!state.hiddenPinThemes.has(box.dataset.pinTheme);
   }
   function init(){
     fill();
@@ -193,7 +292,7 @@ export function createSettingsControls({state,onChange}){
     $("settingsDone").addEventListener("click",close);
     $("settingsReset").addEventListener("click",()=>{
       for(const key of Object.keys(FEATURE_DEFAULTS))onChange(key,FEATURE_DEFAULTS[key],false);
-      saveFeatureSettings(state.features);
+      onThemeReset();
       onChange(null,null,true);
       sync();
     });
@@ -202,7 +301,7 @@ export function createSettingsControls({state,onChange}){
   function status(saved){
     $("settingsStatus").textContent=saved?"Saved on this browser":"Could not save: browser storage blocked";
   }
-  return {init,sync,status};
+  return {init,sync,status,syncThemeOptions};
 }
 
 export function createEnhancements(api){

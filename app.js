@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings } from "./enhancements.js?v=photo-credits-20261118";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=pin-themes-20261119";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
@@ -26,7 +26,7 @@ const state = {
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
   pendingPin: new URLSearchParams(location.search).get("pin"), localReady: false,
   revision: null, readEpoch: 0, syncInFlight: false,
-  features: {...FEATURE_DEFAULTS}, remotelyDeletedIds: new Set()
+  features: {...FEATURE_DEFAULTS}, hiddenPinThemes: new Set(), remotelyDeletedIds: new Set()
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -239,7 +239,8 @@ async function importPins(imported,mode){
 function filterEntries() {
   const needle = (state.features.search?state.query:"").toLowerCase().trim();
   const shown = allEntries().filter((e) =>
-    (!state.features.filters || state.category === "all" || e.category === state.category)
+    pinThemeVisible(e,state.hiddenPinThemes)
+    && (!state.features.filters || state.category === "all" || e.category === state.category)
     && (!state.features.filters || state.filter === "all" || state.filter === "place" ||
       (state.filter === "note" && (e.notes || e.kind === "note")) ||
       (state.filter === "photo" && (e.photo || e.gallery?.length || e.kind === "photo")))
@@ -254,6 +255,13 @@ function filterEntries() {
 }
 function render() {
   enhanced?.selections();
+  settingsUI?.syncThemeOptions(allEntries());
+  if(openDetails.size && state.hiddenPinThemes.size){
+    const entriesById=new Map(allEntries().map(entry=>[entry.id,entry]));
+    for(const [id,card] of openDetails){
+      if(!pinThemeVisible(entriesById.get(id)||card.entry,state.hiddenPinThemes))hideDetail(id,false);
+    }
+  }
   const shown = filterEntries();
   renderCategories();
   updateHistoryButtons();
@@ -384,7 +392,7 @@ function attachMapPinClicks(map) {
   state.pinEventsAttached = true;
   map.on("click", PIN_TOUCH, (event) => {
     const id = event.features?.[0]?.properties?.id;
-    const entry = allEntries().find((item) => item.id === id);
+    const entry = state.visiblePins.find((item) => item.id === id);
     if (!entry) return;
     if(enhanced?.isDrawing())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
@@ -496,7 +504,7 @@ function mapFocus(entry) {
   else state.map.flyTo([entry.lat,entry.lng],Math.max(mapZoom(),17.3));
 }
 function fitPins() {
-  const valid = allEntries().filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng));
+  const valid = allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
   if (!valid.length || !state.map) return;
   if (state.library === "maplibre") {
     const minLng = Math.min(...valid.map((x) => x.lng)), minLat = Math.min(...valid.map((x) => x.lat));
@@ -657,12 +665,12 @@ function choose(entry, focus) {
   raiseDetail(entry.id);
   renderDetail(entry,card.node);
 }
-function hideDetail(id=state.current?.id) {
+function hideDetail(id=state.current?.id,rerender=true) {
   const card=openDetails.get(id);
   if(card){card.node.remove();openDetails.delete(id);}
   if(state.current?.id===id)state.current=[...openDetails.values()].sort((a,b)=>Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]?.entry||null;
   history.replaceState(null,"",pinUrl(state.current?.id||null));
-  render();
+  if(rerender)render();
 }
 function toggleList(open) {
   state.listOpen=open;
@@ -861,7 +869,7 @@ async function sharePin(entry) {
 function applyDeepLink() {
   if(!state.pendingPin)return;
   const entry=allEntries().find(e=>e.id===state.pendingPin);
-  if(entry){state.pendingPin=null;choose(entry,true);}
+  if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)){state.pendingPin=null;choose(entry,true);}
 }
 function locateUser() {
   if (!navigator.geolocation) {notify("Location is unavailable in this browser.",true);return;}
@@ -998,6 +1006,15 @@ function setFeatureSetting(key,value,persist=true){
   }
 }
 
+function setPinThemeVisibility(key,visible){
+  if(visible)state.hiddenPinThemes.delete(key);
+  else state.hiddenPinThemes.add(key);
+  settingsUI.status(savePinVisibility(state.hiddenPinThemes));
+  settingsUI.sync();
+  render();
+  if(state.map)applyDeepLink();
+}
+
 function wire() {
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
   $("downloadLegacyBtn").addEventListener("click",downloadLegacyEdits);
@@ -1065,6 +1082,7 @@ function wire() {
 }
 async function main() {
   state.features=readFeatureSettings();
+  state.hiddenPinThemes=readPinVisibility();
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
@@ -1075,7 +1093,13 @@ async function main() {
     console.error("Canvas tools could not initialize:",error);
     notify("Some map tools failed to load. Refresh to get the newest version.",true);
   }
-  settingsUI=createSettingsControls({state,onChange:setFeatureSetting});
+  settingsUI=createSettingsControls({state,onChange:setFeatureSetting,onThemeChange:setPinThemeVisibility,
+    onThemeReset:()=>{
+      state.hiddenPinThemes.clear();
+      savePinVisibility(state.hiddenPinThemes);
+      if(state.map)applyDeepLink();
+    }
+  });
   settingsUI.init();
   const sensitivity=$("popupSensitivity");
   const photoSizeSlider=$("photoSize");
@@ -1101,6 +1125,12 @@ async function main() {
   window.addEventListener("storage",event=>{
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
     if(event.key===SENSITIVITY_KEY){popupSensitivity=Math.max(0.5,Math.min(4,Number(event.newValue)||2));sensitivity.value=String(popupSensitivity);resizePopups();}
+    if(event.key===PIN_VISIBILITY_KEY){
+      state.hiddenPinThemes=readPinVisibility();
+      settingsUI.sync();
+      render();
+      if(state.map)applyDeepLink();
+    }
     if(event.key===FEATURE_STORAGE_KEY){
       state.features=readFeatureSettings();
       applyFeatureSettings();

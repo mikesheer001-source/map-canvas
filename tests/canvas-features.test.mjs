@@ -53,7 +53,11 @@ assert.throws(()=>parseImport("title,lat,lng\nBad,100,105\n","pins.csv"),/invali
 assert.ok(Math.abs(metersBetween([105,21],[105,22])-111195)<500);
 assert.ok(polygonAreaMeters([[0,0],[.001,0],[.001,.001],[0,.001]])>12000);
 assert.equal(polygonAreaMeters([[0,0],[1,0]]),0);
-assert.match(app,/enhancements\.js\?v=photo-credits-20261118/);
+const sw=readFileSync(new URL("../sw.js",import.meta.url),"utf8");
+for(const [source,file] of [[app,"enhancements.js"],[html,"app.js"],[html,"style.css"]]){
+ const versionedPath=source.match(/\.\/[^"\s]+\?v=[\w-]+/g).find(path=>path.startsWith("./"+file+"?"));
+ assert.ok(versionedPath && sw.includes(versionedPath),file+" should match the offline cache");
+}
 assert.match(app,/try\{enhanced\.init\(\);\}catch\(error\)/);
 assert.match(app,/storeMapSnapshot\(/);
 assert.match(app,/downloadLegacyEdits\(/);
