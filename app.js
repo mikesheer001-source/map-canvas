@@ -795,7 +795,7 @@ async function removeEntry(entry){
     const result=await submitChange("delete",entry);
     if(before)recordChange({before,after:null,version:result.version});
     hideDetail(entry.id);
-    notify("Pin deleted from the shared map. Use Undo to restore it.");
+    notify("Pin moved to Recently Deleted.");
   }catch(error){notify(error.message,true);}
   finally{state.saving=false;if(control){control.disabled=false;control.textContent="Delete pin";}updateHistoryButtons();}
 }
@@ -1015,7 +1015,81 @@ function setPinThemeVisibility(key,visible){
   if(state.map)applyDeepLink();
 }
 
+const trashDateFormat = new Intl.DateTimeFormat(undefined, {dateStyle:"medium",timeStyle:"short"});
+let trashRequest = 0;
+let trashExpiryTimer;
+
+async function loadTrash(message="") {
+  const request = ++trashRequest;
+  clearTimeout(trashExpiryTimer);
+  const list = $("trashEntries");
+  const status = $("trashStatus");
+  list.replaceChildren();
+  status.textContent = message || "Loading deleted pins…";
+  try {
+    const {entries} = await requestShared("/trash");
+    if (request !== trashRequest) return;
+    status.textContent = message || (entries.length ? "" : "No recently deleted pins.");
+    for (const entry of entries) {
+      const row = document.createElement("li");
+      const details = document.createElement("div");
+      details.append(text("strong",entry.title),text("small","Expires " + trashDateFormat.format(entry.expiresAt)));
+      const restore = button("Restore",()=>restoreTrashedPin(entry),"secondary");
+      restore.setAttribute("aria-label","Restore " + entry.title);
+      row.append(details,restore);
+      list.append(row);
+    }
+  } catch (error) {
+    if (request !== trashRequest) return;
+    status.textContent = message ? message + " " + error.message : error.message;
+    const retry = document.createElement("li");
+    retry.append(button("Retry",()=>loadTrash(),"secondary"));
+    list.append(retry);
+  } finally {
+    if (request === trashRequest && $("trashDialog").open) {
+      trashExpiryTimer = setTimeout(()=>loadTrash(),60000);
+    }
+  }
+}
+
+async function restoreTrashedPin(entry) {
+  if (state.saving || state.historyBusy) {
+    $("trashStatus").textContent = "Another map change is saving. Try again in a moment.";
+    return;
+  }
+  state.saving = true;
+  state.readEpoch++;
+  updateHistoryButtons();
+  trashRequest++;
+  clearTimeout(trashExpiryTimer);
+  $("trashEntries").querySelectorAll("button").forEach(control=>{control.disabled=true;});
+  let message;
+  try {
+    const data = await requestShared("/trash/" + encodeURIComponent(entry.id),
+      jsonOptions("POST",{expectedVersion:entry.version}));
+    storeMapSnapshot([...allEntries().filter(pin=>pin.id!==entry.id),data.entry]);
+    state.undo = state.undo.filter(change=>(change.after || change.before).id!==entry.id);
+    recordChange({before:null,after:data.entry});
+    message = entry.title + " restored.";
+  } catch (error) {
+    message = error.message;
+  } finally {
+    state.saving = false;
+    updateHistoryButtons();
+  }
+  await Promise.all([loadTrash(message),reloadShared(true)]);
+  if (!$("trashDialog").open) notify(message);
+}
+
 function wire() {
+  $("trashDialog").addEventListener("close",()=>{
+    trashRequest++;
+    clearTimeout(trashExpiryTimer);
+  });
+  $("openTrash").addEventListener("click",()=>{
+    $("trashDialog").showModal();
+    loadTrash();
+  });
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
   $("downloadLegacyBtn").addEventListener("click",downloadLegacyEdits);
   $("themeToggle").addEventListener("click",()=>setFeatureSetting("darkTheme",!state.features.darkTheme));

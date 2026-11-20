@@ -8,7 +8,7 @@
 <title>Map Canvas · Hanoi</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=settings-layout-20261119">
+<link rel="stylesheet" href="./style.css?v=recently-deleted">
 </head>
 <body>
 <div id="app">
@@ -44,6 +44,7 @@
    <small class="import-help">Google Sheets: File → Download → CSV, then Import here. Export CSV to edit in Sheets.</small>
   </div>
   <div id="entries" class="entries" role="list"></div>
+  <div class="trash-control"><button type="button" id="openTrash" class="secondary" aria-haspopup="dialog" aria-controls="trashDialog">Recently Deleted</button></div>
   <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
  </aside>
  <section class="map-area" id="mapArea" aria-label="Interactive map">
@@ -90,6 +91,15 @@
  </div>
  <footer class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this browser</span><button type="button" class="primary" id="settingsDone">Done</button></footer>
 </dialog>
+<dialog id="trashDialog" class="trash-dialog" aria-labelledby="trashTitle">
+ <header class="dialog-heading">
+  <h2 id="trashTitle">Recently Deleted</h2>
+  <form method="dialog"><button type="submit" class="icon-button" aria-label="Close Recently Deleted">×</button></form>
+ </header>
+ <p>Deleted pins can be restored for 7 days.</p>
+ <p id="trashStatus" role="status"></p>
+ <ul id="trashEntries"></ul>
+</dialog>
 <dialog id="editor">
  <form id="editForm">
   <div class="dialog-heading"><div><div class="eyebrow">ADD TO CANVAS</div><h2 id="editorTitle">New map entry</h2></div><button type="button" id="closeEditor" class="icon-button" aria-label="Close editor">✕</button></div>
@@ -123,6 +133,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=settings-layout-20261119"></script>
+<script type="module" src="./app.js?v=recently-deleted"></script>
 </body>
 </html>

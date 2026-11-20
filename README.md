@@ -2,7 +2,7 @@
 
 A public, shared map for places, notes and photos. Open https://mikesheer001-source.github.io/map-canvas/ to use it without signing in.
 
-Pin additions, edits, moves, deletions and photo uploads save to the shared map and appear on other devices. The Undo and Redo buttons reverse recent changes from the current browser session. If someone else edits the same pin, refresh and review it before retrying.
+Pin additions, edits, moves, deletions and photo uploads save to the shared map and appear on other devices. The Undo and Redo buttons reverse recent changes from the current browser session. Open **Recently Deleted** below the map entries to restore shared pins and their photos within seven days. If someone else edits the same pin, refresh and review it before retrying.
 
 ## Google Sheets and backups
 

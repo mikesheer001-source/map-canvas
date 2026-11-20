@@ -278,3 +278,13 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .detail-layer{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}.detail-layer .side-panel{pointer-events:auto}
 
 .gallery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:5px 0;max-height:180px;overflow-y:auto;border-radius:7px}.gallery-grid a{display:block;height:85px;min-width:0;overflow:hidden}.gallery-grid img{display:block;width:100%;height:100%;object-fit:cover}
+
+.trash-control{padding:8px 14px;border-top:1px solid var(--line)}
+.trash-control button{width:100%;font-size:.875rem}
+.trash-dialog{padding:16px;background:var(--paper)}
+.trash-dialog p{margin:8px 0;color:var(--muted);font-size:.875rem}
+#trashEntries{padding:0;margin:12px 0 0;list-style:none}
+#trashEntries li{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+#trashEntries li div{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+#trashEntries small{color:var(--muted);font-size:.875rem}
+#trashEntries button{flex:none}
