@@ -450,7 +450,8 @@ export function createEnhancements(api){
     overlay.style.transform=origin ? `translate(${origin.x}px,${origin.y}px)` : "";
     if(!width || !height)return;
     const baseSize=(width<540 ? 48 : 64)*Math.max(0.43,Math.min(3.5,api.photoZoomScale(zoom)));
-    const size=Math.max(baseSize,Math.min(baseSize*api.photoSize(),Math.min(width,height)*0.48));
+    // Allow the full user-selected scale, even when a photo extends beyond the viewport.
+    const size=baseSize*api.photoSize();
     const maxColumns=Math.max(1,Math.floor((width+3)/(size+3)));
     const shown=new Set();
     overlay.style.setProperty("--pin-photo-size",size+"px");

@@ -8,7 +8,7 @@ const openDetails=new Map();
 
 const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
 const PHOTO_SIZE_KEY="map-canvas:photo-size";
-const normalizePhotoSize=value=>Math.max(100,Math.min(300,Number(value)||100));
+const normalizePhotoSize=value=>Math.max(100,Math.min(800,Number(value)||100));
 let popupSensitivity=2;
 let photoSize=100;
 try{popupSensitivity=Number(globalThis.localStorage?.getItem(SENSITIVITY_KEY))||2;}catch{}

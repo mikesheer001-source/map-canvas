@@ -205,6 +205,10 @@ try {
   assert.equal(await page.locator("#popupSensitivity").inputValue(),"2");
   await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
     ?.getBoundingClientRect().width>width*2.9,smallPhoto.width);
+  await page.getByRole("slider",{name:"Photo size",exact:true}).fill("800");
+  assert.equal(await page.locator("#photoSizeValue").textContent(),"800%");
+  await page.waitForFunction(width=>document.querySelector('#pinPhotos [data-pin-id="hostel-1"] img')
+    ?.getBoundingClientRect().width>width*7.9,smallPhoto.width);
   await page.getByRole("slider",{name:"Photo size",exact:true}).fill("100");
   await page.locator("#settingsDone").click();
   await zoomToPhotos(19);
