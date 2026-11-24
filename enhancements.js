@@ -110,10 +110,15 @@ function csvCell(val){
 // All switches are personal display/interaction preferences, not access permissions.
 export const FEATURE_STORAGE_KEY="map-canvas:feature-settings-v1";
 export const PIN_PHOTO_MIN_ZOOM=14;
+export function pinPhotoUrls(entry,safeImage,onePicturePerPin=false){
+  const gallery=Array.isArray(entry.gallery)?entry.gallery:[];
+  const urls=[...new Set([entry.photo,...gallery].map(safeImage).filter(Boolean))];
+  return onePicturePerPin ? urls.slice(0,1) : urls;
+}
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,showAllPictures:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
+  labels:true,showAllPictures:false,onePicturePerPin:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
@@ -121,6 +126,7 @@ export const FEATURE_GROUPS=[
     ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
     ["pinRatings","Google ratings on pins","Show rating and review count under each pin emoji"],
     ["showAllPictures","Show all pictures","Show photos above their pins when zoomed in"],
+    ["onePicturePerPin","One picture per pin","When map pictures are enabled, show only the first available photo per pin"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
     ["gps","Find my location","Show the GPS location button"],
@@ -449,8 +455,7 @@ export function createEnhancements(api){
     const shown=new Set();
     overlay.style.setProperty("--pin-photo-size",size+"px");
     for(const entry of state.visiblePins||[]){
-      const gallery=Array.isArray(entry.gallery)?entry.gallery:[];
-      const urls=[...new Set([entry.photo,...gallery].map(safeImage).filter(Boolean))];
+      const urls=pinPhotoUrls(entry,safeImage,state.features.onePicturePerPin);
       if(!urls.length)continue;
       const p=project(entry.lng,entry.lat);
       if(!p || p.x<0 || p.x>=width || p.y<0 || p.y>=height)continue;
