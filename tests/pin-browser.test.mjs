@@ -26,7 +26,7 @@ await page.route("https://pin-images.example.test/**",route=>route.fulfill({
   contentType:"image/png",body:Buffer.from(testImage.split(",")[1],"base64")
 }));
 const deleted=new Map();
-await page.route("https://map-canvas.mikesheer001.chatgpt.site/api/shared-map/**",async route=>{
+await page.route("https://map-canvas-api.mikesheer001.workers.dev/api/shared-map/**",async route=>{
   const request=route.request(),url=new URL(request.url());
   const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, PUT, DELETE, POST, OPTIONS","Access-Control-Allow-Headers":"content-type"};
   const respond=(json,status=200)=>route.fulfill({status,headers,json});

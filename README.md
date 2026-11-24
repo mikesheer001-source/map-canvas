@@ -12,7 +12,7 @@ A browser with edits from the previous local-only version can download its old s
 
 ## Availability
 
-The GitHub Pages frontend connects to the shared map service at `https://map-canvas.mikesheer001.chatgpt.site/api/shared-map`. If the service is unavailable, the last loaded snapshot stays visible and editing resumes after the connection returns. Existing browser-only feature and theme settings remain on that browser.
+The GitHub Pages frontend connects to the Cloudflare shared map service at `https://map-canvas-api.mikesheer001.workers.dev/api/shared-map`. D1 stores pins and Recently Deleted, and R2 stores uploaded photos. If the service is unavailable, the last loaded snapshot stays visible and editing resumes after the connection returns. Existing browser-only feature and theme settings remain on that browser.
 
 ## Testing
 

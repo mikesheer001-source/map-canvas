@@ -1,7 +1,7 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
-const SHARED_MAP_URL = "https://map-canvas.mikesheer001.chatgpt.site/api/shared-map";
+const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const openDetails=new Map();
