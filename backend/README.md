@@ -20,3 +20,27 @@ Verify create, edit, delete, restore, a same-pin version conflict, and an upload
 Keep secrets and migration snapshots outside the public repository. Pin and photo exports can be retained separately from the deployment code for recovery.
 
 Run `node --test backend/board.test.mjs` from the repo root to check version conflicts, archive expiry, restore, and replacement behavior.
+
+
+## Dedicated Map Canvas data
+
+The D1 database bound as DB and named map-canvas is dedicated to this app. It replaces the former externally hosted shared-store persistence; it is not a database shared with another app. Migration 0003_independent_map_canvas_data.sql preserves the existing pin and Recently Deleted rows while renaming their legacy tables to map_canvas_board and map_canvas_trash.
+
+- **Pins:** map_canvas_board stores the versioned pin board; map_canvas_trash stores deleted pins and their seven-day restore window.
+- **Routes and itineraries:** map_canvas_resources stores versioned JSON records with separate route and itinerary namespaces, optimistic concurrency checks, and soft deletion.
+- **Photos:** the map-canvas-photos R2 bucket stores uploaded image bytes; D1 stores the corresponding URLs and pin metadata.
+
+The existing /api/shared-map URL is retained for frontend compatibility. New resource endpoints are:
+- GET /api/shared-map/routes and GET /api/shared-map/itineraries
+- PUT /api/shared-map/routes/{id} and PUT /api/shared-map/itineraries/{id}
+- DELETE /api/shared-map/routes/{id} and DELETE /api/shared-map/itineraries/{id}
+
+For PUT, send a JSON body with item and expectedVersion: null to create a record. For an update or restore, send the current version number. DELETE requires the current expectedVersion. The server increments versions and rejects stale writes with HTTP 409. Route coordinate arrays are validated when supplied; itinerary day and stop counts are bounded. Each resource is limited to 250 KB.
+
+D1 is used for structured records and version-checked updates; KV is intentionally not used because these writes need transactional consistency. R2 remains the right place for image blobs. The app still has no sign-in, so the existing public map API remains publicly readable and writable: do not store private or sensitive information here. This storage item adds the backend contract; it does not add route/itinerary editing UI.
+
+Apply the migrations before deploying the Worker:
+
+npx wrangler@4.92.0 d1 migrations apply DB --remote
+
+Then deploy with the existing MAP_WRITES_ENABLED safety flag set to false, verify reads, and enable writes only after the migration and endpoint checks pass.

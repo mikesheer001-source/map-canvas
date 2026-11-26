@@ -57,13 +57,13 @@ function publicBoard(row) {
 
 export function createBoardStore(db, now = Date.now) {
   async function read() {
-    const row = await db.prepare("SELECT revision, value FROM shared_map_board WHERE id = 1").first();
+    const row = await db.prepare("SELECT revision, value FROM map_canvas_board WHERE id = 1").first();
     if (!row) throw new MapError("Shared map data has not been imported yet.", 503);
     return row;
   }
 
   function readDeletedPin(id) {
-    return db.prepare("SELECT value, version, deleted_at FROM shared_map_trash WHERE id = ?").bind(id).first();
+    return db.prepare("SELECT value, version, deleted_at FROM map_canvas_trash WHERE id = ?").bind(id).first();
   }
 
   async function update(mutator, expectedRevision = null) {
@@ -88,19 +88,19 @@ export function createBoardStore(db, now = Date.now) {
       // request holding the expected board revision may modify the archive.
       if (archive.length) {
         statements.push(db.prepare(`
-          INSERT INTO shared_map_trash (id, value, version, deleted_at)
+          INSERT INTO map_canvas_trash (id, value, version, deleted_at)
           SELECT json_extract(pin.value, '$.id'), pin.value, ?, ? FROM json_each(?) AS pin
-          WHERE EXISTS (SELECT 1 FROM shared_map_board WHERE id = 1 AND revision = ?)
+          WHERE EXISTS (SELECT 1 FROM map_canvas_board WHERE id = 1 AND revision = ?)
           ON CONFLICT(id) DO UPDATE SET value = excluded.value, version = excluded.version, deleted_at = excluded.deleted_at
         `).bind(revision, time, JSON.stringify(archive), row.revision));
       }
       if (clear.length) {
         statements.push(db.prepare(`
-          DELETE FROM shared_map_trash WHERE id IN (SELECT value FROM json_each(?))
-          AND EXISTS (SELECT 1 FROM shared_map_board WHERE id = 1 AND revision = ?)
+          DELETE FROM map_canvas_trash WHERE id IN (SELECT value FROM json_each(?))
+          AND EXISTS (SELECT 1 FROM map_canvas_board WHERE id = 1 AND revision = ?)
         `).bind(JSON.stringify(clear), row.revision));
       }
-      statements.push(db.prepare("UPDATE shared_map_board SET value = ?, revision = ? WHERE id = 1 AND revision = ?")
+      statements.push(db.prepare("UPDATE map_canvas_board SET value = ?, revision = ? WHERE id = 1 AND revision = ?")
         .bind(value, revision, row.revision));
       const saved = statements.length === 1 ? await statements[0].run() : (await db.batch(statements)).at(-1);
       if (saved.meta.changes === 1) return { ...result, revision };
@@ -116,11 +116,11 @@ export function createBoardStore(db, now = Date.now) {
       const list = db.prepare(`
         SELECT id, version, deleted_at AS deletedAt, deleted_at + ? AS expiresAt,
         json_extract(value, '$.title') AS title
-        FROM shared_map_trash WHERE deleted_at > ? ORDER BY deleted_at DESC, id
+        FROM map_canvas_trash WHERE deleted_at > ? ORDER BY deleted_at DESC, id
       `).bind(TRASH_RETENTION_MS, cutoff);
       if (!prune) return { entries: (await list.all()).results };
       const [, { results }] = await db.batch([
-        db.prepare("DELETE FROM shared_map_trash WHERE deleted_at <= ?").bind(cutoff),
+        db.prepare("DELETE FROM map_canvas_trash WHERE deleted_at <= ?").bind(cutoff),
         list,
       ]);
       return { entries: results };

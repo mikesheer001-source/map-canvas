@@ -1,5 +1,6 @@
 import { createBoardStore, MapError } from "./board.mjs";
-import { imageType } from "./image-type";
+import { createResourceStore } from "./resources.mjs";
+import { imageType } from "./image-type.ts";
 
 const prefix = "/api/shared-map";
 const allowedOrigin = "https://mikesheer001-source.github.io";
@@ -71,11 +72,15 @@ export default {
     const pin = path.match(/^\/api\/shared-map\/pins\/([a-f0-9-]+|hostel-[0-9]+)$/i);
     const trash = path.match(/^\/api\/shared-map\/trash\/([a-f0-9-]+|hostel-[0-9]+)$/i);
     const photo = path.match(/^\/api\/shared-map\/photo\/([a-f0-9]{64})$/);
+    const resourceCollection = path.match(/^\/api\/shared-map\/(routes|itineraries)$/);
+    const resourceItem = path.match(/^\/api\/shared-map\/(routes|itineraries)\/([a-z0-9_-]{1,80})$/i);
     const store = createBoardStore(env.DB);
+    const resources = createResourceStore(env.DB);
     const writesEnabled = env.MAP_WRITES_ENABLED === "true";
     try {
       if (method === "OPTIONS") return new Response(null, { status: 204, headers });
       if (method === "GET" && path === prefix + "/pins") return json(await store.list());
+      if (method === "GET" && resourceCollection) return json(await resources.list(resourceCollection[1] === "routes" ? "route" : "itinerary"));
       if (method === "GET" && path === prefix + "/trash") return json(await store.listDeleted(writesEnabled));
       if (method === "GET" && photo) {
         const object = await env.BUCKET.get(`shared-map/${photo[1]}`);
@@ -87,6 +92,14 @@ export default {
 
       if (["POST", "PUT", "DELETE"].includes(method) && !writesEnabled)
         return json({ error: "Map editing is temporarily paused." }, 503);
+      if (method === "PUT" && resourceItem) {
+        const { item, expectedVersion } = await readJSON(request, 270000);
+        return json(await resources.put(resourceItem[1] === "routes" ? "route" : "itinerary", resourceItem[2], item, expectedVersion));
+      }
+      if (method === "DELETE" && resourceItem) {
+        const { expectedVersion } = await readJSON(request, 1000);
+        return json(await resources.remove(resourceItem[1] === "routes" ? "route" : "itinerary", resourceItem[2], expectedVersion));
+      }
       if (method === "POST" && path === prefix + "/photo") return json(await upload(request, env.BUCKET, url));
       if (method === "POST" && trash) {
         const { expectedVersion } = await readJSON(request, 1000);

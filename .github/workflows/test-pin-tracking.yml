@@ -3,6 +3,13 @@ name: Test map pin coordinates
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'backend/**'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - 'tests/database-browser.test.mjs'
+      - '.github/workflows/test-map-canvas-database.yml'
+      - '.github/workflows/test-pin-tracking.yml'
   pull_request:
 
 permissions:

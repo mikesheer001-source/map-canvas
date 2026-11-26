@@ -6,13 +6,16 @@ import { createBoardStore } from "./board.mjs";
 
 const seed = Array.from({ length: 12 }, (_, index) => pin("hostel-" + index, "Fixture pin " + index));
 
-const trashMigration = await readFile(new URL("./migrations/0002_shared_map_trash.sql", import.meta.url), "utf8");
+const boardMigration = await readFile(new URL("./migrations/0001_shared_map_board.sql", import.meta.url), "utf8");
+const trashMigration = await readFile(new URL("./migrations/0002_map_canvas_trash.sql", import.meta.url), "utf8");
+const mapCanvasMigration = await readFile(new URL("./migrations/0003_independent_map_canvas_data.sql", import.meta.url), "utf8");
 
 function createDatabase(entries = seed) {
   const sql = new DatabaseSync(":memory:");
-  sql.exec("CREATE TABLE shared_map_board (id INTEGER PRIMARY KEY, revision INTEGER NOT NULL, value TEXT NOT NULL)");
+  sql.exec(boardMigration);
   sql.exec(trashMigration);
-  sql.prepare("INSERT INTO shared_map_board VALUES (1, 1, ?)").run(JSON.stringify({
+  sql.exec(mapCanvasMigration);
+  sql.prepare("INSERT INTO map_canvas_board VALUES (1, 1, ?)").run(JSON.stringify({
     entries: entries.map((entry) => ({ ...entry, version: 1 })), tombstones: {},
   }));
   function prepare(query, args = []) {
@@ -151,7 +154,7 @@ test("a read-only trash listing leaves the expired records available for backup"
   await board.remove(id1, added.entry.version);
   time += 7 * 24 * 60 * 60 * 1000;
   assert.deepEqual((await board.listDeleted(false)).entries, []);
-  assert.equal((await db.prepare("SELECT COUNT(*) AS count FROM shared_map_trash").first()).count, 1);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS count FROM map_canvas_trash").first()).count, 1);
   assert.deepEqual((await board.listDeleted()).entries, []);
-  assert.equal((await db.prepare("SELECT COUNT(*) AS count FROM shared_map_trash").first()).count, 0);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS count FROM map_canvas_trash").first()).count, 0);
 });

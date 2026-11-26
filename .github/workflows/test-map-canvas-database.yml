@@ -1,0 +1,49 @@
+name: Map Canvas D1 checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - 'tests/database-browser.test.mjs'
+      - '.github/workflows/test-map-canvas-database.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - 'tests/database-browser.test.mjs'
+      - '.github/workflows/test-map-canvas-database.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run complete Node test suite
+        run: npm test
+      - name: Validate static app, Worker and D1 migrations
+        run: npm run build
+
+  database-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium test dependencies
+        run: |
+          npm install --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Run targeted D1 API browser checks
+        run: npm run test:database:browser
