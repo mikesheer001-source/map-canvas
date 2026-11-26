@@ -7,7 +7,7 @@ import { createBoardStore } from "./board.mjs";
 const seed = Array.from({ length: 12 }, (_, index) => pin("hostel-" + index, "Fixture pin " + index));
 
 const boardMigration = await readFile(new URL("./migrations/0001_shared_map_board.sql", import.meta.url), "utf8");
-const trashMigration = await readFile(new URL("./migrations/0002_map_canvas_trash.sql", import.meta.url), "utf8");
+const trashMigration = await readFile(new URL("./migrations/0002_shared_map_trash.sql", import.meta.url), "utf8");
 const mapCanvasMigration = await readFile(new URL("./migrations/0003_independent_map_canvas_data.sql", import.meta.url), "utf8");
 
 function createDatabase(entries = seed) {
