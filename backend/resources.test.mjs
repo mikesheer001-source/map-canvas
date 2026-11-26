@@ -77,7 +77,7 @@ test("soft deletes prevent stale resurrection and allow an explicit versioned re
   assert.equal(restored.item.title, "Restored");
 });
 
-test("migration preserves existing pins and trash rows while moving them into app-owned tables", async () => {
+test("migration copies existing pins and trash rows to app-owned tables while retaining legacy tables for safe cutover", async () => {
   const sql = new DatabaseSync(":memory:");
   sql.exec(migrations[0]);
   sql.exec(migrations[1]);
@@ -89,7 +89,7 @@ test("migration preserves existing pins and trash rows while moving them into ap
   assert.deepEqual(JSON.parse(sql.prepare("SELECT value FROM map_canvas_board WHERE id = 1").get().value), board);
   assert.equal(sql.prepare("SELECT id FROM map_canvas_trash WHERE id = ?").get("old-pin").id, "old-pin");
   const names = new Set(sql.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(row => row.name));
-  assert.ok(!names.has("shared_map_board"));
-  assert.ok(!names.has("shared_map_trash"));
+  assert.ok(names.has("shared_map_board"), "legacy pin table stays available to the old Worker during cutover");
+  assert.ok(names.has("shared_map_trash"), "legacy trash table stays available to the old Worker during cutover");
   sql.close();
 });

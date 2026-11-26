@@ -24,7 +24,7 @@ Run `node --test backend/board.test.mjs` from the repo root to check version con
 
 ## Dedicated Map Canvas data
 
-The D1 database bound as DB and named map-canvas is dedicated to this app. It replaces the former externally hosted shared-store persistence; it is not a database shared with another app. Migration 0003_independent_map_canvas_data.sql preserves the existing pin and Recently Deleted rows while renaming their legacy tables to map_canvas_board and map_canvas_trash.
+The D1 database bound as DB and named map-canvas is dedicated to this app. It replaces the former externally hosted shared-store persistence; it is not a database shared with another app. Migration 0003_independent_map_canvas_data.sql copies the existing pin and Recently Deleted rows into map_canvas_board and map_canvas_trash. The legacy shared_map_* tables remain as a rollback snapshot so the currently deployed Worker can keep serving reads until the new Worker is deployed.
 
 - **Pins:** map_canvas_board stores the versioned pin board; map_canvas_trash stores deleted pins and their seven-day restore window.
 - **Routes and itineraries:** map_canvas_resources stores versioned JSON records with separate route and itinerary namespaces, optimistic concurrency checks, and soft deletion.
@@ -39,8 +39,9 @@ For PUT, send a JSON body with item and expectedVersion: null to create a record
 
 D1 is used for structured records and version-checked updates; KV is intentionally not used because these writes need transactional consistency. R2 remains the right place for image blobs. The app still has no sign-in, so the existing public map API remains publicly readable and writable: do not store private or sensitive information here. This storage item adds the backend contract; it does not add route/itinerary editing UI.
 
-Apply the migrations before deploying the Worker:
+For a safe cutover, first set MAP_WRITES_ENABLED=false on the currently deployed Worker to pause edits while keeping reads available. From the backend directory, apply the migration and deploy the new Worker with writes still disabled:
 
 npx wrangler@4.92.0 d1 migrations apply DB --remote
+npx wrangler@4.92.0 deploy
 
-Then deploy with the existing MAP_WRITES_ENABLED safety flag set to false, verify reads, and enable writes only after the migration and endpoint checks pass.
+Verify GET pins, trash, routes and itineraries against the new Worker. Only then set MAP_WRITES_ENABLED=true. The legacy shared_map_* tables are retained as a rollback snapshot; the new Worker reads and writes the map_canvas_* tables.
