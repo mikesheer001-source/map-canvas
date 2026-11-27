@@ -1,0 +1,24 @@
+{
+  "expectedVersion": null,
+  "routeRequest": {
+    "start": [
+      103.84194,
+      22.33556
+    ],
+    "end": [
+      104.9836,
+      22.8233
+    ],
+    "mode": "driving"
+  },
+  "entry": {
+    "id": "e5e26128-1128-4c00-9a00-000000000001",
+    "kind": "place",
+    "category": "Route",
+    "title": "Sa Pa → Hà Giang",
+    "notes": "Driving route from central Sa Pa to Hà Giang city, not the Hà Giang Loop itself. Mountain roads: allow extra time for fog, landslides and roadworks. Route and duration are router estimates, not a bus timetable. Check current road conditions before departure.",
+    "color": "#168b80",
+    "layer": "Routes",
+    "link": "https://www.google.com/maps/dir/?api=1&origin=22.33556,103.84194&destination=22.8233,104.9836&travelmode=driving"
+  }
+}

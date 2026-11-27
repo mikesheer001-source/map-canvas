@@ -1,3 +1,4 @@
+import { fetchRoutePin } from "../route-pins.mjs";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual, parseArgs } from "node:util";
 import { lstat, readFile } from "node:fs/promises";
@@ -103,6 +104,16 @@ export async function publishPin(manifest, { base = production, root = process.c
     if (existing) { console.log("Existing matching pin: " + existing.title + " (" + existing.id + ")"); return existing; }
   }
   const changes = { ...entry };
+  if(manifest.routeRequest){
+    const {start,end,mode}=manifest.routeRequest;
+    if(current?.canvas?.type==="route" && current.canvas.polyline && current.canvas.mode===mode &&
+        isDeepStrictEqual(current.canvas.start,start) && isDeepStrictEqual(current.canvas.end,end)){
+      Object.assign(changes,{lat:current.lat,lng:current.lng,canvas:current.canvas});
+    }else{
+      const routed=await fetchRoutePin(start,end,mode,{signal:AbortSignal.timeout(30000)});
+      Object.assign(changes,routed.center,{canvas:routed.canvas});
+    }
+  }
   if ("photo" in entry) changes.photo = await resolvePhoto(entry.photo, { base, root, call, mirrorPhoto:manifest.mirrorPhoto===true, legacyRepair:manifest.legacyPhotoRepair===true });
   if ("gallery" in entry) {
     changes.gallery = [];

@@ -1,0 +1,24 @@
+{
+  "expectedVersion": null,
+  "routeRequest": {
+    "start": [
+      105.8542,
+      21.0286
+    ],
+    "end": [
+      103.84194,
+      22.33556
+    ],
+    "mode": "driving"
+  },
+  "entry": {
+    "id": "e5e26128-1128-4c00-9a00-000000000002",
+    "kind": "place",
+    "category": "Route",
+    "title": "Hanoi → Sa Pa",
+    "notes": "Driving route from central Hanoi to Sa Pa, typically via the Nội Bài–Lào Cai expressway and the mountain approach. Expressway restrictions may apply to motorcycles; this is a car route, not a motorcycle itinerary or a bus timetable. Check current conditions and tolls.",
+    "color": "#168b80",
+    "layer": "Routes",
+    "link": "https://www.google.com/maps/dir/?api=1&origin=21.0286,105.8542&destination=22.33556,103.84194&travelmode=driving"
+  }
+}
