@@ -326,7 +326,18 @@ self.addEventListener("fetch", event => {
   }
 
   if (url.protocol === "https:" && /^(tiles\.openfreemap\.org|unpkg\.com|cdn\.jsdelivr\.net)$/.test(url.hostname)) {
-    event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(async response => {
+    event.respondWith((async () => {
+      const cached = await caches.match(request);
+      if (cached) {
+        // Rebuild the response from cached bytes so a proxy-origin URL in the
+        // stored CORS response cannot make the browser discard the body when
+        // replaying it for the original OpenFreeMap tile URL.
+        const bytes = await cached.arrayBuffer();
+        const headers = new Headers(cached.headers);
+        headers.delete("Content-Length");
+        return new Response(bytes, { status: cached.status, statusText: cached.statusText, headers });
+      }
+      const response = await fetch(request);
       if (response.ok && response.type !== "opaque") {
         const cacheName = url.hostname === "tiles.openfreemap.org" ? TILES : SHELL;
         const cache = await caches.open(cacheName);
@@ -337,7 +348,7 @@ self.addEventListener("fetch", event => {
         }
       }
       return response;
-    })));
+    })());
     return;
   }
 
