@@ -38,3 +38,10 @@ The offline-area downloader needs an app-specific User-Agent, which browser Java
 \`npx wrangler@4.92.0 deploy\`
 
 Paste the workers.dev origin printed by Wrangler into the **Tile proxy URL** field in Map Canvas → Offline map areas. This deployment does not touch the existing Map Canvas API Worker, D1, R2, or the pending database cutover.
+
+
+## Route optimization
+
+Select **Select stops**, then click the pins to include them in a driving route. The first selected pin is the fixed start and the last selected pin is the fixed finish. Choose **Optimize route** to draw the road route and show the ordered stops, road distance, and estimated driving time (without live traffic).
+
+Routing uses the public OSRM Trip service and OpenStreetMap road data. OSRM brute-forces routes with fewer than 10 waypoints and uses a farthest-insertion heuristic for 10 or more. A route can contain up to 500 pins: above 100, Map Canvas first creates a fast nearest-neighbor order, then optimizes overlapping segments of up to 100 stops each. That large-route result is approximate across segment boundaries, not a globally exact optimum. Routes require a network connection and drivable connectivity between stops.

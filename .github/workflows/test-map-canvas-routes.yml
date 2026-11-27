@@ -1,0 +1,50 @@
+name: Map Canvas route optimization checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'style.css'
+      - 'route-optimizer.mjs'
+      - 'tests/route-optimizer.test.mjs'
+      - 'tests/route-harness.html'
+      - 'tests/route-optimizer.browser.test.mjs'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - '.github/workflows/test-map-canvas-routes.yml'
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'style.css'
+      - 'route-optimizer.mjs'
+      - 'tests/route-optimizer.test.mjs'
+      - 'tests/route-harness.html'
+      - 'tests/route-optimizer.browser.test.mjs'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - '.github/workflows/test-map-canvas-routes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  route-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run complete Node test suite
+        run: npm test
+      - name: Validate build
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Run targeted route optimization browser tests
+        run: npm run test:route:browser

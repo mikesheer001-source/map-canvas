@@ -308,3 +308,27 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .offline-dialog .form-actions{gap:8px;flex-wrap:wrap}
 .offline-dialog .form-actions button{flex:1}
 @media(max-width:720px){.offline-dialog{padding:15px}.offline-area-item{align-items:flex-start}.offline-dialog .form-actions button{min-width:44%}}
+
+
+/* Selected-stop route optimization */
+.route-planner{margin:0 12px 10px;padding:10px 11px;background:var(--white);border:1px solid var(--line);border-radius:10px;display:grid;gap:7px;flex:none}
+.route-planner-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.route-planner-heading strong{font-size:13px}
+.route-planner-heading button,.route-planner-actions button{min-height:31px;padding:4px 9px;font-size:11px}
+.route-planner p{margin:0;color:var(--muted);font-size:11px;line-height:1.4}
+.route-planner-actions{display:flex;gap:6px}
+.route-planner-actions button:first-child{flex:1}
+.route-result{display:grid;gap:7px;border-top:1px solid var(--line);padding-top:8px}
+.route-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.route-metric{display:grid;gap:2px;background:var(--paper);border-radius:7px;padding:7px}
+.route-metric strong{font-size:14px;color:var(--green)}
+.route-metric small,.route-algorithm{font-size:10px;color:var(--muted)}
+.route-stop-list{margin:0;padding-left:22px;max-height:130px;overflow:auto;font-size:11px}
+.route-stop-list li{padding:2px 0}
+.entry.route-selected{border-color:#4b9a72;background:#edf7ef}
+.route-order-badge{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1b6e50;color:#fff;font-size:11px;font-weight:800}
+.route-selecting .entry:not(.route-selected) .route-order-badge{background:#e7f1e7;color:#315d47}
+:root[data-theme="dark"] .route-planner{background:#1b3027;border-color:#385343}
+:root[data-theme="dark"] .route-metric{background:#243b2f}
+:root[data-theme="dark"] .route-metric strong{color:#b5dfc3}
+:root[data-theme="dark"] .entry.route-selected{background:#294a37;border-color:#65a67f}

@@ -1,6 +1,7 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
+import { optimizeSelectedPins, formatRouteDistance, formatRouteDuration, MAX_ROUTE_STOPS } from "./route-optimizer.mjs?v=route-optimization-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
@@ -32,7 +33,9 @@ const state = {
   category: "all", undo: [], redo: [], historyBusy: false, gpsMarker: null,
   pendingPin: new URLSearchParams(location.search).get("pin"), localReady: false,
   revision: null, readEpoch: 0, syncInFlight: false, syncingQueue: false,
-  features: {...FEATURE_DEFAULTS}, hiddenPinThemes: new Set(), remotelyDeletedIds: new Set()
+  features: {...FEATURE_DEFAULTS}, hiddenPinThemes: new Set(), remotelyDeletedIds: new Set(),
+  routeSelectedIds: [], routeSelecting: false, routeOptimizing: false, routeError: null,
+  routeProgress: null, optimizedRoute: null, routeLayer: null, routeRequestId: 0, routeAbortController: null
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -345,6 +348,176 @@ function filterEntries() {
   if (state.features.filters && state.sort === "rating") shown.sort((a,b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
   return enhanced ? enhanced.visible(shown) : shown;
 }
+
+function clearRouteLayer(){
+  if(state.library==="maplibre"&&state.map){
+    try{if(state.map.getLayer("canvas-optimized-route"))state.map.removeLayer("canvas-optimized-route");}catch{}
+    try{if(state.map.getSource("canvas-optimized-route"))state.map.removeSource("canvas-optimized-route");}catch{}
+  }
+  try{state.routeLayer?.remove();}catch{}
+  state.routeLayer=null;
+}
+function clearRouteDisplay(){
+  state.optimizedRoute=null;
+  clearRouteLayer();
+}
+function toggleRoutePin(entry){
+  if(!state.routeSelecting)return;
+  if(!Number.isFinite(Number(entry.lat))||!Number.isFinite(Number(entry.lng))){
+    notify("This pin has no valid map coordinates and cannot be routed.",true);
+    return;
+  }
+  const index=state.routeSelectedIds.indexOf(entry.id);
+  if(index>=0)state.routeSelectedIds.splice(index,1);
+  else{
+    if(state.routeSelectedIds.length>=MAX_ROUTE_STOPS){
+      notify("A route can contain up to "+MAX_ROUTE_STOPS+" stops. Split larger selections into separate routes.",true);
+      return;
+    }
+    state.routeSelectedIds.push(entry.id);
+  }
+  state.routeAbortController?.abort();
+  state.routeRequestId++;
+  state.routeOptimizing=false;
+  state.routeError=null;
+  state.routeProgress=null;
+  clearRouteDisplay();
+  render();
+}
+function renderRouteResult(){
+  const result=$("routeResult");
+  if(!result)return;
+  result.replaceChildren();
+  const route=state.optimizedRoute;
+  result.classList.toggle("hidden",!route);
+  if(!route)return;
+  const metrics=text("div","","route-metrics");
+  const distance=text("div","","route-metric");
+  distance.append(text("strong",formatRouteDistance(route.distance)),text("small","Driving distance"));
+  const duration=text("div","","route-metric");
+  duration.append(text("strong",formatRouteDuration(route.duration)),text("small","Estimated driving time"));
+  metrics.append(distance,duration);
+  result.append(metrics);
+  result.append(text("small",route.algorithm+" · no live traffic data","route-algorithm"));
+  const list=document.createElement("ol");
+  list.className="route-stop-list";
+  for(const pin of route.ordered)list.append(text("li",pin.title||"Untitled pin"));
+  result.append(list);
+}
+function updateRoutePlanner(){
+  const toggle=$("routeSelectToggle"),status=$("routeStatus"),optimize=$("routeOptimize"),clear=$("routeClear");
+  if(!toggle||!status||!optimize||!clear)return;
+  const entries=new Map(allEntries().map(entry=>[entry.id,entry]));
+  state.routeSelectedIds=state.routeSelectedIds.filter(id=>entries.has(id));
+  toggle.textContent=state.routeSelecting?"Done selecting":"Select stops";
+  attr(toggle,"aria-pressed",state.routeSelecting);
+  optimize.disabled=state.routeOptimizing||state.routeSelectedIds.length<2;
+  optimize.textContent=state.routeOptimizing?"Optimizing…":"Optimize route";
+  clear.disabled=state.routeOptimizing&&state.routeSelectedIds.length===0
+    ?false:state.routeSelectedIds.length===0&&!state.optimizedRoute;
+  if(state.routeOptimizing){
+    status.textContent=state.routeProgress
+      ?"Optimizing segment "+state.routeProgress.completed+" of "+state.routeProgress.total+"…"
+      :"Requesting road route…";
+  }else if(state.routeError){
+    status.textContent=state.routeError;
+  }else if(state.routeSelecting){
+    status.textContent=state.routeSelectedIds.length+" selected. First selected is the start; last selected is the finish.";
+  }else if(state.optimizedRoute){
+    status.textContent=state.optimizedRoute.ordered.length+" stops · optimized route ready.";
+  }else if(state.routeSelectedIds.length){
+    status.textContent=state.routeSelectedIds.length+" stops selected. First selected is the start; last selected is the finish.";
+  }else{
+    status.textContent="Select stops from the list or map. First selected is the start; last selected is the finish.";
+  }
+  renderRouteResult();
+}
+function clearRoutePlan(){
+  state.routeAbortController?.abort();
+  state.routeAbortController=null;
+  state.routeRequestId++;
+  state.routeOptimizing=false;
+  state.routeSelecting=false;
+  state.routeSelectedIds=[];
+  state.routeError=null;
+  state.routeProgress=null;
+  clearRouteDisplay();
+  render();
+}
+async function optimizeSelectedRoute(){
+  const entries=new Map(allEntries().map(entry=>[entry.id,entry]));
+  const pins=state.routeSelectedIds.map(id=>entries.get(id)).filter(Boolean);
+  if(pins.length<2){state.routeError="Select at least two pins with valid coordinates.";updateRoutePlanner();return;}
+  state.routeAbortController?.abort();
+  const controller=new AbortController();
+  state.routeAbortController=controller;
+  const requestId=++state.routeRequestId;
+  state.routeOptimizing=true;
+  state.routeSelecting=false;
+  state.routeError=null;
+  state.routeProgress=null;
+  clearRouteDisplay();
+  updateRoutePlanner();
+  try{
+    const route=await optimizeSelectedPins(pins,{
+      signal:controller.signal,
+      onProgress:progress=>{if(requestId===state.routeRequestId){state.routeProgress=progress;updateRoutePlanner();}}
+    });
+    if(requestId!==state.routeRequestId)return;
+    state.optimizedRoute=route;
+    state.routeSelectedIds=route.ordered.map(pin=>pin.id);
+    render();
+    renderOptimizedRoute();
+    fitOptimizedRoute();
+  }catch(error){
+    if(requestId!==state.routeRequestId)return;
+    if(error.name!=="AbortError"){
+      state.routeError=error.message;
+      notify(error.message,true);
+    }
+  }finally{
+    if(requestId===state.routeRequestId){
+      state.routeOptimizing=false;
+      state.routeAbortController=null;
+      updateRoutePlanner();
+    }
+  }
+}
+function renderOptimizedRoute(){
+  const route=state.optimizedRoute;
+  if(!route?.geometry||!state.map)return;
+  const feature={type:"Feature",properties:{name:"Optimized route"},geometry:route.geometry};
+  if(state.library==="maplibre"){
+    if(!state.styleReady)return;
+    let source=state.map.getSource("canvas-optimized-route");
+    if(source)source.setData({type:"FeatureCollection",features:[feature]});
+    else state.map.addSource("canvas-optimized-route",{type:"geojson",data:{type:"FeatureCollection",features:[feature]}});
+    if(!state.map.getLayer("canvas-optimized-route")){
+      const layer={
+        id:"canvas-optimized-route",type:"line",source:"canvas-optimized-route",
+        layout:{"line-cap":"round","line-join":"round"},
+        paint:{"line-color":"#0877d5","line-width":5,"line-opacity":0.9}
+      };
+      state.map.addLayer(layer,state.map.getLayer(PIN_DOTS)?PIN_DOTS:undefined);
+    }
+  }else if(state.library==="leaflet"&&window.L?.geoJSON){
+    try{state.routeLayer?.remove();}catch{}
+    state.routeLayer=window.L.geoJSON(feature,{style:{color:"#0877d5",weight:5,opacity:0.9}}).addTo(state.map);
+  }
+}
+function fitOptimizedRoute(){
+  const coordinates=state.optimizedRoute?.geometry?.coordinates;
+  if(!coordinates?.length||!state.map)return;
+  const valid=coordinates.filter(point=>Array.isArray(point)&&Number.isFinite(Number(point[0]))&&Number.isFinite(Number(point[1])));
+  if(!valid.length)return;
+  const lons=valid.map(point=>Number(point[0])),lats=valid.map(point=>Number(point[1]));
+  let minLng=Math.min(...lons),maxLng=Math.max(...lons),minLat=Math.min(...lats),maxLat=Math.max(...lats);
+  if(minLng===maxLng){minLng-=0.001;maxLng+=0.001;}
+  if(minLat===maxLat){minLat-=0.001;maxLat+=0.001;}
+  if(state.library==="maplibre")state.map.fitBounds([[minLng,minLat],[maxLng,maxLat]],{padding:72,maxZoom:15.5,duration:650});
+  else if(state.library==="leaflet")state.map.fitBounds([[minLat,minLng],[maxLat,maxLng]],{padding:[45,45],maxZoom:16});
+}
+
 function render() {
   enhanced?.selections();
   settingsUI?.syncThemeOptions(allEntries());
@@ -366,11 +539,13 @@ function render() {
     f.classList.toggle("is-active", selected);
     attr(f, "aria-pressed", selected);
   });
+  updateRoutePlanner();
   const list = $("entries");
   list.replaceChildren();
   for (const entry of shown) {
     const row = document.createElement("button");
-    row.type = "button"; row.className = "entry" + (state.current?.id === entry.id ? " is-active" : "");
+    const routeOrder=state.routeSelectedIds.indexOf(entry.id);
+    row.type = "button"; row.className = "entry" + (state.current?.id === entry.id ? " is-active" : "") + (routeOrder>=0 ? " route-selected" : "");
     const ico = text("span", pinEmoji(entry), "entry-ico");
     ico.style.color = validColor(entry.color) ? entry.color : pinColor(entry.kind);
     if (entry.kind === "photo" && entry.photo) {
@@ -380,12 +555,13 @@ function render() {
     const wrap = text("span", "", "entry-main");
     wrap.append(text("strong", entry.title), text("small", entry.category || entry.kind));
     row.append(ico, wrap);
+    if(state.routeSelecting||routeOrder>=0)row.append(text("span",routeOrder>=0?String(routeOrder+1):"+","route-order-badge"));
     if (entry.price) {
       const price = text("span", entry.price, "entry-price");
       if (entry.source === "hostel") price.append(text("small", "/ night"));
       row.append(price);
     }
-    row.addEventListener("click", () => choose(entry, true));
+    row.addEventListener("click", () => state.routeSelecting ? toggleRoutePin(entry) : choose(entry, true));
     list.append(row);
   }
   if (!shown.length) list.append(text("p", "No matching entries.", "empty-results muted"));
@@ -488,6 +664,7 @@ function attachMapPinClicks(map) {
     if (!entry) return;
     if(enhanced?.isDrawing())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
+    else if(state.routeSelecting)toggleRoutePin(entry);
     else choose(entry,false);
   });
   map.on("mouseenter", PIN_TOUCH, () => { map.getCanvas().style.cursor = "pointer"; });
@@ -543,6 +720,7 @@ function renderMarkers(entries) {
       marker.on("click",()=>{
         if(enhanced?.isDrawing())return;
         if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});
+        else if(state.routeSelecting)toggleRoutePin(entry);
         else choose(entry,false);
       });
       state.markers.push(marker);
@@ -638,7 +816,7 @@ async function fallbackLeaflet(reason) {
   state.styleReady=true;
   state.provider="openstreetmap";
   document.documentElement.dataset.mapProvider="openstreetmap";
-  paintProvider();renderMarkers(filterEntries());updateLabels();
+  paintProvider();renderMarkers(filterEntries());updateLabels();renderOptimizedRoute();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
 }
 async function initMap() {
@@ -663,7 +841,7 @@ async function initMap() {
     map.addControl(new lib.NavigationControl({showCompass:false}),"bottom-right");
     let started=false;
     map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
-    map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());});
+    map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());renderOptimizedRoute();});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
     map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
     map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
@@ -1415,6 +1593,9 @@ function wire() {
   });
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
   $("offlineButton").addEventListener("click",openOfflineDialog);
+  $("routeSelectToggle").addEventListener("click",()=>{state.routeSelecting=!state.routeSelecting;updateRoutePlanner();render();});
+  $("routeOptimize").addEventListener("click",optimizeSelectedRoute);
+  $("routeClear").addEventListener("click",clearRoutePlan);
   $("offlineClose").addEventListener("click",()=>$("offlineDialog").close());
   $("offlineDownload").addEventListener("click",downloadCurrentOfflineArea);
   $("offlineCancel").addEventListener("click",cancelOfflineDownload);
@@ -1602,7 +1783,11 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getLocalPins: () => allEntries(),
     openOfflineDialog,
     getOfflineQueue: () => listQueuedChanges(),
-    getOfflineAreas: () => listOfflineAreas()
+    getOfflineAreas: () => listOfflineAreas(),
+    getRouteSelection: () => state.routeSelectedIds.slice(),
+    getOptimizedRoute: () => state.optimizedRoute,
+    selectRoutePins: ids => {state.routeSelectedIds=ids.slice();state.routeSelecting=false;clearRouteDisplay();render();},
+    optimizeSelectedRoute
   };
 }
 main().catch((error)=>notify(error.message,true));

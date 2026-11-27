@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Route optimization browser test</title>
+<style>
+body{font:15px system-ui;margin:24px;max-width:720px;color:#18392f}button{padding:8px 12px;margin:4px;border:1px solid #cbd8cd;border-radius:7px;background:#fff}button.primary{background:#1b5b49;color:#fff}li{margin:5px 0}.selected{font-weight:700;color:#1b5b49}#summary{margin:14px 0;padding:12px;background:#edf5ed;border-radius:8px}#routeLine{height:0;overflow:hidden}
+</style></head>
+<body>
+<h1>Route planner test</h1>
+<p>First selected stop is the start; last selected stop is the finish.</p>
+<div id="pins"></div>
+<button id="loadLarge">Load 101-stop test</button>
+<button id="optimize" class="primary" disabled>Optimize route</button>
+<p id="status" role="status">Select at least two stops.</p>
+<div id="summary" hidden></div>
+<ol id="ordered"></ol>
+<script type="module">
+import { optimizeSelectedPins, formatRouteDistance, formatRouteDuration } from "../route-optimizer.mjs";
+let pins = [
+ {id:"start",title:"Start",lat:21.000,lng:105.000},
+ {id:"alpha",title:"Alpha",lat:21.010,lng:105.010},
+ {id:"bravo",title:"Bravo",lat:21.020,lng:105.020},
+ {id:"finish",title:"Finish",lat:21.030,lng:105.030}
+];
+let selected = [];
+const list = document.getElementById("pins");
+const status = document.getElementById("status");
+const summary = document.getElementById("summary");
+const ordered = document.getElementById("ordered");
+function render() {
+ list.replaceChildren();
+ for (const pin of pins) {
+  const button = document.createElement("button");
+  button.textContent = (selected.includes(pin.id) ? "✓ " : "+ ") + pin.title;
+  button.className = selected.includes(pin.id) ? "selected" : "";
+  button.dataset.pinId = pin.id;
+  button.addEventListener("click", () => {
+   selected = selected.includes(pin.id) ? selected.filter(id => id !== pin.id) : [...selected, pin.id];
+   summary.hidden = true; ordered.replaceChildren();
+   document.getElementById("optimize").disabled = selected.length < 2;
+   status.textContent = selected.length + " stops selected.";
+   render();
+  });
+  list.append(button);
+ }
+}
+document.getElementById("loadLarge").addEventListener("click", () => {
+ pins = Array.from({length:101},(_,i)=>({id:"pin-"+i,title:"Stop "+i,lat:21+i*.001,lng:105+i*.001}));
+ selected = pins.map(pin=>pin.id);
+ summary.hidden = true; ordered.replaceChildren();
+ document.getElementById("optimize").disabled = false;
+ status.textContent = "101 stops selected.";
+ render();
+});
+document.getElementById("optimize").addEventListener("click", async () => {
+ const button = document.getElementById("optimize");
+ button.disabled = true; status.textContent = "Optimizing…";
+ try {
+  const chosen = selected.map(id=>pins.find(pin=>pin.id===id));
+  const result = await optimizeSelectedPins(chosen,{requestSpacingMs:0,onProgress:p=>status.textContent="Optimizing segment "+p.completed+" of "+p.total+"…"});
+  summary.hidden = false;
+  summary.textContent = result.ordered.length+" stops · "+formatRouteDistance(result.distance)+" · "+formatRouteDuration(result.duration)+" · "+result.algorithm;
+  ordered.replaceChildren(...result.ordered.map(pin=>{const li=document.createElement("li");li.textContent=pin.title;return li;}));
+  status.textContent = "Route ready.";
+  window.routeResult = result;
+ } catch(error) { status.textContent = error.message; }
+ finally { button.disabled = selected.length < 2; }
+});
+render();
+</script>
+</body></html>

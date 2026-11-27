@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=offline-areas-20261127">
+<link rel="stylesheet" href="./style.css?v=route-optimization-20261127">
 </head>
 <body>
 <div id="app">
@@ -44,6 +44,12 @@
    <div class="io-actions"><button type="button" id="importBtn" class="secondary">Import</button><select id="importMode" aria-label="Import behavior"><option value="merge">Merge</option><option value="replace">Replace</option></select><button type="button" id="exportBtn" class="secondary">Export</button><select id="exportFormat" aria-label="Export format"><option value="csv">CSV (Sheets)</option><option value="json">JSON (site)</option><option value="geojson">GeoJSON</option></select><input id="importFile" type="file" accept=".csv,.json,.geojson,text/csv,application/json" hidden></div>
    <small class="import-help">Google Sheets: File → Download → CSV, then Import here. Export CSV to edit in Sheets.</small>
   </div>
+  <section class="route-planner" id="routePlanner" aria-label="Route planner">
+   <div class="route-planner-heading"><strong>Route planner</strong><button type="button" id="routeSelectToggle" class="secondary" aria-pressed="false">Select stops</button></div>
+   <p id="routeStatus" role="status">Select stops from the list or map. First selected is the start; last selected is the finish.</p>
+   <div class="route-planner-actions"><button type="button" id="routeOptimize" class="primary" disabled>Optimize route</button><button type="button" id="routeClear" class="secondary" disabled>Clear</button></div>
+   <div id="routeResult" class="route-result hidden"></div>
+  </section>
   <div id="entries" class="entries" role="list"></div>
   <div class="trash-control"><button type="button" id="openTrash" class="secondary" aria-haspopup="dialog" aria-controls="trashDialog">Recently Deleted</button></div>
   <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
@@ -153,6 +159,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=offline-sync-20261127"></script>
+<script type="module" src="./app.js?v=route-optimization-20261127"></script>
 </body>
 </html>
