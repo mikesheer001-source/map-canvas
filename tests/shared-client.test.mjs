@@ -44,7 +44,7 @@ function client(){
   const localStorage={getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)};
   const nodes=new Map();
   const document={getElementById(id){
-    if(!nodes.has(id))nodes.set(id,{textContent:"",disabled:false,classList:{add(){},remove(){},contains(){return true;}}});
+    if(!nodes.has(id))nodes.set(id,{textContent:"",disabled:false,classList:{add(){},remove(){},toggle(){},contains(){return true;}}});
     return nodes.get(id);
   }};
   const window={};
