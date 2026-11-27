@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=popup-zoom-20261128">
+<link rel="stylesheet" href="./style.css?v=add-pin-menu-20261128">
 </head>
 <body>
 <div id="app">
@@ -20,7 +20,13 @@
   <span id="offlineState" class="offline-state hidden" role="status"></span><button id="undoBtn" class="icon-button" title="Undo saved change" aria-label="Undo saved change" disabled>↶</button><button id="redoBtn" class="icon-button" title="Redo saved change" aria-label="Redo saved change" disabled>↷</button><button id="refreshBtn" class="icon-button" aria-label="Reload published map" title="Reload published map">↻</button>
   <button id="themeToggle" type="button" class="icon-button theme-toggle" title="Switch to dark theme" aria-label="Dark mode" aria-pressed="false">☾</button>
   <button id="settingsButton" type="button" class="icon-button" title="Feature settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsDialog">⚙</button>
-  <button id="addButton" class="primary">＋ <span>Add to map</span></button>
+  <div id="addPinOptions" class="add-pin-options">
+   <button id="addButton" type="button" class="primary" aria-expanded="false" aria-controls="addPinMenu">＋ <span>Add to map</span></button>
+   <div id="addPinMenu" class="add-pin-menu hidden" role="group" aria-label="Add to map options">
+    <button id="addPlacePin" type="button" class="secondary">📍 Add place pin</button>
+    <button id="addRoutePin" type="button" class="secondary">◇ Add route pin</button>
+   </div>
+  </div>
  </div>
 </header>
 <div class="workspace">
@@ -77,7 +83,6 @@
    <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
    <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
    <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="offlineButton" title="Download map areas for offline use" aria-label="Offline map areas">⇩</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
-   <button id="addRoutePin" type="button" title="Add route pin" aria-label="Add route pin">◇</button>
    <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
    <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
   </nav>
@@ -198,6 +203,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=popup-zoom-20261128"></script>
+<script type="module" src="./app.js?v=add-pin-menu-20261128"></script>
 </body>
 </html>

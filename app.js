@@ -1899,7 +1899,7 @@ async function exportPendingEdits(){
 const FEATURE_TARGETS={
   search:[".searchwrap"],filters:[".filters","#categoryFilter","#sort"],
   layers:[".collection-selects",".layers-panel"],
-  importExport:[".io-actions"],addPins:["#addButton","#addRoutePin"],
+  importExport:[".io-actions"],addPins:["#addPinOptions"],
   canvasObjects:[],galleries:["#galleryControls"],
   undoRedo:["#undoBtn","#redoBtn"],
   gps:["#locateButton"],
@@ -2066,8 +2066,12 @@ function wire() {
   $("sort").addEventListener("change",(e)=>{state.sort=e.target.value;render();});
   document.querySelectorAll(".filter").forEach((el)=>
     el.addEventListener("click",()=>{state.filter=el.dataset.filter;render();}));
-  $("addButton").addEventListener("click",()=>startPlacement("place"));
-  $("addRoutePin").addEventListener("click",()=>{if(!state.features.showRoutePins)setFeatureSetting("showRoutePins",true);startPlacement("route");});
+  const setAddMenu=open=>{$("addPinMenu").classList.toggle("hidden",!open);$("addButton").setAttribute("aria-expanded",String(open));};
+  $("addButton").addEventListener("click",()=>setAddMenu($("addPinMenu").classList.contains("hidden")));
+  $("addPlacePin").addEventListener("click",()=>{setAddMenu(false);startPlacement("place");});
+  $("addRoutePin").addEventListener("click",()=>{setAddMenu(false);if(!state.features.showRoutePins)setFeatureSetting("showRoutePins",true);startPlacement("route");});
+  document.addEventListener("click",event=>{if(!$("addPinOptions").contains(event.target))setAddMenu(false);});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!$("addPinMenu").classList.contains("hidden")){setAddMenu(false);$("addButton").focus();}});
   $("cancelPlace").addEventListener("click",()=>{
     state.placing=null;$("placementBar").classList.add("hidden");
     enhanced?.clearMeasurement();

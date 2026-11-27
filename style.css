@@ -485,3 +485,6 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .recent-pin::after{font-size:calc(9px * var(--pin-size-factor,1));padding:calc(2px * var(--pin-size-factor,1)) calc(4px * var(--pin-size-factor,1))}
 .emoji-pin.route-pin,.leaflet-emoji-marker .emoji-pin-inner.route-pin{border-radius:0;font-size:calc(22px * var(--pin-size-factor,1))}
 .route-pin::before{inset:calc(4px * var(--pin-size-factor,1))}
+
+/* Add-to-map choices, kept out of the map navigation toolbar. */
+.add-pin-options{position:relative;flex:none}.add-pin-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:180px;display:grid;gap:5px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:30}.add-pin-menu.hidden{display:none}.add-pin-menu button{text-align:left;white-space:nowrap}.add-pin-menu button:hover{background:var(--pale)}:root[data-theme="dark"] .add-pin-menu{background:#172421}:root[data-theme="dark"] .add-pin-menu button{background:#1b2e28;color:#c0eed7}:root[data-theme="dark"] .add-pin-menu button:hover{background:#305443}
