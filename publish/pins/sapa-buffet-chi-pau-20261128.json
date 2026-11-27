@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "checkDuplicate": true,
+  "entry": {
+    "id": "b4ff3a21-1128-4c00-9a00-000000000001",
+    "kind": "place",
+    "category": "Restaurant",
+    "title": "Chi Pâu Buffet Hotpot & BBQ",
+    "lat": 22.3385351,
+    "lng": 103.836752,
+    "price": "99k hotpot / 199k BBQ (reported)",
+    "rating": "4.9 (264 reviews)",
+    "link": "https://www.google.com/maps/search/?api=1&query=Chi%20P%C3%A2u%20Buffet%20Hotpot%20%26%20BBQ%2061%20Th%C3%A1c%20B%E1%BA%A1c%20Sa%20Pa&query_place_id=ChIJYYGWdxBBzTYRonbPfnUHno8",
+    "notes": "61 Thác Bạc. Unlimited table refills; beef, pork, vegetables and sauces. Upper-floor entrance; cash recommended. 09:00–21:00/21:30. Pin approximate: same-address homestay coordinates; use exact Google listing. Solo price not confirmed.",
+    "source": "Google Maps business listing; https://sapanomad.com/sapa-bbq/ ; https://laocaiview.vn/dat-phong/homestay-container-sapa"
+  }
+}

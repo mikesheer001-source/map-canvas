@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "checkDuplicate": true,
+  "entry": {
+    "id": "b4ff3a21-1128-4c00-9a00-000000000003",
+    "kind": "place",
+    "category": "Restaurant",
+    "title": "Hải Yến 1 Hotpot & BBQ Buffet",
+    "lat": 22.33597,
+    "lng": 103.84349,
+    "price": "219k VND/person (photographed sign)",
+    "rating": "4.4 (537 reviews)",
+    "link": "https://www.google.com/maps/search/?api=1&query=H%E1%BA%A3i%20Y%E1%BA%BFn%201%20Hotpot%20%26%20BBQ%20Buffet%2012%20Th%E1%BA%A1ch%20S%C6%A1n%20Sa%20Pa&query_place_id=ChIJTUNUoWxBzTYRS7M2KqF0mVs",
+    "notes": "12 Thạch Sơn. BBQ and hotpot buffet with meat and seafood. 219k shown on recent storefront; confirm package and solo availability. Google listing includes hotel reviews; rating not restaurant-only. Pin at same-address building.",
+    "source": "Google Maps business listing; https://sapareview.com.vn/buffet-lau-nuong-tay-bac-hai-yen-sapa-diem-den-am-thuc-khong-the-bo-lo/ ; https://www.searchspot.ai/places/hai-yen-apartment-vietnam"
+  }
+}
