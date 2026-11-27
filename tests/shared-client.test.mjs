@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import {FEATURE_DEFAULTS} from "../enhancements.js";
 
 const source=readFileSync(new URL("../app.js",import.meta.url),"utf8")
-  .replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
+  .replace(/^import .*;\s*/gm,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
 let revision=1;
 const rows=new Map();
 const tombstones=new Map();

@@ -18,6 +18,10 @@ on:
       - 'offline-store.mjs'
       - 'offline-tiles.mjs'
       - 'tests/offline-*'
+      - 'tests/features.test.mjs'
+      - 'tests/pin-regression.test.mjs'
+      - 'tests/canvas-features.test.mjs'
+      - 'tests/shared-client.test.mjs'
       - 'README.md'
       - '.github/workflows/test-map-canvas-offline.yml'
   pull_request:

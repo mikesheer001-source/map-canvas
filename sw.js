@@ -316,7 +316,7 @@ self.addEventListener("fetch", event => {
 
   // Cache only successfully CORS-readable images, with a strict entry-count cap.
   if (request.destination === "image" && url.protocol === "https:" &&
-      url.hostname !== "tile.openstreetmap.org") {
+      url.hostname === "map-canvas-api.mikesheer001.workers.dev") {
     event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(async response => {
       if (response.ok && response.type !== "opaque" &&
           (response.headers.get("Content-Type") || "").toLowerCase().startsWith("image/")) {
