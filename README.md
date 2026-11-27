@@ -45,3 +45,10 @@ Paste the workers.dev origin printed by Wrangler into the **Tile proxy URL** fie
 Select **Select stops**, then click the pins to include them in a driving route. The first selected pin is the fixed start and the last selected pin is the fixed finish. Choose **Optimize route** to draw the road route and show the ordered stops, road distance, and estimated driving time (without live traffic).
 
 Routing uses the public OSRM Trip service and OpenStreetMap road data. OSRM brute-forces routes with fewer than 10 waypoints and uses a farthest-insertion heuristic for 10 or more. A route can contain up to 500 pins: above 100, Map Canvas first creates a fast nearest-neighbor order, then optimizes overlapping segments of up to 100 stops each. That large-route result is approximate across segment boundaries, not a globally exact optimum. Routes require a network connection and drivable connectivity between stops.
+
+
+## Interactive multimodal routes
+
+Open **Multimodal transport routes**, choose bus, train, flight, ferry, or driving, select **Add route**, then click two map pins (or their sidebar entries) as origin and destination. Mode-coloured and patterned routes can be clicked for details. Routes are saved in this browser.
+
+Driving geometry uses the public OSRM road router. Bus, train, and ferry use matching OpenStreetMap route relations when available; otherwise a straight-line approximation is explicitly labelled. Flights use an approximate great-circle path, not a live airline path. Transit and flight times use typical-speed estimates, not live timetables or schedules.

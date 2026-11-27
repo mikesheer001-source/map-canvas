@@ -8,6 +8,10 @@ on:
       - 'index.html'
       - 'style.css'
       - 'route-optimizer.mjs'
+      - 'multimodal-routes.mjs'
+      - 'tests/multimodal-routes.test.mjs'
+      - 'tests/multimodal-route-harness.html'
+      - 'tests/multimodal-routes.browser.test.mjs'
       - 'tests/route-optimizer.test.mjs'
       - 'tests/route-harness.html'
       - 'tests/route-optimizer.browser.test.mjs'
@@ -48,3 +52,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run targeted route optimization browser tests
         run: npm run test:route:browser
+      - name: Run targeted multimodal route browser tests
+        run: npm run test:multimodal:browser
