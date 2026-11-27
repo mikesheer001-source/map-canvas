@@ -240,7 +240,6 @@ async function downloadOfflineArea(area, port) {
         const [url, kind] = jobs[index];
         try {
           const response = await fetchProvider(url, proxyOrigin);
-          const cacheCopy = response.clone();
           const bytes = await response.arrayBuffer();
           totalBytes += bytes.byteLength;
           if (totalBytes > MAX_BYTES) {
@@ -248,7 +247,11 @@ async function downloadOfflineArea(area, port) {
             return;
           }
           if (failure) return;
-          await cache.put(url, cacheCopy);
+          const headers = new Headers(response.headers);
+          headers.delete("Content-Length");
+          await cache.put(url, new Response(bytes.slice(0), {
+            status: response.status, statusText: response.statusText, headers
+          }));
           completed++;
           send(port, {
             type: "OFFLINE_AREA_PROGRESS", id, completed, total: jobs.length,
@@ -310,10 +313,48 @@ self.addEventListener("message", event => {
   }
 });
 
+async function serveOfflineMapResource(requestUrl) {
+  let target;
+  try { target = new URL(requestUrl.searchParams.get("url") || ""); }
+  catch { return new Response("Invalid offline map resource URL.", { status: 400 }); }
+  if (target.protocol !== "https:" || target.hostname !== "tiles.openfreemap.org" ||
+      target.username || target.password || (target.port && target.port !== "443")) {
+    return new Response("Only OpenFreeMap resources are available offline.", { status: 400 });
+  }
+  target.hash = "";
+  const cached = await caches.match(target.href);
+  if (cached) {
+    const bytes = await cached.arrayBuffer();
+    const headers = new Headers(cached.headers);
+    headers.delete("Content-Length");
+    return new Response(bytes, { status: cached.status, statusText: cached.statusText, headers });
+  }
+  try {
+    const upstream = await fetch(target.href);
+    const bytes = await upstream.arrayBuffer();
+    const headers = new Headers(upstream.headers);
+    headers.delete("Content-Length");
+    if (upstream.ok) {
+      const cache = await caches.open(TILES);
+      await cache.put(target.href, new Response(bytes.slice(0), { status: upstream.status, statusText: upstream.statusText, headers }));
+      const keys = await cache.keys();
+      if (keys.length > 180) await Promise.all(keys.slice(0, keys.length - 180).map(key => cache.delete(key)));
+    }
+    return new Response(bytes, { status: upstream.status, statusText: upstream.statusText, headers });
+  } catch {
+    return new Response("This OpenFreeMap resource is not saved for offline use.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+}
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+
+  if (url.origin === self.location.origin && url.pathname === "/__offline_map_resource") {
+    event.respondWith(serveOfflineMapResource(url));
+    return;
+  }
 
   if (url.origin === self.location.origin) {
     event.respondWith(fetch(request, { cache: "no-store" }).then(response => {

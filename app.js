@@ -649,6 +649,14 @@ async function initMap() {
     const map=new lib.Map({
       container:"map",center:[105.8503,21.0345],zoom:15.5,
       style:openFreeMapStyle(),
+      transformRequest:(url)=>{
+        if(url.startsWith("https://tiles.openfreemap.org/")){
+          const local=new URL("/__offline_map_resource",location.origin);
+          local.searchParams.set("url",url);
+          return {url:local.href};
+        }
+        return {url};
+      },
       attributionControl:true,maxZoom:19
     });
     state.map=map;state.library="maplibre";

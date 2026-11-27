@@ -113,7 +113,9 @@ try {
     const queue = await window.offlineHarness.listQueuedChanges();
     const directCache = await caches.match(tileUrl);
     const directCacheBytes = directCache ? await directCache.clone().arrayBuffer() : new ArrayBuffer(0);
-    const response = await fetch(tileUrl);
+    const offlineUrl = new URL("/__offline_map_resource", location.origin);
+    offlineUrl.searchParams.set("url", tileUrl);
+    const response = await fetch(offlineUrl.href);
     return { title: document.title, queue, status: response.status, type: response.type,
       directCacheBytes: directCacheBytes.byteLength, directCacheType: directCache?.type,
       tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
