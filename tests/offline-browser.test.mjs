@@ -126,7 +126,10 @@ try {
   assert.equal(offlineResult.queue[0].entry.title, "Edited again offline");
   assert.equal(offlineResult.status, 200);
   assert.ok(offlineResult.directCacheBytes > 0, "offline CacheStorage entry missing/empty: " + offlineResult.directCacheType);
-  assert.ok(offlineResult.tile.byteLength > 0, "offline response was empty: " + offlineResult.type + " " + offlineResult.status);
+  assert.ok(offlineResult.tile.byteLength > 0,
+    "offline response was empty: " + offlineResult.type + " " + offlineResult.status +
+    " cacheHit=" + offlineResult.cacheHit + " cacheBytes=" + offlineResult.cacheBytes +
+    " directCacheBytes=" + offlineResult.directCacheBytes);
   assert.equal(offlineResult.controller, true);
 
   await context.setOffline(false);
