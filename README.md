@@ -10,6 +10,10 @@ Export **CSV (Sheets)** and use **File → Import → Upload** in Google Sheets.
 
 A browser with edits from the previous local-only version can download its old snapshot in **Settings → Download previous browser edits**. Review the snapshot before importing it with Merge. It contains the full older map and may overwrite newer changes or restore pins deleted since then.
 
+## Opening map location
+
+On each normal visit, Map Canvas requests your current device location using the browser’s permission and centers at neighborhood zoom if available. Your last map view is saved locally as a fallback when permission is denied or GPS is unavailable; a first visit without location opens a Vietnam overview. Direct pin links take priority. A late GPS response does not interrupt a changed map view. Location and camera preferences are not sent to the shared pin database. Use the location button to recenter manually.
+
 ## Availability
 
 The GitHub Pages frontend connects to the Cloudflare shared map service at `https://map-canvas-api.mikesheer001.workers.dev/api/shared-map`. D1 stores pins and Recently Deleted, and R2 stores uploaded photos. If the service is unavailable, the last loaded snapshot stays visible. Pins and canvas drawing edits can be queued on this device and synced when the connection returns; version conflicts are kept locally for review rather than overwriting newer shared edits. Existing browser-only feature and theme settings remain on that browser.

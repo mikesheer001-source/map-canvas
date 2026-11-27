@@ -6,6 +6,36 @@ import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toL
 import { createItinerary, cloneItinerary, createPinStop, createCustomStop, addStopToItinerary, removeStopFromItinerary, moveItineraryStop, addItineraryDay, removeItineraryDay, setItineraryDayDate, setItineraryName, setItineraryLegRoute, setItineraryLegOption, readSavedItineraries, saveSavedItineraries, deleteSavedItinerary, renderItineraryBuilder } from "./itinerary.mjs?v=itinerary-delete-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
+
+const MAP_VIEW_KEY = "map-canvas:last-view-v1";
+const DEFAULT_MAP_VIEW = {lat:16,lng:108,zoom:5.5};
+let locationRequestId = 0;
+function validMapView(view) {
+  return !!view && [view.lat,view.lng,view.zoom].every(Number.isFinite) &&
+    Math.abs(view.lat)<=85 && Math.abs(view.lng)<=180 && view.zoom>=0 && view.zoom<=19;
+}
+function readStartupView() {
+  try {
+    const view=JSON.parse(localStorage.getItem(MAP_VIEW_KEY));
+    if(validMapView(view))return view;
+  } catch {}
+  return {...DEFAULT_MAP_VIEW};
+}
+function currentMapView() {
+  const center=state.map?.getCenter?.();
+  if(!center)return null;
+  const view={lat:center.lat,lng:((center.lng+180)%360+360)%360-180,zoom:state.map.getZoom()};
+  return validMapView(view)?view:null;
+}
+function rememberMapView() {
+  const view=currentMapView();
+  if(view)try{localStorage.setItem(MAP_VIEW_KEY,JSON.stringify(view));}catch{}
+}
+function sameMapView(a,b) {
+  return !!a && !!b && Math.abs(a.lat-b.lat)<1e-6 &&
+    Math.abs(a.lng-b.lng)<1e-6 && Math.abs(a.zoom-b.zoom)<1e-4;
+}
+
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const MAX_ROUTE_STOPS = 500;
@@ -1171,7 +1201,8 @@ async function fallbackLeaflet(reason) {
     });
   }
   const L=window.L;
-  state.map=L.map("map",{zoomControl:false}).setView([21.0345,105.85],15);
+  const initialView=readStartupView();
+  state.map=L.map("map",{zoomControl:false}).setView([initialView.lat,initialView.lng],initialView.zoom);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
     attribution:"© OpenStreetMap contributors",maxZoom:19
   }).addTo(state.map);
@@ -1180,7 +1211,7 @@ async function fallbackLeaflet(reason) {
     if(state.placing)placeAt({lat:e.latlng.lat,lng:e.latlng.lng});
   });
   state.map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-  state.map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
+  state.map.on("moveend",()=>{state.mapMoving=false;rememberMapView();updateLabels();enhanced?.renderOverlay();});
   state.map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
   state.map.on("mousemove",e=>enhanced?.updateHover({lng:e.latlng.lng,lat:e.latlng.lat}));
   state.map.on("zoomend",updateLabels);
@@ -1196,8 +1227,9 @@ async function initMap() {
   try {
     const lib = await import("https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.mjs");
     window.maplibregl=lib;
+    const initialView=readStartupView();
     const map=new lib.Map({
-      container:"map",center:[105.8503,21.0345],zoom:15.5,
+      container:"map",center:[initialView.lng,initialView.lat],zoom:initialView.zoom,
       style:openFreeMapStyle(),
       transformRequest:(url)=>{
         if(url.startsWith("https://tiles.openfreemap.org/")&&navigator.serviceWorker?.controller){
@@ -1215,7 +1247,7 @@ async function initMap() {
     map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());renderMultimodalRoutes();});
     map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());renderOptimizedRoute();renderMultimodalRoutes();});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
-    map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
+    map.on("moveend",()=>{state.mapMoving=false;rememberMapView();updateLabels();enhanced?.renderOverlay();});
     map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
@@ -1629,29 +1661,33 @@ function applyDeepLink() {
   const entry=allEntries().find(e=>e.id===state.pendingPin);
   if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)&&pinPassesAgeFilter(entry)&&pinPassesRouteFilter(entry)){state.pendingPin=null;choose(entry,true);}
 }
-function locateUser() {
-  if (!navigator.geolocation) {notify("Location is unavailable in this browser.",true);return;}
-  $("locateButton").disabled=true;
-  navigator.geolocation.getCurrentPosition(({coords})=>{
-    $("locateButton").disabled=false;
-    const {latitude:lat,longitude:lng}=coords;
-    if(state.library==="maplibre"){
+function locateUser({automatic=false}={}) {
+  if(!state.map)return;
+  if(!navigator.geolocation){if(!automatic)notify("Location is unavailable in this browser.",true);return;}
+  const requestId=++locationRequestId;
+  const startView=currentMapView(), startMap=state.map;
+  if(!automatic)$("locateButton").disabled=true;
+  const finish=()=>{if(!automatic&&requestId===locationRequestId)$("locateButton").disabled=false;};
+  const failed=error=>{finish();if(!automatic&&requestId===locationRequestId)notify(error?.code===1?"Location permission denied.":"Unable to determine your location.",true);};
+  try{
+    navigator.geolocation.getCurrentPosition(({coords})=>{
+      finish();
+      if(requestId!==locationRequestId||state.map!==startMap)return;
+      if(automatic&&(state.current||state.placing||state.mapMoving||!sameMapView(startView,currentMapView())))return;
+      const {latitude:lat,longitude:lng}=coords;
+      if(!validMapView({lat,lng,zoom:16})){failed();return;}
       state.gpsMarker?.remove();
-      const el=text("div","", "gps-dot");
-      state.gpsMarker=new window.maplibregl.Marker({element:el})
-        .setLngLat([lng,lat]).addTo(state.map);
-      state.map.flyTo({center:[lng,lat],zoom:Math.max(mapZoom(),16)});
-    } else if(state.library==="leaflet"){
-      state.gpsMarker?.remove();
-      state.gpsMarker=window.L.circleMarker([lat,lng],{radius:8,color:"#fff",weight:3,
-        fillColor:"#2486df",fillOpacity:1}).addTo(state.map);
-      state.map.flyTo([lat,lng],Math.max(mapZoom(),16));
-    }
-    notify("Showing your location. Location is not saved or shared.");
-  },error=>{
-    $("locateButton").disabled=false;
-    notify(error.code===1?"Location permission denied.":"Unable to determine your location.",true);
-  },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+      if(state.library==="maplibre"){
+        const el=text("div","","gps-dot");
+        state.gpsMarker=new window.maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(state.map);
+        state.map.flyTo({center:[lng,lat],zoom:automatic?16:Math.max(mapZoom(),16)});
+      }else if(state.library==="leaflet"){
+        state.gpsMarker=window.L.circleMarker([lat,lng],{radius:8,color:"#fff",weight:3,fillColor:"#2486df",fillOpacity:1}).addTo(state.map);
+        state.map.flyTo([lat,lng],automatic?16:Math.max(mapZoom(),16));
+      }
+      if(!automatic)notify("Showing your location. The last map view is saved only on this device.");
+    },failed,{enableHighAccuracy:true,timeout:12000,maximumAge:0});
+  }catch(error){failed(error);}
 }
 function recordChange(change) {
   change.version=change.version??change.after?.version;
@@ -2059,7 +2095,7 @@ function wire() {
   $("downloadLegacyBtn").addEventListener("click",downloadLegacyEdits);
   $("themeToggle").addEventListener("click",()=>setFeatureSetting("darkTheme",!state.features.darkTheme));
   $("categoryFilter").addEventListener("change",e=>{state.category=e.target.value;render();});
-  $("locateButton").addEventListener("click",locateUser);
+  $("locateButton").addEventListener("click",()=>locateUser());
   $("undoBtn").addEventListener("click",()=>replayHistory("undo"));
   $("redoBtn").addEventListener("click",()=>replayHistory("redo"));
   $("search").addEventListener("input",(e)=>{state.query=e.target.value;render();});
@@ -2271,6 +2307,7 @@ async function main() {
   await initMap();
   render();
   applyDeepLink();
+  if(!new URLSearchParams(location.search).has("pin"))locateUser({automatic:true});
   setInterval(()=>reloadShared(true),5000);
   window.addEventListener("resize",positionDetail);
 }
