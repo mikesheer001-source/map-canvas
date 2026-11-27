@@ -50,14 +50,35 @@ function client(){
   const window={};
   const location={hostname:"test.invalid",search:""};
   const navigator={onLine:true};
-  const enqueueOfflineChange=async change=>change;
-  const getQueuedChange=async()=>null;
-  const listQueuedChanges=async()=>[];
-  const removeQueuedChange=async()=>true;
-  const markQueuedConflict=async()=>true;
+  const pending=new Map();
+  const enqueueOfflineChange=async change=>{
+    const existing=pending.get(change.pinId);
+    if(existing&&existing.expectedVersion===null&&change.action==="delete"){
+      pending.delete(change.pinId);return {cancelled:true,pinId:change.pinId};
+    }
+    const value={...existing,...change,expectedVersion:existing?existing.expectedVersion:change.expectedVersion,
+      createdAt:existing?.createdAt??change.createdAt,status:"pending",conflict:null};
+    pending.set(change.pinId,value);return value;
+  };
+  const getQueuedChange=async id=>pending.get(id)||null;
+  const listQueuedChanges=async()=>[...pending.values()].sort((a,b)=>a.createdAt-b.createdAt);
+  const removeQueuedChange=async id=>pending.delete(id);
+  const markQueuedConflict=async(id,message)=>{
+    const item=pending.get(id);if(item)pending.set(id,{...item,status:"conflict",conflict:message});return !!item;
+  };
   const listOfflineAreas=async()=>[];
-  const mergePendingChanges=entries=>entries;
-  const stripOfflineFlags=entry=>entry;
+  const mergePendingChanges=(entries,queued)=> {
+    const merged=new Map(entries.map(entry=>[entry.id,{...entry}]));
+    for(const item of queued){
+      if(item.status==="conflict"){
+        if(item.action==="save"&&item.entry)merged.set(item.pinId,{...item.entry,pendingSync:true,syncConflict:true});
+        else if(merged.has(item.pinId))merged.set(item.pinId,{...merged.get(item.pinId),syncConflict:true});
+      }else if(item.action==="save"&&item.entry)merged.set(item.pinId,{...item.entry,pendingSync:true});
+      else if(item.action==="delete")merged.delete(item.pinId);
+    }
+    return [...merged.values()];
+  };
+  const stripOfflineFlags=entry=>{const value={...entry};delete value.pendingSync;delete value.syncConflict;return value;};
   const formatOfflineBytes=()=> "0 B";
   const make=new Function("document","window","location","FEATURE_DEFAULTS","localStorage","fetch","navigator",
     "enqueueOfflineChange","getQueuedChange","listQueuedChanges","removeQueuedChange","markQueuedConflict",
@@ -102,9 +123,12 @@ await b.loadHostels();
 assert.equal(b.state.entries.find(pin=>pin.id===newPin.id).title,"Edited twice");
 failWrite=true;
 const previous=a.state.entries.find(pin=>pin.id===newPin.id);
-await assert.rejects(a.submitChange("save",{...previous,title:"Retry"}),/retry/i);
-assert.equal(a.state.entries.find(pin=>pin.id===newPin.id).title,"Edited twice");
-await a.submitChange("save",{...previous,title:"Retry"});
+const offlineRetry=await a.submitChange("save",{...previous,title:"Retry"});
+assert.equal(offlineRetry.queued,true);
+assert.equal(a.state.entries.find(pin=>pin.id===newPin.id).title,"Retry");
+assert.equal((await listQueuedChanges()).length,1);
+await a.loadHostels();
+assert.equal((await listQueuedChanges()).length,0);
 await b.loadHostels();
 assert.equal(b.state.entries.find(pin=>pin.id===newPin.id).title,"Retry");
 // Another client's update must not be erased by a stale replace.
