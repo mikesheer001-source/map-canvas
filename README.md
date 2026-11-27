@@ -110,3 +110,5 @@ New or changed photos must use image files committed under `publish/photos/`, an
 ## Route pins (diamond markers)
 
 Tap the diamond (◇) in the map controls, choose walking (default), driving, or cycling, and tap two endpoints. The router calculates mapped geometry; the saved thin line follows roads or paths, and the diamond sits halfway along it. Tap either to open photos and notes. If no route is available, the app reports the error instead of drawing a fake straight line. Previously saved straight-line route pins retain their notes/photos and can be redrawn to obtain real geometry. Routing uses the public FOSSGIS OSRM service (one user-triggered request per second maximum); OpenStreetMap attribution and map-correction links are in route details. No live traffic or guarantee of trail access.
+
+Saved diamond route pins are hidden by default. Turn on **Settings → Browse & organize → Show route pins** to display their lines, markers, photos and list entries. Starting a new route also turns on the setting so you can see your new route; the setting is remembered on that browser. The existing transport planner and route optimizer are unchanged.

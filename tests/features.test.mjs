@@ -82,3 +82,11 @@ assert.ok(html.includes('id="addRoutePin"'));
 assert.equal(api.isRoutePin({canvas:{type:"route",start:[103,22],end:[104,23]}}),true);
 assert.equal(api.pinEmoji({canvas:{type:"route",start:[103,22],end:[104,23]}}),"↔");
 assert.deepEqual(api.routeMidpoint([103,22],[104,23]),{lng:103.5,lat:22.5});
+
+assert.equal(FEATURE_DEFAULTS.showRoutePins,false);
+api.state.entries=[{id:"ordinary",title:"Ordinary",category:"Hostel"},{id:"route",title:"Route",category:"Route",canvas:{type:"route",start:[103,22],end:[104,23]}}];
+assert.deepEqual(api.filterEntries().map(e=>e.id),["ordinary"]);
+api.state.features.showRoutePins=true;
+assert.deepEqual(api.filterEntries().map(e=>e.id),["ordinary","route"]);
+api.state.features.showRoutePins=false;
+assert.deepEqual(api.filterEntries().map(e=>e.id),["ordinary"]);

@@ -1,5 +1,5 @@
 import { fetchRoutePin } from "./route-pins.mjs?v=routed-diamonds-20261128";
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=routed-diamonds-20261128";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-visibility-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -142,6 +142,7 @@ function isRecentPin(entry, now=Date.now()){
 function pinPassesAgeFilter(entry){
   return !state.features.recentPinsOnly || isRecentPin(entry);
 }
+function pinPassesRouteFilter(entry){return state.features.showRoutePins || !isRoutePin(entry);}
 function makeEmojiPin(entry,className){
   const emoji=pinEmoji(entry);
   const pin=text("span",emoji,className);
@@ -391,6 +392,7 @@ function filterEntries() {
   const shown = allEntries().filter((e) =>
     pinThemeVisible(e,state.hiddenPinThemes)
     && pinPassesAgeFilter(e)
+    && pinPassesRouteFilter(e)
     && (!state.features.filters || state.category === "all" || e.category === state.category)
     && (!state.features.filters || state.filter === "all" || state.filter === "place" ||
       (state.filter === "note" && (e.notes || e.kind === "note")) ||
@@ -863,11 +865,11 @@ function fitOptimizedRoute(){
 function render() {
   enhanced?.selections();
   settingsUI?.syncThemeOptions(allEntries());
-  if(openDetails.size && (state.hiddenPinThemes.size || state.features.recentPinsOnly)){
+  if(openDetails.size && (state.hiddenPinThemes.size || state.features.recentPinsOnly || !state.features.showRoutePins)){
     const entriesById=new Map(allEntries().map(entry=>[entry.id,entry]));
     for(const [id,card] of openDetails){
       const entry=entriesById.get(id)||card.entry;
-      if(!pinThemeVisible(entry,state.hiddenPinThemes)||!pinPassesAgeFilter(entry))hideDetail(id,false);
+      if(!pinThemeVisible(entry,state.hiddenPinThemes)||!pinPassesAgeFilter(entry)||!pinPassesRouteFilter(entry))hideDetail(id,false);
     }
   }
   const shown = filterEntries();
@@ -1130,7 +1132,7 @@ function mapFocus(entry) {
   else state.map.flyTo([entry.lat,entry.lng],Math.max(mapZoom(),17.3));
 }
 function fitPins() {
-  const visible=allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && pinPassesAgeFilter(e) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
+  const visible=allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && pinPassesAgeFilter(e) && pinPassesRouteFilter(e) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
   const valid=visible.flatMap(e=>isRoutePin(e)?[e,...[e.canvas.start,e.canvas.end].map(([lng,lat])=>({lng,lat}))]:[e]);
   if (!valid.length || !state.map) return;
   if (state.library === "maplibre") {
@@ -1594,7 +1596,7 @@ async function sharePin(entry) {
 function applyDeepLink() {
   if(!state.pendingPin)return;
   const entry=allEntries().find(e=>e.id===state.pendingPin);
-  if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)&&pinPassesAgeFilter(entry)){state.pendingPin=null;choose(entry,true);}
+  if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)&&pinPassesAgeFilter(entry)&&pinPassesRouteFilter(entry)){state.pendingPin=null;choose(entry,true);}
 }
 function locateUser() {
   if (!navigator.geolocation) {notify("Location is unavailable in this browser.",true);return;}
@@ -1914,7 +1916,7 @@ function setFeatureSetting(key,value,persist=true){
   if(persist || key===null){
     applyFeatureSettings(key);
     settingsUI?.sync();
-    if(key==="recentPinsOnly"&&state.map)applyDeepLink();
+    if((key==="recentPinsOnly"||key==="showRoutePins")&&state.map)applyDeepLink();
   }
 }
 
@@ -2034,7 +2036,7 @@ function wire() {
   document.querySelectorAll(".filter").forEach((el)=>
     el.addEventListener("click",()=>{state.filter=el.dataset.filter;render();}));
   $("addButton").addEventListener("click",()=>startPlacement("place"));
-  $("addRoutePin").addEventListener("click",()=>startPlacement("route"));
+  $("addRoutePin").addEventListener("click",()=>{if(!state.features.showRoutePins)setFeatureSetting("showRoutePins",true);startPlacement("route");});
   $("cancelPlace").addEventListener("click",()=>{
     state.placing=null;$("placementBar").classList.add("hidden");
     enhanced?.clearMeasurement();
