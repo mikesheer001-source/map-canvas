@@ -115,10 +115,64 @@ export function pinPhotoUrls(entry,safeImage,onePicturePerPin=false){
   const urls=[...new Set([entry.photo,...gallery].map(safeImage).filter(Boolean))];
   return onePicturePerPin ? urls.slice(0,1) : urls;
 }
+// Pack floating photos in viewport pixels; never alter pin coordinates.
+export function layoutPinPhotos(items,width,height,requestedSize){
+  const margin=6,gap=6,W=width-2*margin,H=height-2*margin;
+  if(!items.length||W<1||H<1)return {size:requestedSize,placements:new Map()};
+  const limit=Math.max(1,Math.min(requestedSize,W,H)),floor=Math.min(limit,24);
+  const sorted=[...items].sort((a,b)=>a.y-b.y||a.x-b.x||String(a.id).localeCompare(String(b.id)));
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  let best=null;
+  for(let size=limit;;size=Math.max(floor,size*.75)){
+    const placements=new Map(),cells=new Map(),step=Math.max(24,size+gap);
+    const keys=r=>{
+      const out=[];
+      for(let x=Math.floor((r.x-gap)/step);x<=Math.floor((r.x+r.w+gap)/step);x++)
+        for(let y=Math.floor((r.y-gap)/step);y<=Math.floor((r.y+r.h+gap)/step);y++)out.push(x+":"+y);
+      return out;
+    };
+    const free=r=>keys(r).every(k=>(cells.get(k)||[]).every(p=>
+      r.x+r.w+gap<=p.x||p.x+p.w+gap<=r.x||r.y+r.h+gap<=p.y||p.y+p.h+gap<=r.y));
+    for(const item of sorted){
+      const maxCols=Math.min(4,item.count,Math.floor((W+3)/(size+3)));
+      if(!maxCols)continue;
+      let columns=Math.min(item.count===4?2:4,maxCols),rows=Math.ceil(item.count/columns);
+      while(columns<maxCols&&rows*size+(rows-1)*3>H){columns++;rows=Math.ceil(item.count/columns);}
+      const w=columns*size+(columns-1)*3,h=rows*size+(rows-1)*3;
+      if(w>W+.001||h>H+.001)continue;
+      const maxX=width-margin-w,maxY=height-margin-h,px=item.x-w/2,py=item.y-22-h;
+      let chosen=null,score=Infinity;
+      const consider=(x,y)=>{
+        x=clamp(x,margin,maxX);y=clamp(y,margin,maxY);
+        const cost=(x-px)**2+(y-py)**2;
+        if(cost>=score)return;
+        const rect={x,y,w,h,columns};
+        if(free(rect)){chosen=rect;score=cost;}
+      };
+      consider(px,py);
+      if(score>0){
+        for(const x of [item.x-w-gap,item.x-w/2,item.x+gap])
+          for(const y of [item.y-22-h,item.y-h/2,item.y+22])consider(x,y);
+        for(let y=margin;y<=maxY+.001;y+=h+gap){
+          for(let x=margin;x<=maxX+.001;x+=w+gap)consider(x,y);
+          consider(maxX,y);
+        }
+        for(let x=margin;x<=maxX+.001;x+=w+gap)consider(x,maxY);
+        consider(maxX,maxY);
+      }
+      if(!chosen)continue;
+      placements.set(item.id,chosen);
+      for(const k of keys(chosen)){if(!cells.has(k))cells.set(k,[]);cells.get(k).push(chosen);}
+    }
+    if(!best||placements.size>best.placements.size)best={size,placements};
+    if(placements.size===items.length||size<=floor)break;
+  }
+  return best;
+}
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,showAllPictures:false,onePicturePerPin:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
+  labels:true,showAllPictures:false,onePicturePerPin:false,avoidPhotoOverlap:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
@@ -127,6 +181,7 @@ export const FEATURE_GROUPS=[
     ["pinRatings","Google ratings on pins","Show rating and review count under each pin emoji"],
     ["showAllPictures","Show all pictures","Show photos above their pins when zoomed in"],
     ["onePicturePerPin","One picture per pin","When map pictures are enabled, show only the first available photo per pin"],
+    ["avoidPhotoOverlap","Avoid picture overlap","Spread photos apart, shrink if crowded, and connect displaced photos to their pins"],
     ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
     ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
     ["gps","Find my location","Show the GPS location button"],
@@ -364,6 +419,7 @@ export function createEnhancements(api){
   let uploadedGallery=[];
   let photoFrame=0;
   const photoGroups=new Map();
+  let photoConnectors=null;
   const pinPhotos=$("pinPhotos");
   const localMeta=(entry)=>({layer:entry.layer||defaultLayer(entry),group:entry.group||"",
     gallery:Array.isArray(entry.gallery)?entry.gallery:[],canvas:entry.canvas||null});
@@ -436,8 +492,9 @@ export function createEnhancements(api){
     const overlay=pinPhotos;
     const zoom=api.mapZoom();
     if(!state.features.showAllPictures || !state.map || zoom<PIN_PHOTO_MIN_ZOOM){
-      if(photoGroups.size)overlay.replaceChildren();
+      if(photoGroups.size||photoConnectors)overlay.replaceChildren();
       photoGroups.clear();
+      photoConnectors=null;
       return;
     }
     const map=$("map");
@@ -453,15 +510,29 @@ export function createEnhancements(api){
     // Allow the full user-selected scale, even when a photo extends beyond the viewport.
     const size=baseSize*api.photoSize();
     const maxColumns=Math.max(1,Math.floor((width+3)/(size+3)));
-    const shown=new Set();
-    overlay.style.setProperty("--pin-photo-size",size+"px");
+    const shown=new Set(),items=[];
     for(const entry of state.visiblePins||[]){
       const urls=pinPhotoUrls(entry,safeImage,state.features.onePicturePerPin);
       if(!urls.length)continue;
       const p=project(entry.lng,entry.lat);
       if(!p || p.x<0 || p.x>=width || p.y<0 || p.y>=height)continue;
+      items.push({entry,id:entry.id,x:p.x,y:p.y,count:urls.length,urls});
+    }
+    const avoid=state.features.avoidPhotoOverlap;
+    const packed=avoid?layoutPinPhotos(items,width,height,size):null;
+    overlay.style.setProperty("--pin-photo-size",(packed?.size??size)+"px");
+    if(avoid){
+      if(!photoConnectors){
+        photoConnectors=svgEl("svg",{class:"pin-photo-connectors","aria-hidden":"true"});
+        overlay.prepend(photoConnectors);
+      }
+      photoConnectors.replaceChildren();
+    }else if(photoConnectors){photoConnectors.remove();photoConnectors=null;}
+    for(const {entry,x,y,urls} of items){
+      const p={x,y},rect=packed?.placements.get(entry.id);
+      if(avoid&&!rect)continue;
       shown.add(entry.id);
-      const columns=Math.min(urls.length===4 ? 2 : Math.min(4,urls.length),maxColumns);
+      const columns=rect?.columns??Math.min(urls.length===4 ? 2 : Math.min(4,urls.length),maxColumns);
       const signature=JSON.stringify(urls);
       let group=photoGroups.get(entry.id);
       if(group?.signature!==signature){
@@ -483,7 +554,12 @@ export function createEnhancements(api){
         photoGroups.set(entry.id,group);
       }
       group.node.style.setProperty("--pin-photo-columns",columns);
-      group.node.style.transform=`translate(${p.x}px,${p.y-22}px) translate(-50%,-100%)`;
+      if(rect){
+        group.node.style.transform=`translate(${rect.x}px,${rect.y}px)`;
+        const ax=Math.max(rect.x,Math.min(rect.x+rect.w,p.x)),ay=Math.max(rect.y,Math.min(rect.y+rect.h,p.y));
+        if(Math.abs(rect.x+rect.w/2-p.x)>2||Math.abs(rect.y+rect.h-(p.y-22))>2)
+          photoConnectors.append(svgEl("line",{x1:p.x,y1:p.y,x2:ax,y2:ay}));
+      }else group.node.style.transform=`translate(${p.x}px,${p.y-22}px) translate(-50%,-100%)`;
     }
     for(const [id,{node}] of photoGroups){
       if(shown.has(id))continue;
@@ -561,7 +637,7 @@ export function createEnhancements(api){
     el.addEventListener("pointercancel",()=>{start=null;api.render();});
   }
   function renderOverlay(){
-    if(!photoFrame&&(state.features.showAllPictures||photoGroups.size))
+    if(!photoFrame&&(state.features.showAllPictures||photoGroups.size||photoConnectors))
       photoFrame=requestAnimationFrame(renderPinPhotos);
     const objects=$("canvasObjects"),svg=$("canvasDrawing");
     if(!objects||!svg||!state.map)return;

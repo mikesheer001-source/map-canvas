@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=photo-packing-20261127";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";

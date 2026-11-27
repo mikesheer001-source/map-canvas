@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {parseCsvRows,parseImport,metersBetween,polygonAreaMeters,
- FEATURE_DEFAULTS,FEATURE_GROUPS,FEATURE_STORAGE_KEY,
+ FEATURE_DEFAULTS,FEATURE_GROUPS,FEATURE_STORAGE_KEY,layoutPinPhotos,
  readFeatureSettings,saveFeatureSettings} from "../enhancements.js";
 const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../app.js",import.meta.url),"utf8");
@@ -22,10 +22,11 @@ assert.equal(FEATURE_GROUPS.flatMap(g=>g.features).length,Object.keys(FEATURE_DE
 const fake={v:new Map(),getItem(k){return this.v.get(k)||null;},setItem(k,val){this.v.set(k,val);}};
 const initial=readFeatureSettings(fake);
 assert.deepEqual(initial,{...FEATURE_DEFAULTS});
-initial.search=false;initial.canvasObjects=false;
+initial.search=false;initial.canvasObjects=false;initial.avoidPhotoOverlap=true;
 assert.equal(saveFeatureSettings(initial,fake),true);
 assert.equal(readFeatureSettings(fake).search,false);
 assert.equal(readFeatureSettings(fake).canvasObjects,false);
+assert.equal(readFeatureSettings(fake).avoidPhotoOverlap,true);
 fake.setItem(FEATURE_STORAGE_KEY,"{broken");
 assert.deepEqual(readFeatureSettings(fake),{...FEATURE_DEFAULTS});
 const parsed=parseCsvRows('id,title,notes,lat,lng\nhostel-1,"Cafe, North","hello ""hi""",21.03,105.85\n');
@@ -63,5 +64,20 @@ assert.match(app,/storeMapSnapshot\(/);
 assert.match(app,/downloadLegacyEdits\(/);
 assert.doesNotMatch(app,/SHEETS_URL|sheetRequest\(/);
 assert.ok(!readFileSync(new URL("../enhancements.js",import.meta.url),"utf8").includes('$("measureFinish")'));
+assert.equal(FEATURE_DEFAULTS.avoidPhotoOverlap,false);
+const clustered=Array.from({length:12},(_,i)=>({id:String(i),x:150+i%2,y:200,count:i===0?4:1}));
+const originalCluster=JSON.stringify(clustered);
+const packed=layoutPinPhotos(clustered,350,500,150);
+assert.equal(packed.placements.size,clustered.length);
+assert.ok(packed.size<150);
+const boxes=[...packed.placements.values()];
+for(const [i,a] of boxes.entries()){
+ assert.ok(a.x>=0&&a.y>=0&&a.x+a.w<=350&&a.y+a.h<=500);
+ for(const b of boxes.slice(i+1))assert.ok(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);
+}
+assert.equal(JSON.stringify(clustered),originalCluster);
+assert.deepEqual(layoutPinPhotos(clustered,350,500,150),packed);
+const isolated=layoutPinPhotos([{id:"one",x:200,y:200,count:1}],400,400,60);
+assert.deepEqual(isolated.placements.get("one"),{x:170,y:118,w:60,h:60,columns:1});
 console.log("PASS: Sheets CSV/JSON round-trip, stable IDs, local settings and import/export controls");
 await import("./shared-client.test.mjs");

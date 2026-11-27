@@ -197,6 +197,19 @@ try {
   await pinDetails.getByRole("heading",{name:"Viet Vintage Hostel"}).waitFor();
   await pinDetails.getByRole("button",{name:"Close details"}).click();
   await page.locator('#pinPhotos [data-pin-id="hostel-8"] img').evaluate(image=>{image.style.transform="";});
+  await page.locator("#settingsButton").click();
+  const avoidOverlap=page.getByRole("checkbox",{name:"Avoid picture overlap",exact:true});
+  await avoidOverlap.check();
+  await page.locator("#settingsDone").click();
+  await page.waitForFunction(()=>{
+    const rect=id=>document.querySelector(`#pinPhotos [data-pin-id="${id}"]`)?.getBoundingClientRect();
+    const a=rect("hostel-1"),b=rect("hostel-8");
+    return a&&b&&(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)&&document.querySelector(".pin-photo-connectors line");
+  });
+  await page.locator("#settingsButton").click();
+  await avoidOverlap.uncheck();
+  await page.locator("#settingsDone").click();
+  await page.waitForFunction(()=>!document.querySelector(".pin-photo-connectors"));
   const smallPhoto=await floatingPhotos.locator("img").first().boundingBox();
   await page.locator("#settingsButton").click();
   await page.locator("#settingsSizing summary").click();
