@@ -611,7 +611,7 @@ export function createEnhancements(api){
       shape.addEventListener("click",e=>{
         e.stopPropagation();
         const item=api.allEntries().find(x=>x.id===id);
-        if(item)api.choose(item,false);
+        if(item){if(state.placing){const [x,y]=viewPoint(e);const p=unproject(x,y);if(p)api.placeAt(p);}else api.choose(item,false);}
       });
     }
   }
@@ -649,8 +649,12 @@ export function createEnhancements(api){
     const rect=$("map").getBoundingClientRect();
     svg.setAttribute("viewBox","0 0 "+Math.max(1,rect.width)+" "+Math.max(1,rect.height));
     const expanded=api.mapZoom()>=api.DETAIL_ZOOM && state.features.canvasObjects;
-    for(const entry of state.features.canvasObjects?api.filterEntries():[]){
+    for(const entry of api.filterEntries()){
       const c=entry.canvas;
+      if(c?.type==="route"){
+        if(Array.isArray(c.start)&&Array.isArray(c.end))drawing(svg,"line",c.start,c.end,entry.color||"#245c48",entry.id);
+        continue;
+      }
       if(!c||!expanded)continue;
       if(["line","arrow","circle"].includes(c.type)){
         if(Array.isArray(c.start)&&Array.isArray(c.end))drawing(svg,c.type,c.start,c.end,entry.color||"#245c48",entry.id);

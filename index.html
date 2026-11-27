@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=pin-quality-20261128">
+<link rel="stylesheet" href="./style.css?v=route-pins-20261128">
 </head>
 <body>
 <div id="app">
@@ -77,6 +77,7 @@
    <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
    <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
    <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="offlineButton" title="Download map areas for offline use" aria-label="Offline map areas">⇩</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
+   <button id="addRoutePin" type="button" title="Add route pin" aria-label="Add route pin">◇</button>
    <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
    <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
   </nav>
@@ -101,7 +102,7 @@
    <div id="transportResearchResults" aria-live="polite"></div>
   </section>
   <div id="detailLayer" class="detail-layer"></div>
-  <div id="placementBar" class="placement-bar hidden">Tap the map to place your entry <button id="cancelPlace" aria-label="Cancel placement">✕</button></div>
+  <div id="placementBar" class="placement-bar hidden"><span id="placementInstruction">Tap the map to place your entry</span> <button id="cancelPlace" aria-label="Cancel placement">✕</button></div>
   <div class="mobile-tab"><button id="listButton">☷ List</button></div>
  </section>
 </div>
@@ -187,6 +188,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=pin-quality-20261128"></script>
+<script type="module" src="./app.js?v=route-pins-20261128"></script>
 </body>
 </html>

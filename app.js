@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=recent-filter-20261128";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-pins-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -117,7 +117,10 @@ const THEME_EMOJIS=[
   [/\b(photo|photography|camera)\b/i,"📸"],
   [/\b(note|memo|reminder)\b/i,"📝"]
 ];
+function isRoutePin(entry){return entry?.canvas?.type==="route"&&Array.isArray(entry.canvas.start)&&Array.isArray(entry.canvas.end);}
+function routeMidpoint(start,end){return {lng:(start[0]+end[0])/2,lat:(start[1]+end[1])/2};}
 function pinEmoji(entry){
+  if(isRoutePin(entry))return "↔";
   // An explicitly selected non-default icon wins over automatic categorization.
   const custom=String(entry?.icon||"");
   if(custom!=="📍"&&ICONS.includes(custom))return custom;
@@ -142,8 +145,9 @@ function makeEmojiPin(entry,className){
   const emoji=pinEmoji(entry);
   const pin=text("span",emoji,className);
   pin.title=entry.title||"Map pin";
+  if(isRoutePin(entry))pin.classList.add("route-pin");
   if(isRecentPin(entry)){pin.classList.add("recent-pin");pin.title+=" · Added within 24hrs";}
-  if(!state.features.pinRatings)return pin;
+  if(!state.features.pinRatings||isRoutePin(entry))return pin;
   const rating=String(entry.rating??"").trim().match(/^([0-5](?:\.\d+)?)(?:\s*\(([\d,]+) reviews?\))?$/i);
   if(!rating || Number(rating[1])>5){
     pin.classList.add("has-rating");
@@ -886,7 +890,7 @@ function render() {
     const row = document.createElement("button");
     const routeOrder=state.routeSelectedIds.indexOf(entry.id);
     row.type = "button"; row.className = "entry" + (state.current?.id === entry.id ? " is-active" : "") + (routeOrder>=0 ? " route-selected" : "");
-    const ico = text("span", pinEmoji(entry), "entry-ico");
+    const ico = text("span", pinEmoji(entry), "entry-ico"+(isRoutePin(entry)?" route-entry-ico":""));
     ico.style.color = validColor(entry.color) ? entry.color : pinColor(entry.kind);
     if (entry.kind === "photo" && entry.photo) {
       const img = document.createElement("img"); img.alt = "";
@@ -1006,6 +1010,7 @@ function attachMapPinClicks(map) {
     const entry = state.visiblePins.find((item) => item.id === id);
     if (!entry) return;
     if(enhanced?.isDrawing())return;
+    if(state.placing?.kind==="route")return; // global MapLibre click handles the two route endpoints once
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else if(state.routeSelecting)toggleRoutePin(entry);
     else if(state.transportSelecting)selectTransportPin(entry);
@@ -1119,7 +1124,8 @@ function mapFocus(entry) {
   else state.map.flyTo([entry.lat,entry.lng],Math.max(mapZoom(),17.3));
 }
 function fitPins() {
-  const valid = allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && pinPassesAgeFilter(e) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
+  const visible=allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && pinPassesAgeFilter(e) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
+  const valid=visible.flatMap(e=>isRoutePin(e)?[e,...[e.canvas.start,e.canvas.end].map(([lng,lat])=>({lng,lat}))]:[e]);
   if (!valid.length || !state.map) return;
   if (state.library === "maplibre") {
     const minLng = Math.min(...valid.map((x) => x.lng)), minLat = Math.min(...valid.map((x) => x.lat));
@@ -1195,6 +1201,10 @@ async function initMap() {
     map.on("click",(event)=>{
       if(state.library==="maplibre"&&state.styleReady){
         const pinHits=map.queryRenderedFeatures(event.point,{layers:[PIN_TOUCH].filter(id=>map.getLayer(id))});
+        if(state.placing?.kind==="route"){
+          const entry=state.visiblePins.find(p=>p.id===pinHits[0]?.properties?.id);
+          placeAt(entry?{lng:entry.lng,lat:entry.lat}:event.lngLat);return;
+        }
         const routeHits=pinHits.length?[]:map.queryRenderedFeatures(event.point,{layers:TRANSPORT_LAYER_IDS.filter(id=>id.endsWith("-hit")&&map.getLayer(id))});
         const routeId=routeHits[0]?.properties?.routeId;
         if(routeId){showTransportInfo(String(routeId));return;}
@@ -1243,6 +1253,7 @@ function renderDetail(entry,detail){
   closeButton.setAttribute("aria-label","Close details");
   head.append(name,closeButton);
   detail.append(head);
+  if(isRoutePin(entry))detail.append(text("small","Straight-line route · not road directions","muted"));
   if (entry.photo) {
     const img=document.createElement("img");
     img.alt=entry.title;img.src=entry.photo;img.referrerPolicy="no-referrer";img.className="detail-photo";
@@ -1311,19 +1322,31 @@ function toggleList(open) {
 function showMobileMap(){toggleList(false);}
 function startPlacement(kind, draft) {
   state.placing={kind:kind||"place", draft:draft||null};
+  $("placementInstruction").textContent=kind==="route"?"Tap the route start point":"Tap the map to place your entry";
   $("placementBar").classList.remove("hidden");
   $("cancelPlace").focus();
   showMobileMap();
 }
 async function placeAt({lng,lat}) {
   if (!state.placing) return;
-  const p=state.placing;state.placing=null;
+  const p=state.placing;
+  if(p.kind==="route"&&!p.start){
+    p.start=[Number(lng),Number(lat)];
+    $("placementInstruction").textContent="Tap the route end point";
+    return;
+  }
+  if(p.kind==="route"&&p.start[0]===Number(lng)&&p.start[1]===Number(lat)){notify("Choose a different end point.",true);return;}
+  state.placing=null;
   $("placementBar").classList.add("hidden");
   const draft=p.draft||{
     id:crypto.randomUUID(),title:"",kind:"place",category:"",price:"",rating:"",
     notes:"",photo:"",version:""
   };
-  draft.lat=Number(lat);draft.lng=Number(lng);
+  if(p.kind==="route"){
+    const end=[Number(lng),Number(lat)];
+    Object.assign(draft,routeMidpoint(p.start,end),{category:draft.category||"Route",canvas:{type:"route",start:p.start,end}});
+    draft.title=draft.title||"New route";
+  }else{draft.lat=Number(lat);draft.lng=Number(lng);}
   if (state.pendingPhoto) {
     try {draft.photo=await shrinkPhoto(state.pendingPhoto);}catch(e){notify(e.message,true);}
     state.pendingPhoto=null;
@@ -1332,7 +1355,7 @@ async function placeAt({lng,lat}) {
 }
 function openEditor(entry) {
   state.draft={...entry};
-  $("editorTitle").textContent=allEntries().some(e=>e.id===entry.id)?"Edit map entry":"New map entry";
+  $("editorTitle").textContent=isRoutePin(entry)?(allEntries().some(e=>e.id===entry.id)?"Edit route":"New route"):(allEntries().some(e=>e.id===entry.id)?"Edit map entry":"New map entry");
   $("title").value=entry.title||"";
   $("category").value=entry.category||"";
   $("price").value=entry.price||"";
@@ -1341,7 +1364,8 @@ function openEditor(entry) {
   $("pinIcon").value=ICONS.includes(entry.icon)?entry.icon:"📍";
   $("pinColor").value=validColor(entry.color)?entry.color:"#245c48";
   $("imageUrl").value=entry.photo?.startsWith("https://")?entry.photo:"";
-  $("coords").textContent=entry.lat.toFixed(5)+", "+entry.lng.toFixed(5);
+  $("coords").textContent=isRoutePin(entry)?`Start ${entry.canvas.start[1].toFixed(5)}, ${entry.canvas.start[0].toFixed(5)} · End ${entry.canvas.end[1].toFixed(5)}, ${entry.canvas.end[0].toFixed(5)}`:entry.lat.toFixed(5)+", "+entry.lng.toFixed(5);
+  $("movePin").textContent=isRoutePin(entry)?"↔ Redraw route":"⌖ Move on map";
   const img=$("photoPreview");
   if (entry.photo) {img.src=entry.photo;img.classList.remove("hidden");}
   else {img.removeAttribute("src");img.classList.add("hidden");}
@@ -1808,7 +1832,7 @@ async function exportPendingEdits(){
 const FEATURE_TARGETS={
   search:[".searchwrap"],filters:[".filters","#categoryFilter","#sort"],
   layers:[".collection-selects",".layers-panel"],
-  importExport:[".io-actions"],addPins:["#addButton"],
+  importExport:[".io-actions"],addPins:["#addButton","#addRoutePin"],
   canvasObjects:[],galleries:["#galleryControls"],
   undoRedo:["#undoBtn","#redoBtn"],
   gps:["#locateButton"],
@@ -1976,6 +2000,7 @@ function wire() {
   document.querySelectorAll(".filter").forEach((el)=>
     el.addEventListener("click",()=>{state.filter=el.dataset.filter;render();}));
   $("addButton").addEventListener("click",()=>startPlacement("place"));
+  $("addRoutePin").addEventListener("click",()=>startPlacement("route"));
   $("cancelPlace").addEventListener("click",()=>{
     state.placing=null;$("placementBar").classList.add("hidden");
     enhanced?.clearMeasurement();
@@ -2004,7 +2029,7 @@ function wire() {
   });
   $("movePin").addEventListener("click",()=>{
     if(!state.draft)return;
-    const moving={...state.draft};closeEditor();startPlacement(moving.kind,moving);
+    const moving={...state.draft};closeEditor();startPlacement(isRoutePin(moving)?"route":moving.kind,moving);
   });
   document.querySelectorAll(".type").forEach((el)=>el.addEventListener("click",()=>{
     if(!state.draft)return;

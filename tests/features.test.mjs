@@ -27,7 +27,7 @@ assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"));
 const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS","pinThemeVisible",
  app.replace(/^import .*;\s*/gm,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
- "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries};")(
+ "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries,isRoutePin,routeMidpoint};")(
  {},{},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
  {onLine:true},FEATURE_DEFAULTS,pinThemeVisible);
 assert.equal(api.validColor("#ffaa22"),true);
@@ -77,3 +77,8 @@ assert.deepEqual(api.filterEntries().map(e=>e.id),["recent"]);
 api.state.features.recentPinsOnly=false;
 assert.equal(api.filterEntries().length,4);
 console.log("PASS: shared public map, filters, emoji pins, manual Sheets import, and cache");
+
+assert.ok(html.includes('id="addRoutePin"'));
+assert.equal(api.isRoutePin({canvas:{type:"route",start:[103,22],end:[104,23]}}),true);
+assert.equal(api.pinEmoji({canvas:{type:"route",start:[103,22],end:[104,23]}}),"↔");
+assert.deepEqual(api.routeMidpoint([103,22],[104,23]),{lng:103.5,lat:22.5});

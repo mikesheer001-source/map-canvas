@@ -468,3 +468,10 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 
 /* Keep the rating readable on the light-blue recent-pin background in both themes. */
 .emoji-pin.recent-pin .pin-rating,.emoji-pin-inner.recent-pin .pin-rating{color:#172554!important;text-shadow:none}
+
+/* Route pins are diamonds; the glyph and 24-hour badge remain upright. */
+.emoji-pin.route-pin,.leaflet-emoji-marker .emoji-pin-inner.route-pin{background:transparent!important;border:0!important;border-radius:0;box-shadow:none!important;isolation:isolate;position:relative;color:#234a3a;font-size:22px;font-weight:800}
+.maplibregl-marker.emoji-pin.route-pin{position:absolute}
+.route-pin::before{content:"";position:absolute;inset:4px;background:#f4fff8;border:2px solid #4d8867;transform:rotate(45deg);border-radius:3px;z-index:-1;box-shadow:0 2px 8px #163d3059}
+.route-pin.recent-pin::before{background:#dbeafe;border-color:#3b82f6;box-shadow:0 0 0 3px #60a5fa70}
+.route-entry-ico{border-radius:4px;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}

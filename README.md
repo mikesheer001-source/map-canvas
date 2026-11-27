@@ -106,3 +106,7 @@ See [AGENTS.md](AGENTS.md) for the standard required for researched pins, includ
 ### Image storage requirement
 
 New or changed photos must use image files committed under `publish/photos/`, an existing verified Map Canvas R2 photo URL, or an explicitly mirrored licensed Wikimedia image. The publisher rejects external hotlinks and verifies stored image bytes before updating pins. See AGENTS.md.
+
+## Route pins (diamond markers)
+
+Tap the diamond (◇) in the map controls, then tap the start and end points (existing pins or any map position). Name the route and add notes, a photo or gallery, and a color. The straight line and midpoint diamond are one shared pin; tapping either opens its details. Edit or redraw both endpoints from the editor, or delete the route just like other pins. Routes are straight visual connections, not road navigation. The ordinary route optimizer and multimodal transport features are unchanged.

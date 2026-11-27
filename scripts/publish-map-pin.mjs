@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 const production = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
 const pinId = /^(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|hostel-[0-9]+)$/i;
 const photoFile = /^publish\/photos\/[A-Za-z0-9][A-Za-z0-9_.-]*\.(?:jpe?g|png|webp|gif)$/i;
-const fields = new Set("id kind category title lat lng price rating bookingRating breakfast link notes photo source icon color gallery layer group".split(" "));
+const fields = new Set("id kind category title lat lng price rating bookingRating breakfast link notes photo source icon color gallery layer group canvas".split(" "));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const legacyPhotoSources = new Set(["vpt-en.b-cdn.net","www.asiatouradvisor.com","authentikvietnam.com","upload.wikimedia.org","cdn-i.vtcnews.vn","bucketlist2life.com","sapa-tourism.com","lilystravelagency.com","cdn.getyourguide.com","kampatour.com","vietnamdiscovery.com","duaelbluiumc3.cloudfront.net","d3rftsiup4wf15.cloudfront.net","img1.daumcdn.net"]);
 function imageMime(bytes){
