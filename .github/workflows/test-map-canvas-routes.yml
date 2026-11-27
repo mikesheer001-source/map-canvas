@@ -16,9 +16,25 @@ on:
       - 'tests/transport-options.test.mjs'
       - 'tests/transport-options-harness.html'
       - 'tests/transport-options.browser.test.mjs'
+      - 'itinerary.mjs'
+      - 'tests/itinerary.test.mjs'
+      - 'tests/itinerary-harness.html'
+      - 'tests/itinerary.browser.test.mjs'
       - 'tests/route-optimizer.test.mjs'
       - 'tests/route-harness.html'
       - 'tests/route-optimizer.browser.test.mjs'
+      - 'multimodal-routes.mjs'
+      - 'tests/multimodal-routes.test.mjs'
+      - 'tests/multimodal-route-harness.html'
+      - 'tests/multimodal-routes.browser.test.mjs'
+      - 'transport-options.mjs'
+      - 'tests/transport-options.test.mjs'
+      - 'tests/transport-options-harness.html'
+      - 'tests/transport-options.browser.test.mjs'
+      - 'itinerary.mjs'
+      - 'tests/itinerary.test.mjs'
+      - 'tests/itinerary-harness.html'
+      - 'tests/itinerary.browser.test.mjs'
       - 'package.json'
       - 'scripts/build.mjs'
       - '.github/workflows/test-map-canvas-routes.yml'
@@ -60,3 +76,5 @@ jobs:
         run: npm run test:multimodal:browser
       - name: Run targeted transport-options popup browser tests
         run: npm run test:transport-options:browser
+      - name: Run targeted itinerary builder browser tests
+        run: npm run test:itinerary:browser

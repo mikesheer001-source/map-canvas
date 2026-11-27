@@ -2,6 +2,7 @@ import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_S
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
+import { createItinerary, cloneItinerary, createPinStop, createCustomStop, addStopToItinerary, removeStopFromItinerary, moveItineraryStop, addItineraryDay, removeItineraryDay, setItineraryDayDate, setItineraryName, setItineraryLegRoute, setItineraryLegOption, readSavedItineraries, saveSavedItineraries, renderItineraryBuilder } from "./itinerary.mjs?v=itinerary-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
@@ -65,7 +66,9 @@ const state = {
   transportRoutes: [], transportSelecting: false, transportDraft: null, transportBusy: false,
   transportError: null, transportLayer: null, transportInfoRouteId: null,
   transportResearchRequestId: 0, transportResearchAbortController: null, transportResearchRouteId: null,
-  transportResearchBusy: false, transportResearchError: null
+  transportResearchBusy: false, transportResearchError: null,
+  itineraries: [], itineraryDraft: null, itineraryActiveId: null, itineraryDirty: false,
+  itineraryBusy: false, itineraryError: null, itineraryRequestId: 0
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -551,10 +554,10 @@ function renderTransportRoutes(){
 function removeTransportRoute(id){
   state.transportRoutes=state.transportRoutes.filter(route=>route.id!==id);
   if(state.transportInfoRouteId===id)closeTransportInfo();
-  saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();
+  saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();renderItineraryBuilderUI();
 }
 function clearTransportRoutes(){
-  state.transportRoutes=[];closeTransportInfo();saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();
+  state.transportRoutes=[];closeTransportInfo();saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();renderItineraryBuilderUI();
 }
 function startTransportRoute(){
   if(state.transportBusy)return;
@@ -588,6 +591,69 @@ async function selectTransportPin(entry){
     notify(state.transportError,true);
   }finally{state.transportBusy=false;renderTransportRoutes();render();}
 }
+
+function updateItineraryDraft(updater){
+  if(!state.itineraryDraft)return;
+  try{state.itineraryDraft=updater(state.itineraryDraft);state.itineraryDirty=true;state.itineraryError=null;}
+  catch(error){state.itineraryError=error.message||"Could not update this itinerary.";}
+  renderItineraryBuilderUI();
+}
+function confirmDiscardItinerary(){return !state.itineraryDirty||window.confirm("Discard unsaved itinerary changes?");}
+function startNewItinerary(){if(!confirmDiscardItinerary())return;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();}
+function saveCurrentItinerary(){
+  if(!state.itineraryDraft)return;
+  const saved={...state.itineraryDraft,name:String(state.itineraryDraft.name||"").trim()||"Untitled itinerary",updatedAt:new Date().toISOString()};
+  const next=state.itineraryActiveId?state.itineraries.map(x=>x.id===state.itineraryActiveId?saved:x):[...state.itineraries,saved];
+  if(state.itineraryActiveId&&!state.itineraries.some(x=>x.id===state.itineraryActiveId))next.push(saved);
+  const bounded=next.slice(-50);
+  if(!saveSavedItineraries(bounded)){state.itineraryError="Could not save this itinerary in browser storage. Check available storage space.";renderItineraryBuilderUI();return;}
+  state.itineraries=bounded;state.itineraryDraft=cloneItinerary(saved);state.itineraryActiveId=saved.id;state.itineraryDirty=false;state.itineraryError=null;notify("Itinerary saved in this browser.");renderItineraryBuilderUI();
+}
+function deleteCurrentItinerary(){
+  if(!state.itineraryActiveId||!window.confirm("Delete this saved itinerary?"))return;
+  const next=state.itineraries.filter(x=>x.id!==state.itineraryActiveId);
+  if(!saveSavedItineraries(next)){state.itineraryError="Could not update the saved itinerary list.";renderItineraryBuilderUI();return;}
+  state.itineraries=next;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
+}
+function selectSavedItinerary(id){
+  if(!confirmDiscardItinerary())return;
+  const found=state.itineraries.find(x=>x.id===id);if(!found)return;
+  state.itineraryDraft=cloneItinerary(found);state.itineraryActiveId=found.id;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
+}
+async function createItineraryRoute(dayId,from,to,mode){
+  if(state.itineraryBusy||!state.itineraryDraft)return;
+  const draftId=state.itineraryDraft.id,requestId=++state.itineraryRequestId;state.itineraryBusy=true;state.itineraryError=null;renderItineraryBuilderUI();
+  try{
+    const {buildMultimodalRoute}=await import("./multimodal-routes.mjs?v=multimodal-routes-20261127");
+    const route=await buildMultimodalRoute({mode,from:{id:from.id,title:from.title,lat:Number(from.lat),lng:Number(from.lng)},to:{id:to.id,title:to.title,lat:Number(to.lat),lng:Number(to.lng)},id:randomKey()});
+    if(state.transportRoutes.length>=100)throw new Error("The saved route library is full. Remove a route before creating another.");
+    state.transportRoutes.push(route);saveTransportRoutes();
+    if(requestId===state.itineraryRequestId&&state.itineraryDraft?.id===draftId){
+      state.itineraryDraft=setItineraryLegRoute(state.itineraryDraft,dayId,from.id,to.id,route);state.itineraryDirty=true;
+    }
+    renderTransportRoutes();renderMultimodalRoutes();
+  }catch(error){state.itineraryError=error.message||"Could not create this itinerary route.";notify(state.itineraryError,true);}
+  finally{if(requestId===state.itineraryRequestId){state.itineraryBusy=false;renderItineraryBuilderUI();}}
+}
+function renderItineraryBuilderUI(){
+  const root=$("itineraryBuilderRoot");if(!root)return;
+  const count=$("itineraryCount");if(count)count.textContent=state.itineraries.length+" saved";
+  renderItineraryBuilder(root,{draft:state.itineraryDraft,saved:state.itineraries,activeId:state.itineraryActiveId,dirty:state.itineraryDirty,busy:state.itineraryBusy,error:state.itineraryError,pins:allEntries(),routes:state.transportRoutes,actions:{
+    selectSaved:selectSavedItinerary,newItinerary:startNewItinerary,save:saveCurrentItinerary,delete:deleteCurrentItinerary,
+    nameChange:name=>updateItineraryDraft(d=>setItineraryName(d,name)),
+    addDay:()=>updateItineraryDraft(d=>addItineraryDay(d)),
+    removeDay:id=>updateItineraryDraft(d=>removeItineraryDay(d,id)),
+    dayDateChange:(id,date)=>updateItineraryDraft(d=>setItineraryDayDate(d,id,date)),
+    addPin:(dayId,pinId)=>{const pin=allEntries().find(x=>x.id===pinId);if(!pin){state.itineraryError="That map pin is no longer available.";renderItineraryBuilderUI();return;}updateItineraryDraft(d=>addStopToItinerary(d,dayId,createPinStop(pin)));},
+    addCustomStop:(id,name,lat,lng)=>updateItineraryDraft(d=>addStopToItinerary(d,id,createCustomStop(name,lat,lng))),
+    removeStop:(id,stopId)=>updateItineraryDraft(d=>removeStopFromItinerary(d,id,stopId)),
+    moveStop:(from,id,to,before)=>updateItineraryDraft(d=>moveItineraryStop(d,from,id,to,before)),
+    selectRoute:(id,from,to,routeId)=>updateItineraryDraft(d=>setItineraryLegRoute(d,id,from,to,state.transportRoutes.find(r=>r.id===routeId)||null)),
+    selectOption:(id,from,to,route,optionId)=>updateItineraryDraft(d=>setItineraryLegOption(d,id,from,to,route,optionId)),
+    createRoute:createItineraryRoute
+  }});
+}
+
 
 function clearRouteLayer(){
   if(state.library==="maplibre"&&state.map){
@@ -782,6 +848,7 @@ function render() {
   });
   updateRoutePlanner();
   renderTransportRoutes();
+  renderItineraryBuilderUI();
   const list = $("entries");
   list.replaceChildren();
   for (const entry of shown) {
@@ -1931,6 +1998,9 @@ async function main() {
   state.features=readFeatureSettings();
   state.hiddenPinThemes=readPinVisibility();
   state.transportRoutes=readSavedTransportRoutes();
+  state.itineraries=readSavedItineraries();
+  if(state.itineraries.length){const latest=state.itineraries.at(-1);state.itineraryDraft=cloneItinerary(latest);state.itineraryActiveId=latest.id;}
+  else state.itineraryDraft=createItinerary();
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
@@ -1974,7 +2044,12 @@ async function main() {
   sensitivity.addEventListener("input",()=>setPopupSensitivity(sensitivity.value,true));
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
-    if(event.key===TRANSPORT_ROUTE_STORAGE_KEY){state.transportRoutes=readSavedTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();}
+    if(event.key===TRANSPORT_ROUTE_STORAGE_KEY){state.transportRoutes=readSavedTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();renderItineraryBuilderUI();}
+    if(event.key==="map-canvas:itineraries-v1"){
+      state.itineraries=readSavedItineraries();
+      if(!state.itineraryDirty&&state.itineraryActiveId){const current=state.itineraries.find(x=>x.id===state.itineraryActiveId);if(current)state.itineraryDraft=cloneItinerary(current);else{state.itineraryDraft=createItinerary();state.itineraryActiveId=null;}}
+      renderItineraryBuilderUI();
+    }
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
     if(event.key===SENSITIVITY_KEY)setPopupSensitivity(event.newValue);
     if(event.key===PIN_VISIBILITY_KEY){

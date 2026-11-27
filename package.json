@@ -3,13 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs tests/pin-regression.test.mjs tests/features.test.mjs tests/canvas-features.test.mjs tests/offline-core.test.mjs offline-tile-proxy/worker.test.mjs tests/route-optimizer.test.mjs tests/multimodal-routes.test.mjs tests/transport-options.test.mjs",
+    "test": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs tests/pin-regression.test.mjs tests/features.test.mjs tests/canvas-features.test.mjs tests/offline-core.test.mjs offline-tile-proxy/worker.test.mjs tests/route-optimizer.test.mjs tests/multimodal-routes.test.mjs tests/transport-options.test.mjs tests/itinerary.test.mjs",
     "test:database": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs",
     "test:database:browser": "node --experimental-strip-types tests/database-browser.test.mjs",
     "build": "node --experimental-strip-types scripts/build.mjs",
     "test:offline:browser": "node tests/offline-browser.test.mjs",
     "test:route:browser": "node tests/route-optimizer.browser.test.mjs",
     "test:multimodal:browser": "node tests/multimodal-routes.browser.test.mjs",
-    "test:transport-options:browser": "node tests/transport-options.browser.test.mjs"
+    "test:transport-options:browser": "node tests/transport-options.browser.test.mjs",
+    "test:itinerary:browser": "node tests/itinerary.browser.test.mjs"
   }
 }

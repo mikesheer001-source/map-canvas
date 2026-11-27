@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=transport-options-20261127">
+<link rel="stylesheet" href="./style.css?v=itinerary-20261127">
 </head>
 <body>
 <div id="app">
@@ -61,6 +61,10 @@
     <p id="transportStatus" role="status">Choose a mode, add a route, then select two pins. Mapped routes are used when available; approximations are labelled.</p>
     <div id="transportRoutes" class="transport-routes"></div>
    </div>
+  </details>
+  <details class="itinerary-builder" id="itineraryBuilder">
+   <summary><strong>Itinerary builder</strong><span id="itineraryCount">0 saved</span></summary>
+   <div class="itinerary-builder-body" id="itineraryBuilderRoot"></div>
   </details>
   <div id="entries" class="entries" role="list"></div>
   <div class="trash-control"><button type="button" id="openTrash" class="secondary" aria-haspopup="dialog" aria-controls="trashDialog">Recently Deleted</button></div>
@@ -183,6 +187,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=transport-options-20261127"></script>
+<script type="module" src="./app.js?v=itinerary-20261127"></script>
 </body>
 </html>

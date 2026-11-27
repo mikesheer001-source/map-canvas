@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 
 const javascript = [
-  "app.js", "enhancements.js", "sw.js", "route-optimizer.mjs", "tests/route-optimizer.test.mjs", "tests/route-optimizer.browser.test.mjs", "multimodal-routes.mjs", "tests/multimodal-routes.test.mjs", "tests/multimodal-routes.browser.test.mjs", "transport-options.mjs", "tests/transport-options.test.mjs", "tests/transport-options.browser.test.mjs", "backend/board.mjs", "backend/resources.mjs",
+  "app.js", "enhancements.js", "sw.js", "route-optimizer.mjs", "tests/route-optimizer.test.mjs", "tests/route-optimizer.browser.test.mjs", "multimodal-routes.mjs", "tests/multimodal-routes.test.mjs", "tests/multimodal-routes.browser.test.mjs", "transport-options.mjs", "tests/transport-options.test.mjs", "tests/transport-options.browser.test.mjs", "itinerary.mjs", "tests/itinerary.test.mjs", "tests/itinerary.browser.test.mjs", "backend/board.mjs", "backend/resources.mjs",
   "backend/test-server.mjs", "tests/database-browser.test.mjs", "offline-store.mjs", "offline-tiles.mjs", "tests/offline-core.test.mjs", "tests/offline-browser.test.mjs", "offline-tile-proxy/worker.mjs", "offline-tile-proxy/worker.test.mjs",
 ];
 for (const file of javascript) {

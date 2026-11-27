@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";import {createServer} from "node:http";import {readFile} from "node:fs/promises";import {extname,resolve,sep} from "node:path";import {chromium} from "playwright";
+const root=resolve(process.cwd()),mime={".html":"text/html; charset=utf-8",".mjs":"text/javascript; charset=utf-8"};
+const server=createServer(async(req,res)=>{try{const p=new URL(req.url,"http://127.0.0.1").pathname,f=resolve(root,p.replace(/^\/+/,""));if(f!==root&&!f.startsWith(root+sep))throw Error("Bad path");res.writeHead(200,{"Content-Type":mime[extname(f)]||"application/octet-stream"});res.end(await readFile(f));}catch{res.writeHead(404);res.end("Not found");}});
+await new Promise(ok=>server.listen(0,"127.0.0.1",ok));const base="http://127.0.0.1:"+server.address().port;let browser;
+try{browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.goto(base+"/tests/itinerary-harness.html");await page.getByRole("heading",{name:"Itinerary builder"}).waitFor();
+assert.equal(await page.locator(".itinerary-stop").count(),2);
+await page.getByLabel("Transport route from Hanoi to Ninh Binh").selectOption("route-a-b");
+await page.getByLabel("Transport service for Hanoi to Ninh Binh").selectOption("bus-fare");
+const total=await page.locator(".itinerary-totals").textContent();assert.ok(total.includes("180,000")&&total.includes("2 hr"));
+await page.getByRole("button",{name:"＋ Add day"}).click();assert.equal(await page.locator(".itinerary-day").count(),2);
+await page.locator('input[type="date"]').nth(1).fill("2026-12-03");
+await page.getByLabel("Add an existing map pin to day 2").selectOption("pin-c");await page.getByRole("button",{name:"Add pin"}).last().click();
+assert.equal(await page.locator(".itinerary-day").nth(1).locator(".itinerary-stop").count(),1);
+const custom=page.locator(".itinerary-custom-stop").first();await custom.locator("summary").click();
+await page.getByLabel("New location name").fill("Ha Long viewpoint");await page.getByLabel("New location latitude").fill("20.95");await page.getByLabel("New location longitude").fill("107.08");await custom.getByRole("button",{name:"Add location"}).click();
+assert.equal(await page.locator(".itinerary-day").first().locator(".itinerary-stop").count(),3);
+const rows=page.locator(".itinerary-day").first().locator(".itinerary-stop"),before=await rows.locator(".itinerary-stop-main strong").allTextContents();await rows.nth(2).dragTo(rows.nth(0));const after=await page.locator(".itinerary-day").first().locator(".itinerary-stop-main strong").allTextContents();assert.notDeepEqual(after,before);
+await page.getByRole("button",{name:"Save itinerary"}).click();assert.ok((await page.locator(".itinerary-save-state").textContent()).includes("Saved in this browser"));assert.equal(await page.locator('[aria-label="Saved itineraries"] option').count(),2);
+process.stdout.write("PASS: itinerary UI adds pins and custom stops, edits dates, selects routes/fares, reorders stops, calculates totals and saves\n");
+}finally{await browser?.close();await new Promise(done=>server.close(done));}
