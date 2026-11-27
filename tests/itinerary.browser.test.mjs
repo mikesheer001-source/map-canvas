@@ -12,7 +12,7 @@ await page.locator('input[type="date"]').nth(1).fill("2026-12-03");
 await page.getByLabel("Add an existing map pin to day 2").selectOption("pin-c");await page.getByRole("button",{name:"Add pin"}).last().click();
 assert.equal(await page.locator(".itinerary-day").nth(1).locator(".itinerary-stop").count(),1);
 const custom=page.locator(".itinerary-custom-stop").first();await custom.locator("summary").click();
-await page.getByLabel("New location name").fill("Ha Long viewpoint");await page.getByLabel("New location latitude").fill("20.95");await page.getByLabel("New location longitude").fill("107.08");await custom.getByRole("button",{name:"Add location"}).click();
+await custom.getByLabel("New location name").fill("Ha Long viewpoint");await custom.getByLabel("New location latitude").fill("20.95");await custom.getByLabel("New location longitude").fill("107.08");await custom.getByRole("button",{name:"Add location"}).click();
 assert.equal(await page.locator(".itinerary-day").first().locator(".itinerary-stop").count(),3);
 const rows=page.locator(".itinerary-day").first().locator(".itinerary-stop"),before=await rows.locator(".itinerary-stop-main strong").allTextContents();await rows.nth(2).dragTo(rows.nth(0));const after=await page.locator(".itinerary-day").first().locator(".itinerary-stop-main strong").allTextContents();assert.notDeepEqual(after,before);
 await page.getByRole("button",{name:"Save itinerary"}).click();assert.ok((await page.locator(".itinerary-save-state").textContent()).includes("Saved in this browser"));assert.equal(await page.locator('[aria-label="Saved itineraries"] option').count(),2);
