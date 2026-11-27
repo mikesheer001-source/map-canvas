@@ -2,7 +2,7 @@ import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_S
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
-import { createItinerary, cloneItinerary, createPinStop, createCustomStop, addStopToItinerary, removeStopFromItinerary, moveItineraryStop, addItineraryDay, removeItineraryDay, setItineraryDayDate, setItineraryName, setItineraryLegRoute, setItineraryLegOption, readSavedItineraries, saveSavedItineraries, renderItineraryBuilder } from "./itinerary.mjs?v=itinerary-20261127";
+import { createItinerary, cloneItinerary, createPinStop, createCustomStop, addStopToItinerary, removeStopFromItinerary, moveItineraryStop, addItineraryDay, removeItineraryDay, setItineraryDayDate, setItineraryName, setItineraryLegRoute, setItineraryLegOption, readSavedItineraries, saveSavedItineraries, deleteSavedItinerary, renderItineraryBuilder } from "./itinerary.mjs?v=itinerary-delete-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
@@ -67,7 +67,7 @@ const state = {
   transportError: null, transportLayer: null, transportInfoRouteId: null,
   transportResearchRequestId: 0, transportResearchAbortController: null, transportResearchRouteId: null,
   transportResearchBusy: false, transportResearchError: null,
-  itineraries: [], itineraryDraft: null, itineraryActiveId: null, itineraryDirty: false,
+  itineraries: [], itineraryDraft: null, itineraryActiveId: null, itineraryDirty: false, itineraryDeletePendingId: null,
   itineraryBusy: false, itineraryError: null, itineraryRequestId: 0
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
@@ -599,7 +599,7 @@ function updateItineraryDraft(updater){
   renderItineraryBuilderUI();
 }
 function confirmDiscardItinerary(){return !state.itineraryDirty||window.confirm("Discard unsaved itinerary changes?");}
-function startNewItinerary(){if(!confirmDiscardItinerary())return;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();}
+function startNewItinerary(){if(!confirmDiscardItinerary())return;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDeletePendingId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();}
 function saveCurrentItinerary(){
   if(!state.itineraryDraft)return;
   const saved={...state.itineraryDraft,name:String(state.itineraryDraft.name||"").trim()||"Untitled itinerary",updatedAt:new Date().toISOString()};
@@ -607,18 +607,22 @@ function saveCurrentItinerary(){
   if(state.itineraryActiveId&&!state.itineraries.some(x=>x.id===state.itineraryActiveId))next.push(saved);
   const bounded=next.slice(-50);
   if(!saveSavedItineraries(bounded)){state.itineraryError="Could not save this itinerary in browser storage. Check available storage space.";renderItineraryBuilderUI();return;}
-  state.itineraries=bounded;state.itineraryDraft=cloneItinerary(saved);state.itineraryActiveId=saved.id;state.itineraryDirty=false;state.itineraryError=null;notify("Itinerary saved in this browser.");renderItineraryBuilderUI();
+  state.itineraries=bounded;state.itineraryDraft=cloneItinerary(saved);state.itineraryActiveId=saved.id;state.itineraryDeletePendingId=null;state.itineraryDirty=false;state.itineraryError=null;notify("Itinerary saved in this browser.");renderItineraryBuilderUI();
 }
-function deleteCurrentItinerary(){
-  if(!state.itineraryActiveId||!window.confirm("Delete this saved itinerary?"))return;
-  const next=state.itineraries.filter(x=>x.id!==state.itineraryActiveId);
-  if(!saveSavedItineraries(next)){state.itineraryError="Could not update the saved itinerary list.";renderItineraryBuilderUI();return;}
-  state.itineraries=next;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
+function deleteCurrentItinerary(selectedId=state.itineraryActiveId){
+  const id=selectedId||state.itineraryActiveId||state.itineraries.find(x=>x.id===state.itineraryDraft?.id)?.id;
+  if(!id||!state.itineraries.some(x=>x.id===id))return;
+  state.itineraryActiveId=id;
+  if(state.itineraryDeletePendingId!==id){state.itineraryDeletePendingId=id;renderItineraryBuilderUI();return;}
+  const result=deleteSavedItinerary(state.itineraries,id);
+  if(!result.ok){state.itineraryError=result.reason==="storage"?"Could not update the saved itinerary list. Check available browser storage.":"That saved itinerary could not be found.";renderItineraryBuilderUI();return;}
+  state.itineraries=result.itineraries;state.itineraryDraft=createItinerary();state.itineraryActiveId=null;state.itineraryDeletePendingId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
 }
+function cancelDeleteItinerary(){state.itineraryDeletePendingId=null;renderItineraryBuilderUI();}
 function selectSavedItinerary(id){
   if(!confirmDiscardItinerary())return;
   const found=state.itineraries.find(x=>x.id===id);if(!found)return;
-  state.itineraryDraft=cloneItinerary(found);state.itineraryActiveId=found.id;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
+  state.itineraryDraft=cloneItinerary(found);state.itineraryActiveId=found.id;state.itineraryDeletePendingId=null;state.itineraryDirty=false;state.itineraryError=null;renderItineraryBuilderUI();
 }
 async function createItineraryRoute(dayId,from,to,mode){
   if(state.itineraryBusy||!state.itineraryDraft)return;
@@ -638,8 +642,8 @@ async function createItineraryRoute(dayId,from,to,mode){
 function renderItineraryBuilderUI(){
   const root=$("itineraryBuilderRoot");if(!root)return;
   const count=$("itineraryCount");if(count)count.textContent=state.itineraries.length+" saved";
-  renderItineraryBuilder(root,{draft:state.itineraryDraft,saved:state.itineraries,activeId:state.itineraryActiveId,dirty:state.itineraryDirty,busy:state.itineraryBusy,error:state.itineraryError,pins:allEntries(),routes:state.transportRoutes,actions:{
-    selectSaved:selectSavedItinerary,newItinerary:startNewItinerary,save:saveCurrentItinerary,delete:deleteCurrentItinerary,
+  renderItineraryBuilder(root,{draft:state.itineraryDraft,saved:state.itineraries,activeId:state.itineraryActiveId,deletePendingId:state.itineraryDeletePendingId,dirty:state.itineraryDirty,busy:state.itineraryBusy,error:state.itineraryError,pins:allEntries(),routes:state.transportRoutes,actions:{
+    selectSaved:selectSavedItinerary,newItinerary:startNewItinerary,save:saveCurrentItinerary,delete:deleteCurrentItinerary,cancelDelete:cancelDeleteItinerary,
     nameChange:name=>updateItineraryDraft(d=>setItineraryName(d,name)),
     addDay:()=>updateItineraryDraft(d=>addItineraryDay(d)),
     removeDay:id=>updateItineraryDraft(d=>removeItineraryDay(d,id)),

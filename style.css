@@ -453,3 +453,5 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 :root[data-theme="dark"] .itinerary-stop{background:#243b2f;border-color:#385343}:root[data-theme="dark"] .itinerary-leg{background:#20392c}
 :root[data-theme="dark"] .itinerary-toolbar select,:root[data-theme="dark"] .itinerary-builder-body input,:root[data-theme="dark"] .itinerary-builder-body select{background:#12241b;color:#e8f0e9;border-color:#385343}
 @media(max-width:750px){.itinerary-toolbar{grid-template-columns:minmax(0,1fr) auto auto}.itinerary-toolbar button:last-child{grid-column:3;grid-row:2}.itinerary-totals{grid-template-columns:1fr}.itinerary-stop-actions button{min-height:29px}}
+
+.itinerary-delete-confirmation{font-size:10px;color:#a35d20;line-height:1.4;padding:3px 1px}

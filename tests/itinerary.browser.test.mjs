@@ -15,6 +15,26 @@ const custom=page.locator(".itinerary-custom-stop").first();await custom.locator
 await custom.getByLabel("New location name").fill("Ha Long viewpoint");await custom.getByLabel("New location latitude").fill("20.95");await custom.getByLabel("New location longitude").fill("107.08");await custom.getByRole("button",{name:"Add location"}).click();
 assert.equal(await page.locator(".itinerary-day").first().locator(".itinerary-stop").count(),3);
 const before=await page.locator(".itinerary-day").first().locator(".itinerary-stop-main strong").allTextContents();await page.evaluate(()=>{const rows=Array.from(document.querySelector(".itinerary-day").querySelectorAll(".itinerary-stop")),dataTransfer=new DataTransfer();rows[2].dispatchEvent(new DragEvent("dragstart",{bubbles:true,dataTransfer}));rows[0].dispatchEvent(new DragEvent("dragover",{bubbles:true,cancelable:true,dataTransfer}));rows[0].dispatchEvent(new DragEvent("drop",{bubbles:true,cancelable:true,dataTransfer}));});const after=await page.locator(".itinerary-day").first().locator(".itinerary-stop-main strong").allTextContents();assert.notDeepEqual(after,before);
+await custom.getByLabel("New location name").fill("Unsaved draft location");
+await custom.getByLabel("New location latitude").fill("20.90");
+await custom.getByLabel("New location longitude").fill("107.01");
+await page.getByLabel("Add an existing map pin to day 1").selectOption("pin-c");
+await page.getByLabel("New route transport mode").selectOption("train");
+await page.evaluate(()=>window.forceItineraryRender());
+assert.equal(await page.getByLabel("Add an existing map pin to day 1").inputValue(),"pin-c");
+assert.equal(await page.getByLabel("New route transport mode").inputValue(),"train");
+assert.equal(await custom.getByLabel("New location name").inputValue(),"Unsaved draft location");
+assert.equal(await custom.getByLabel("New location latitude").inputValue(),"20.90");
+assert.equal(await custom.locator("summary").evaluate(el=>el.parentElement.open),true);
 await page.getByRole("button",{name:"Save itinerary"}).click();assert.ok((await page.locator(".itinerary-save-state").textContent()).includes("Saved in this browser"));assert.equal(await page.locator('[aria-label="Saved itineraries"] option').count(),2);
-process.stdout.write("PASS: itinerary UI adds pins and custom stops, edits dates, selects routes/fares, reorders stops, calculates totals and saves\n");
+assert.equal(await page.locator("#savedCount").textContent(),"1 saved");
+await page.getByRole("button",{name:"Delete",exact:true}).click();
+await page.getByRole("button",{name:"Confirm delete"}).waitFor();
+assert.equal(await page.locator("#savedCount").textContent(),"1 saved");
+await page.getByRole("button",{name:"Confirm delete"}).click();
+assert.equal(await page.locator("#savedCount").textContent(),"0 saved");
+assert.equal(await page.locator('[aria-label="Saved itineraries"] option').count(),1);
+const persisted=await page.evaluate(()=>JSON.parse(localStorage.getItem("map-canvas:itineraries-v1")||"[]"));
+assert.equal(persisted.length,0);
+process.stdout.write("PASS: itinerary UI preserves dropdown/form state across rerenders and deletes a saved itinerary; saved count 1 → 0\n");
 }finally{await browser?.close();await new Promise(done=>server.close(done));}
