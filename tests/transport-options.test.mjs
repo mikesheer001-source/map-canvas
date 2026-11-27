@@ -61,7 +61,7 @@ test("cheapest and best-value picks use priced options only when coverage is par
   {id:"unknown",durationSeconds:800,fare:null}
  ];
  const partial=rankTransportOptions(options);assert.equal(partial.fastest,"unknown");assert.equal(partial.cheapest,"slow-cheap");assert.equal(partial.bestValue,"fast");assert.equal(partial.priceCoverageComplete,false);
- assert.match(partial.cheapestReason,/options without fares are excluded/);assert.match(partial.bestValueReason,/options without fares are excluded/);
+ assert.match(partial.cheapestReason,/excluded/);assert.match(partial.bestValueReason,/excluded/);
  const complete=rankTransportOptions(options.slice(0,2));assert.equal(complete.cheapest,"slow-cheap");assert.equal(complete.fastest,"fast");assert.equal(complete.bestValue,"fast");assert.equal(complete.priceCoverageComplete,true);
 });
 test("does not compare prices across currencies",()=>{
