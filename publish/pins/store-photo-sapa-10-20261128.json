@@ -1,0 +1,9 @@
+{
+  "expectedVersion": 76,
+  "mirrorPhoto": true,
+  "legacyPhotoRepair": true,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000010",
+    "photo": "https://cdn.getyourguide.com/image/format%3Dauto%2Cfit%3Dcrop%2Cgravity%3Dcenter%2Cquality%3D60%2Cwidth%3D400%2Cheight%3D265%2Cdpr%3D2/tour_img/2a0d1275a7ece45e3e75a744421ee95fec9c347fd9bf5d9cc18869d7eb4df08a.png"
+  }
+}

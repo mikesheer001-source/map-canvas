@@ -102,3 +102,7 @@ A push to `main` runs **Publish Map Canvas pins** for new or changed submissions
 ## Consistent place uploads
 
 See [AGENTS.md](AGENTS.md) for the standard required for researched pins, including Google ratings, working photos, attribution, and live verification.
+
+### Image storage requirement
+
+New or changed photos must use image files committed under `publish/photos/`, an existing verified Map Canvas R2 photo URL, or an explicitly mirrored licensed Wikimedia image. The publisher rejects external hotlinks and verifies stored image bytes before updating pins. See AGENTS.md.
