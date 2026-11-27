@@ -1,7 +1,7 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-order-20261127";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
-import { searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
+import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
 import { createItinerary, cloneItinerary, createPinStop, createCustomStop, addStopToItinerary, removeStopFromItinerary, moveItineraryStop, addItineraryDay, removeItineraryDay, setItineraryDayDate, setItineraryName, setItineraryLegRoute, setItineraryLegOption, readSavedItineraries, saveSavedItineraries, deleteSavedItinerary, renderItineraryBuilder } from "./itinerary.mjs?v=itinerary-delete-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
@@ -410,10 +410,15 @@ function showTransportInfo(routeOrId){
   $("transportInfoGeometry").textContent=route.geometryLabel||"Route geometry";
   $("transportInfoBasis").textContent=route.timeBasis||"Estimated travel time";
   $("transportInfo").classList.remove("hidden");
-  state.transportResearchRouteId=route.id;
-  state.transportResearchBusy=false;
-  state.transportResearchError=null;
-  renderTransportOptions($("transportResearchResults"),route,null);
+  const researchControls=$("transportResearchControls");
+  if(researchControls)researchControls.hidden=!TRANSITOUS_ENABLED;
+  if(TRANSITOUS_ENABLED)openTransportResearch(route);
+  else{
+    state.transportResearchRouteId=route.id;
+    state.transportResearchBusy=false;
+    state.transportResearchError=null;
+    renderTransportOptions($("transportResearchResults"),route,null);
+  }
 }
 function closeTransportInfo(){
   state.transportResearchRequestId++;
@@ -1924,6 +1929,7 @@ function wire() {
   $("transportAddRoute").addEventListener("click",startTransportRoute);
   $("transportClearRoutes").addEventListener("click",clearTransportRoutes);
   $("transportInfoClose").addEventListener("click",closeTransportInfo);
+  $("transportResearchRefresh").addEventListener("click",()=>{const route=state.transportRoutes.find(item=>item.id===state.transportInfoRouteId);if(route)openTransportResearch(route,true);});
   $("transportMode").addEventListener("change",()=>{if(state.transportSelecting)state.transportDraft={mode:$("transportMode").value,from:null};renderTransportRoutes();});
   $("offlineClose").addEventListener("click",()=>$("offlineDialog").close());
   $("offlineDownload").addEventListener("click",downloadCurrentOfflineArea);
