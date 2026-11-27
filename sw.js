@@ -1,5 +1,5 @@
 /* Offline app shell, viewed resources and explicitly saved OpenFreeMap areas. */
-const SHELL = "map-canvas-shell-v30";
+const SHELL = "map-canvas-shell-v31";
 const TILES = "map-canvas-viewed-v19";
 const PHOTO_CACHE = "map-canvas-photos-v1";
 const AREA_PREFIX = "map-canvas-area-";
@@ -10,11 +10,12 @@ const MAX_PARALLEL = 4;
 const cancelledAreas = new Set();
 const CORE = [
   "./", "./index.html",
-  "./app.js?v=offline-sync-20261127",
+  "./app.js?v=transport-options-20261127",
+  "./transport-options.mjs?v=transport-options-20261127",
   "./offline-store.mjs?v=offline-areas-20261127",
   "./offline-tiles.mjs?v=offline-areas-20261127",
   "./enhancements.js?v=settings-layout-20261119",
-  "./style.css?v=offline-areas-20261127",
+  "./style.css?v=transport-options-20261127",
   "./data/public-map.json", "./favicon.svg"
 ];
 
