@@ -250,7 +250,7 @@ async function downloadOfflineArea(area, port) {
           const headers = new Headers(response.headers);
           headers.delete("Content-Length");
     headers.delete("Content-Encoding");
-          await cache.put(url, new Response(bytes.slice(0), {
+          await cache.put(url, new Response(new Uint8Array(bytes.slice(0)), {
             status: response.status, statusText: response.statusText, headers
           }));
           completed++;
