@@ -176,29 +176,32 @@ export const FEATURE_DEFAULTS=Object.freeze({
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
-    ["darkTheme","Dark theme","Dark interface and a matching dark map"],
-    ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
-    ["pinRatings","Google ratings on pins","Show rating and review count under each pin emoji"],
     ["showAllPictures","Show all pictures","Show photos above their pins when zoomed in"],
-    ["onePicturePerPin","One picture per pin","When map pictures are enabled, show only the first available photo per pin"],
     ["avoidPhotoOverlap","Avoid picture overlap","Spread photos apart, shrink if crowded, and connect displaced photos to their pins"],
-    ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"],
-    ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
-    ["gps","Find my location","Show the GPS location button"],
-    ["basemaps","Map style selector","Switch between OpenFreeMap and OpenStreetMap"]
-  ]},
-  {title:"Create & edit",features:[
-    ["addPins","Add pin button","Show the button for adding places"],
-    ["galleries","Photo galleries","Show gallery controls and photo strips"],
-    ["undoRedo","Undo & redo buttons","Show saved-change history controls"]
+    ["onePicturePerPin","One picture per pin","When map pictures are enabled, show only the first available photo per pin"],
+    ["pinRatings","Google ratings on pins","Show rating and review count under each pin emoji"],
+    ["labels","Pin labels & photo previews","Show pin labels when zoomed in"],
+    ["darkTheme","Dark theme","Dark interface and a matching dark map"]
   ]},
   {title:"Browse & organize",features:[
     ["search","Search","Show the pin search box"],
     ["filters","Filters and sorting","Category, type, and sorting controls"],
-    ["layers","Layers and groups","Show layer toggles and nested groups"],
-    ["importExport","Import & export","Show CSV, JSON and GeoJSON controls"]
+    ["layers","Layers and groups","Show layer toggles and nested groups"]
   ]},
-
+  {title:"Map controls",features:[
+    ["gps","Find my location","Show the GPS location button"],
+    ["navigation","Map navigation buttons","Zoom in/out and fit pins"],
+    ["basemaps","Map style selector","Switch between OpenFreeMap and OpenStreetMap"]
+  ]},
+  {title:"Create & edit",features:[
+    ["addPins","Add pin button","Show the button for adding places"],
+    ["undoRedo","Undo & redo buttons","Show saved-change history controls"],
+    ["galleries","Photo galleries","Show gallery controls and photo strips"],
+    ["canvasObjects","Pictures, text & drawings","Show placed canvas objects on the map"]
+  ]},
+  {title:"Data & backups",features:[
+    ["importExport","Import & export","Show CSV, JSON and GeoJSON controls"]
+  ]}
 ];
 export function readFeatureSettings(store=globalThis.localStorage){
   const defaults={...FEATURE_DEFAULTS};
@@ -359,7 +362,6 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
   }
   function fill(){
     const groups=$("settingsGroups");groups.replaceChildren();
-    fillThemes(groups);
     for(const [index,group] of FEATURE_GROUPS.entries()){
       const section=document.createElement("section");section.className="settings-section";
       const h=document.createElement("h3");h.textContent=group.title;
@@ -370,9 +372,10 @@ export function createSettingsControls({state,onChange,onThemeChange,onThemeRese
         card.append(switchRow(title,box,description));
       }
       section.append(h);
-      if(index===0)section.append($("settingsSizing"));
       section.append(card);
+      if(index===0)section.append($("settingsSizing"));
       groups.append(section);
+      if(index===0)fillThemes(groups);
     }
   }
   function sync(){

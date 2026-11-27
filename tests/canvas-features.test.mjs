@@ -19,6 +19,8 @@ assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"autoSync"));
 assert.ok(!Object.hasOwn(FEATURE_DEFAULTS,"canvasTools"));
 assert.equal(FEATURE_DEFAULTS.darkTheme,false);
 assert.equal(FEATURE_GROUPS.flatMap(g=>g.features).length,Object.keys(FEATURE_DEFAULTS).length);
+assert.deepEqual(FEATURE_GROUPS.map(g=>g.features.map(f=>f[0])),[["showAllPictures","avoidPhotoOverlap","onePicturePerPin","pinRatings","labels","darkTheme"],["search","filters","layers"],["gps","navigation","basemaps"],["addPins","undoRedo","galleries","canvasObjects"],["importExport"]]);
+assert.equal(new Set(FEATURE_GROUPS.flatMap(g=>g.features.map(f=>f[0]))).size,Object.keys(FEATURE_DEFAULTS).length);
 const fake={v:new Map(),getItem(k){return this.v.get(k)||null;},setItem(k,val){this.v.set(k,val);}};
 const initial=readFeatureSettings(fake);
 assert.deepEqual(initial,{...FEATURE_DEFAULTS});
