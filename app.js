@@ -45,6 +45,11 @@ const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
 const PHOTO_SIZE_KEY="map-canvas:photo-size";
 const PIN_SIZE_KEY="map-canvas:pin-size";
 const DETAIL_SIZE_KEY="map-canvas:detail-size";
+const DETAIL_AUTO_CLOSE_KEY="map-canvas:detail-auto-close-seconds";
+const DEFAULT_DETAIL_AUTO_CLOSE=30;
+const normalizeDetailAutoClose=value=>value==null||value===""||!Number.isFinite(Number(value))?DEFAULT_DETAIL_AUTO_CLOSE:Math.max(0,Math.min(120,Math.round(Number(value)/5)*5));
+let detailAutoClose=DEFAULT_DETAIL_AUTO_CLOSE;
+try{detailAutoClose=normalizeDetailAutoClose(globalThis.localStorage?.getItem(DETAIL_AUTO_CLOSE_KEY));}catch{}
 const normalizePinSize=value=>Math.max(50,Math.min(200,Number(value)||100));
 const normalizePhotoSize=value=>Math.max(100,Math.min(800,Number(value)||100));
 let popupSensitivity=2;
@@ -1319,6 +1324,15 @@ function raiseDetail(id) {
   state.current=card.entry;
   history.replaceState(null,"",pinUrl(id));
 }
+function scheduleDetailAutoClose(id){
+  const card=openDetails.get(id);if(!card)return;
+  clearTimeout(card.autoCloseTimer);
+  card.autoCloseTimer=null;
+  if(detailAutoClose===0)return;
+  card.autoCloseTimer=setTimeout(()=>{
+    if(openDetails.get(id)===card)hideDetail(id);
+  },detailAutoClose*1000);
+}
 function choose(entry, focus) {
   if(state.placing){placeAt({lng:entry.lng,lat:entry.lat});return;}
   if(openDetails.has(entry.id)){hideDetail(entry.id);return;}
@@ -1328,14 +1342,16 @@ function choose(entry, focus) {
   const node=document.createElement("aside");
   node.className="side-panel";node.setAttribute("aria-label","Entry details");
   const card={entry,node};openDetails.set(entry.id,card);
-  node.addEventListener("pointerdown",()=>raiseDetail(entry.id));
+  node.addEventListener("pointerdown",()=>{raiseDetail(entry.id);scheduleDetailAutoClose(entry.id);});
+  for(const event of ["wheel","keydown","focusin","scroll"])node.addEventListener(event,()=>scheduleDetailAutoClose(entry.id),{passive:true,capture:true});
   $("detailLayer").append(node);
   raiseDetail(entry.id);
   renderDetail(entry,card.node);
+  scheduleDetailAutoClose(entry.id);
 }
 function hideDetail(id=state.current?.id,rerender=true) {
   const card=openDetails.get(id);
-  if(card){card.node.remove();openDetails.delete(id);}
+  if(card){clearTimeout(card.autoCloseTimer);card.node.remove();openDetails.delete(id);}
   if(state.current?.id===id)state.current=[...openDetails.values()].sort((a,b)=>Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]?.entry||null;
   history.replaceState(null,"",pinUrl(state.current?.id||null));
   if(rerender)render();
@@ -2127,6 +2143,21 @@ async function main() {
   const sensitivity=$("popupSensitivity");
   const photoSizeSlider=$("photoSize");
   const pinSizeSlider=$("pinSize"),detailSizeSlider=$("detailSize");
+  const autoCloseRow=document.createElement("div");
+  autoCloseRow.className="settings-range";
+  autoCloseRow.innerHTML='<label for="detailAutoClose">Auto-close open pins</label><output id="detailAutoCloseValue" for="detailAutoClose"></output><input id="detailAutoClose" type="range" min="0" max="120" step="5" aria-describedby="detailAutoCloseHint"><small id="detailAutoCloseHint">Close each open pin after inactivity. Set to Off to keep pins open until manually closed.</small>';
+  $("detailSize").closest(".settings-range").after(autoCloseRow);
+  const autoCloseSlider=$("detailAutoClose");
+  function setDetailAutoClose(value,persist=false){
+    detailAutoClose=normalizeDetailAutoClose(value);
+    autoCloseSlider.value=String(detailAutoClose);
+    $("detailAutoCloseValue").value=detailAutoClose===0?"Off":detailAutoClose+" sec";
+    if(persist){try{localStorage.setItem(DETAIL_AUTO_CLOSE_KEY,String(detailAutoClose));}catch{}}
+    for(const id of openDetails.keys())scheduleDetailAutoClose(id);
+  }
+  setDetailAutoClose(detailAutoClose);
+  autoCloseSlider.addEventListener("input",()=>setDetailAutoClose(autoCloseSlider.value,true));
+  $("settingsReset").addEventListener("click",()=>setDetailAutoClose(DEFAULT_DETAIL_AUTO_CLOSE,true));
   const resizePopups=()=>{positionDetail();enhanced.renderOverlay();};
   function setPhotoSize(value,persist=false){
     photoSize=normalizePhotoSize(value);
@@ -2176,6 +2207,7 @@ async function main() {
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
     if(event.key===PIN_SIZE_KEY)setPinSize(event.newValue);
     if(event.key===DETAIL_SIZE_KEY)setDetailSize(event.newValue);
+    if(event.key===DETAIL_AUTO_CLOSE_KEY)setDetailAutoClose(event.newValue);
     if(event.key===SENSITIVITY_KEY)setPopupSensitivity(event.newValue);
     if(event.key===PIN_VISIBILITY_KEY){
       state.hiddenPinThemes=readPinVisibility();
