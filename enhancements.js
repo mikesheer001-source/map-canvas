@@ -1,3 +1,4 @@
+import { decodeRoutePolyline } from "./route-pins.mjs?v=routed-diamonds-20261128";
 // Map Canvas: public canvas tools, collections, imports, measurements and shared updates.
 // No login, credentials or authoritative data are stored in this frontend.
 export function parseCsvRows(input) {
@@ -652,7 +653,16 @@ export function createEnhancements(api){
     for(const entry of api.filterEntries()){
       const c=entry.canvas;
       if(c?.type==="route"){
-        if(Array.isArray(c.start)&&Array.isArray(c.end))drawing(svg,"line",c.start,c.end,entry.color||"#245c48",entry.id);
+        const points=decodeRoutePolyline(c.polyline).map(p=>project(...p)).filter(Boolean);
+        if(points.length>=2){
+          const path=points.map(p=>p.x+","+p.y).join(" ");
+          const attrs={points:path,fill:"none","stroke-linecap":"round","stroke-linejoin":"round"};
+          const line=svgEl("polyline",{...attrs,stroke:entry.color||"#245c48","stroke-width":2});
+          const hit=svgEl("polyline",{...attrs,stroke:"transparent","stroke-width":16});
+          hit.style.pointerEvents="stroke";
+          hit.addEventListener("click",event=>{event.stopPropagation();if(state.placing){const [x,y]=viewPoint(event),p=unproject(x,y);api.placeAt({lng:p[0],lat:p[1]});}else api.choose(entry,false);});
+          svg.append(line,hit);
+        }
         continue;
       }
       if(!c||!expanded)continue;

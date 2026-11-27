@@ -1,4 +1,5 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-pins-fix-20261128";
+import { fetchRoutePin } from "./route-pins.mjs?v=routed-diamonds-20261128";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=routed-diamonds-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -592,7 +593,7 @@ function clearTransportRoutes(){
 function startTransportRoute(){
   if(state.transportBusy)return;
   if(state.transportSelecting){state.transportSelecting=false;state.transportDraft=null;state.transportError=null;renderTransportRoutes();render();return;}
-  if(state.placing){state.placing=null;$("placementBar").classList.add("hidden");}
+  if(state.placing){state.placing?.controller?.abort();state.placing=null;$("routePinMode").disabled=false;$("placementBar").classList.add("hidden");}
   state.routeSelecting=false;
   state.transportDraft={mode:$("transportMode").value,from:null};
   state.transportSelecting=true;state.transportError=null;closeTransportInfo();
@@ -1260,7 +1261,18 @@ function renderDetail(entry,detail){
   closeButton.setAttribute("aria-label","Close details");
   head.append(name,closeButton);
   detail.append(head);
-  if(isRoutePin(entry))detail.append(text("small","Straight-line route · not road directions","muted"));
+  if(isRoutePin(entry)){
+    const c=entry.canvas;
+    const description=c.polyline?c.mode+" · "+(c.distanceMeters/1000).toFixed(2)+" km · "+Math.round(c.durationSeconds/60)+" min estimated":"Legacy route · redraw to calculate road or path geometry";
+    detail.append(text("small",description,"muted"));
+    if(c.polyline){
+      const credit=text("p","","muted");
+      for(const [name,url] of [["© OpenStreetMap contributors","https://www.openstreetmap.org/copyright"],["OSRM / FOSSGIS","https://routing.openstreetmap.de/about.html"],["Fix the map","https://www.openstreetmap.org/edit?lat="+entry.lat+"&lon="+entry.lng+"&zoom=17"]]){
+        const a=text("a",name);a.href=url;a.target="_blank";a.rel="noopener noreferrer";if(credit.childNodes.length)credit.append(" · ");credit.append(a);
+      }
+      detail.append(credit);
+    }
+  }
   if (entry.photo) {
     const img=document.createElement("img");
     img.alt=entry.title;img.src=entry.photo;img.referrerPolicy="no-referrer";img.className="detail-photo";
@@ -1328,7 +1340,10 @@ function toggleList(open) {
 }
 function showMobileMap(){toggleList(false);}
 function startPlacement(kind, draft) {
+  state.placing?.controller?.abort();
   state.placing={kind:kind||"place", draft:draft||null};
+  $("routePinMode").classList.toggle("hidden",kind!=="route");
+  if(kind==="route")$("routePinMode").value=draft?.canvas?.mode||"walking";
   $("placementInstruction").textContent=kind==="route"?"Tap the route start point":"Tap the map to place your entry";
   $("placementBar").classList.remove("hidden");
   $("cancelPlace").focus();
@@ -1337,6 +1352,7 @@ function startPlacement(kind, draft) {
 async function placeAt({lng,lat}) {
   if (!state.placing) return;
   const p=state.placing;
+  if(p.busy)return;
   if(p.kind==="route"&&(!Number.isFinite(Number(lng))||!Number.isFinite(Number(lat))||Math.abs(Number(lat))>85||Math.abs(Number(lng))>180)){notify("Choose a valid map point.",true);return;}
   if(p.kind==="route"&&!p.start){
     p.start=[Number(lng),Number(lat)];
@@ -1344,6 +1360,17 @@ async function placeAt({lng,lat}) {
     return;
   }
   if(p.kind==="route"&&p.start[0]===Number(lng)&&p.start[1]===Number(lat)){notify("Choose a different end point.",true);return;}
+  let routed=null;
+  if(p.kind==="route"){
+    p.busy=true;p.controller=new AbortController();
+    $("placementInstruction").textContent="Finding mapped route…";
+    $("routePinMode").disabled=true;
+    const timer=setTimeout(()=>p.controller.abort(),20000);
+    try{routed=await fetchRoutePin(p.start,[Number(lng),Number(lat)],$("routePinMode").value,{signal:p.controller.signal});}
+    catch(error){if(state.placing===p){notify(error.name==="AbortError"?"Route lookup timed out. Try again.":error.message,true);$("placementInstruction").textContent="Tap the route end point to retry";}return;}
+    finally{clearTimeout(timer);p.busy=false;$("routePinMode").disabled=false;}
+    if(state.placing!==p)return;
+  }
   state.placing=null;
   $("placementBar").classList.add("hidden");
   const draft=p.draft||{
@@ -1351,8 +1378,7 @@ async function placeAt({lng,lat}) {
     notes:"",photo:"",version:""
   };
   if(p.kind==="route"){
-    const end=[Number(lng),Number(lat)];
-    Object.assign(draft,routeMidpoint(p.start,end),{category:draft.category||"Route",canvas:{type:"route",start:p.start,end}});
+    Object.assign(draft,routed.center,{category:draft.category||"Route",canvas:routed.canvas});
     draft.title=draft.title||"New route";
   }else{draft.lat=Number(lat);draft.lng=Number(lng);}
   if (state.pendingPhoto) {
@@ -2037,7 +2063,9 @@ function wire() {
   });
   $("movePin").addEventListener("click",()=>{
     if(!state.draft)return;
-    const moving={...state.draft};closeEditor();startPlacement(isRoutePin(moving)?"route":moving.kind,moving);
+    const moving={...state.draft,title:$("title").value.trim(),category:$("category").value.trim(),notes:$("notes").value.trim(),price:$("price").value.trim(),rating:$("rating").value.trim(),color:$("pinColor").value};
+    try{enhanced?.collectEditor(moving);}catch(error){notify(error.message,true);return;}
+    closeEditor();startPlacement(isRoutePin(moving)?"route":moving.kind,moving);
   });
   document.querySelectorAll(".type").forEach((el)=>el.addEventListener("click",()=>{
     if(!state.draft)return;
