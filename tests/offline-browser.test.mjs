@@ -119,17 +119,20 @@ try {
     return { title: document.title, queue, status: response.status, type: response.type,
       cacheHit: response.headers.get("X-Offline-Cache-Hit"), cacheBytes: response.headers.get("X-Offline-Cache-Bytes"),
       directCacheBytes: directCacheBytes.byteLength, directCacheType: directCache?.type,
-      tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
+      tileBytes: (await response.clone().arrayBuffer()).byteLength,
+      tileText: await response.text(), controller: !!navigator.serviceWorker.controller };
   }, beforeOffline.tileUrl);
   assert.match(offlineResult.title, /offline browser test/i);
   assert.equal(offlineResult.queue.length, 1);
   assert.equal(offlineResult.queue[0].entry.title, "Edited again offline");
   assert.equal(offlineResult.status, 200);
   assert.ok(offlineResult.directCacheBytes > 0, "offline CacheStorage entry missing/empty: " + offlineResult.directCacheType);
-  assert.ok(offlineResult.tile.byteLength > 0,
+  assert.ok(offlineResult.tileBytes > 0,
     "offline response was empty: " + offlineResult.type + " " + offlineResult.status +
     " cacheHit=" + offlineResult.cacheHit + " cacheBytes=" + offlineResult.cacheBytes +
-    " directCacheBytes=" + offlineResult.directCacheBytes);
+    " directCacheBytes=" + offlineResult.directCacheBytes + " responseBytes=" + offlineResult.tileBytes);
+  assert.equal(offlineResult.tileText, "offline-test-tile",
+    "offline response body did not preserve the downloaded vector-tile bytes");
   assert.equal(offlineResult.controller, true);
 
   await context.setOffline(false);
