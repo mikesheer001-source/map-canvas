@@ -50,6 +50,18 @@
    <div class="route-planner-actions"><button type="button" id="routeOptimize" class="primary" disabled>Optimize route</button><button type="button" id="routeClear" class="secondary" disabled>Clear</button></div>
    <div id="routeResult" class="route-result hidden"></div>
   </section>
+  <details class="transport-planner" id="transportPlanner">
+   <summary><strong>Multimodal transport routes</strong><span id="transportCount">0 saved</span></summary>
+   <div class="transport-planner-body">
+    <label for="transportMode">Transport mode</label>
+    <select id="transportMode">
+     <option value="bus">🚌 Bus</option><option value="train">🚆 Train</option><option value="flight">✈️ Flight</option><option value="ferry">⛴️ Ferry</option><option value="driving">🚗 Driving</option>
+    </select>
+    <div class="transport-planner-actions"><button type="button" id="transportAddRoute" class="primary">Add route</button><button type="button" id="transportClearRoutes" class="secondary" disabled>Clear routes</button></div>
+    <p id="transportStatus" role="status">Choose a mode, add a route, then select two pins. Mapped routes are used when available; approximations are labelled.</p>
+    <div id="transportRoutes" class="transport-routes"></div>
+   </div>
+  </details>
   <div id="entries" class="entries" role="list"></div>
   <div class="trash-control"><button type="button" id="openTrash" class="secondary" aria-haspopup="dialog" aria-controls="trashDialog">Recently Deleted</button></div>
   <footer class="list-footer"><span class="status-pip" id="statusPip"></span><span id="statusText">Public map</span></footer>
@@ -72,6 +84,12 @@
   <div id="canvasOverlay" class="canvas-overlay" aria-label="Map notes pictures and drawings"><svg id="canvasDrawing" class="canvas-drawing" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div id="canvasObjects"></div></div>
   <div id="pinPhotos" aria-hidden="true"></div>
 
+  <section id="transportInfo" class="transport-info hidden" aria-label="Transport route details">
+   <header><strong id="transportInfoTitle">Route</strong><button type="button" id="transportInfoClose" aria-label="Close route details">×</button></header>
+   <p id="transportInfoEndpoints"></p>
+   <div class="transport-info-metrics"><div><strong id="transportInfoDistance">—</strong><small>Distance</small></div><div><strong id="transportInfoTime">—</strong><small>Estimated time</small></div></div>
+   <p id="transportInfoGeometry"></p><small id="transportInfoBasis"></small>
+  </section>
   <div id="detailLayer" class="detail-layer"></div>
   <div id="placementBar" class="placement-bar hidden">Tap the map to place your entry <button id="cancelPlace" aria-label="Cancel placement">✕</button></div>
   <div class="mobile-tab"><button id="listButton">☷ List</button></div>

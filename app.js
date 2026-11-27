@@ -6,6 +6,18 @@ const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
 const DETAIL_ZOOM = 16.8;
 const MAX_ROUTE_STOPS = 500;
+const TRANSPORT_MODE_STYLES={
+  bus:{label:"Bus",emoji:"🚌",color:"#d28a21",dash:[1.5,2]},
+  train:{label:"Train",emoji:"🚆",color:"#8658b5",dash:[4,2]},
+  flight:{label:"Flight",emoji:"✈️",color:"#397bd2",dash:[2,2]},
+  ferry:{label:"Ferry",emoji:"⛴️",color:"#0b91a9",dash:[5,2]},
+  driving:{label:"Driving",emoji:"🚗",color:"#23865b",dash:[]}
+};
+const TRANSPORT_ROUTE_STORAGE_KEY="map-canvas:multimodal-routes-v1";
+const TRANSPORT_LAYER_IDS=Object.keys(TRANSPORT_MODE_STYLES).flatMap(mode=>[
+  "canvas-transport-"+mode+"-hit","canvas-transport-"+mode
+]);
+
 function formatRouteDistance(meters){
   const value=Number(meters);
   if(!Number.isFinite(value)||value<0)return "—";
@@ -48,7 +60,9 @@ const state = {
   revision: null, readEpoch: 0, syncInFlight: false, syncingQueue: false,
   features: {...FEATURE_DEFAULTS}, hiddenPinThemes: new Set(), remotelyDeletedIds: new Set(),
   routeSelectedIds: [], routeSelecting: false, routeOptimizing: false, routeError: null,
-  routeProgress: null, optimizedRoute: null, routeLayer: null, routeRequestId: 0, routeAbortController: null
+  routeProgress: null, optimizedRoute: null, routeLayer: null, routeRequestId: 0, routeAbortController: null,
+  transportRoutes: [], transportSelecting: false, transportDraft: null, transportBusy: false,
+  transportError: null, transportLayer: null, transportInfoRouteId: null
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -362,6 +376,154 @@ function filterEntries() {
   return enhanced ? enhanced.visible(shown) : shown;
 }
 
+
+function readSavedTransportRoutes(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(TRANSPORT_ROUTE_STORAGE_KEY)||"[]");
+    if(!Array.isArray(parsed))return [];
+    return parsed.filter(route=>route&&typeof route.id==="string"&&
+      Object.hasOwn(TRANSPORT_MODE_STYLES,route.mode)&&
+      route.geometry?.type==="LineString"&&Array.isArray(route.geometry.coordinates)&&
+      route.geometry.coordinates.length>=2&&route.geometry.coordinates.length<=20000&&
+      route.geometry.coordinates.every(point=>Array.isArray(point)&&point.length>=2&&Number.isFinite(Number(point[0]))&&Number.isFinite(Number(point[1])))&&
+      Number.isFinite(Number(route.distanceMeters))&&Number.isFinite(Number(route.durationSeconds))&&route.from&&route.to).slice(-100);
+  }catch{return [];}
+}
+function saveTransportRoutes(){
+  try{localStorage.setItem(TRANSPORT_ROUTE_STORAGE_KEY,JSON.stringify(state.transportRoutes.slice(-100)));return true;}
+  catch{notify("Routes are available for this session but could not be saved on this browser.",true);return false;}
+}
+function showTransportInfo(routeOrId){
+  const route=typeof routeOrId==="string"?state.transportRoutes.find(item=>item.id===routeOrId):routeOrId;
+  if(!route)return;
+  state.transportInfoRouteId=route.id;
+  $("transportInfoTitle").textContent=TRANSPORT_MODE_STYLES[route.mode]?.emoji+" "+route.modeLabel;
+  $("transportInfoEndpoints").textContent=(route.from?.title||"Start")+" → "+(route.to?.title||"Destination");
+  $("transportInfoDistance").textContent=formatRouteDistance(route.distanceMeters);
+  $("transportInfoTime").textContent=formatRouteDuration(route.durationSeconds);
+  $("transportInfoGeometry").textContent=route.geometryLabel||"Route geometry";
+  $("transportInfoBasis").textContent=route.timeBasis||"Estimated travel time";
+  $("transportInfo").classList.remove("hidden");
+}
+function closeTransportInfo(){
+  state.transportInfoRouteId=null;
+  $("transportInfo")?.classList.add("hidden");
+}
+function fitTransportRoute(route){
+  const coords=route?.geometry?.coordinates;
+  if(!coords?.length||!state.map)return;
+  const valid=coords.filter(p=>Array.isArray(p)&&Number.isFinite(Number(p[0]))&&Number.isFinite(Number(p[1])));
+  if(!valid.length)return;
+  const lngs=valid.map(p=>Number(p[0])),lats=valid.map(p=>Number(p[1]));
+  let west=Math.min(...lngs),east=Math.max(...lngs),south=Math.min(...lats),north=Math.max(...lats);
+  if(west===east){west-=0.001;east+=0.001;}if(south===north){south-=0.001;north+=0.001;}
+  if(state.library==="maplibre")state.map.fitBounds([[west,south],[east,north]],{padding:72,maxZoom:15.5,duration:650});
+  else if(state.library==="leaflet")state.map.fitBounds([[south,west],[north,east]],{padding:[45,45],maxZoom:16});
+}
+function transportRouteFeatureCollection(){
+  return {type:"FeatureCollection",features:state.transportRoutes.map(route=>({
+    type:"Feature",id:route.id,properties:{routeId:route.id,mode:route.mode,approximate:!!route.approximate},geometry:route.geometry
+  }))};
+}
+function renderMultimodalRoutes(){
+  if(!state.map||!state.styleReady)return;
+  const data=transportRouteFeatureCollection();
+  if(state.library==="maplibre"){
+    const source=state.map.getSource("canvas-multimodal-routes");
+    if(source)source.setData(data);
+    else state.map.addSource("canvas-multimodal-routes",{type:"geojson",data});
+    for(const [mode,config] of Object.entries(TRANSPORT_MODE_STYLES)){
+      const filter=["==",["get","mode"],mode],hitId="canvas-transport-"+mode+"-hit",lineId="canvas-transport-"+mode;
+      if(!state.map.getLayer(hitId))state.map.addLayer({
+        id:hitId,type:"line",source:"canvas-multimodal-routes",filter,
+        layout:{"line-cap":"round","line-join":"round"},
+        paint:{"line-color":config.color,"line-width":15,"line-opacity":0.015}
+      },state.map.getLayer(PIN_DOTS)?PIN_DOTS:undefined);
+      if(!state.map.getLayer(lineId)){
+        const paint={"line-color":config.color,"line-width":4.5,"line-opacity":0.95};
+        if(config.dash.length)paint["line-dasharray"]=config.dash;
+        state.map.addLayer({id:lineId,type:"line",source:"canvas-multimodal-routes",filter,
+          layout:{"line-cap":"round","line-join":"round"},paint
+        },state.map.getLayer(PIN_DOTS)?PIN_DOTS:undefined);
+      }
+    }
+  }else if(state.library==="leaflet"&&window.L?.geoJSON){
+    try{state.transportLayer?.remove();}catch{}
+    state.transportLayer=window.L.geoJSON(data,{
+      style:feature=>{
+        const config=TRANSPORT_MODE_STYLES[feature.properties.mode]||TRANSPORT_MODE_STYLES.driving;
+        return {color:config.color,weight:5,opacity:0.95,dashArray:config.dash.length?config.dash.map(n=>n*3).join(" "):null,lineCap:"round"};
+      },
+      onEachFeature:(feature,layer)=>layer.on("click",()=>showTransportInfo(feature.properties.routeId))
+    }).addTo(state.map);
+  }
+}
+function renderTransportRoutes(){
+  const count=$("transportCount"),list=$("transportRoutes"),status=$("transportStatus"),add=$("transportAddRoute"),clear=$("transportClearRoutes");
+  if(!count||!list||!status||!add||!clear)return;
+  count.textContent=state.transportRoutes.length+" saved";
+  add.textContent=state.transportSelecting?"Cancel selection":"Add route";
+  add.disabled=state.transportBusy;clear.disabled=!state.transportRoutes.length||state.transportBusy;
+  if(state.transportBusy)status.textContent="Looking up route geometry…";
+  else if(state.transportSelecting&&!state.transportDraft?.from)status.textContent="Choose the origin pin on the map or in the list.";
+  else if(state.transportSelecting)status.textContent="Origin: "+state.transportDraft.from.title+". Now choose the destination pin.";
+  else if(state.transportError)status.textContent=state.transportError;
+  else status.textContent="Choose a mode, add a route, then select two pins. Mapped routes are used when available; approximations are labelled.";
+  list.replaceChildren();
+  for(const route of [...state.transportRoutes].reverse()){
+    const item=text("div","","transport-route-item");
+    const open=button("",()=>{showTransportInfo(route);fitTransportRoute(route);},"transport-route-open");
+    const mode=text("span",TRANSPORT_MODE_STYLES[route.mode].emoji,"transport-route-mode transport-mode-"+route.mode);
+    const description=text("span","","transport-route-description");
+    description.append(text("strong",(route.from?.title||"Start")+" → "+(route.to?.title||"Destination")));
+    description.append(text("small",route.geometryLabel+" · "+formatRouteDistance(route.distanceMeters)));
+    open.append(mode,description);
+    const remove=button("×",()=>removeTransportRoute(route.id),"transport-route-remove");
+    remove.setAttribute("aria-label","Remove "+route.modeLabel+" route");
+    item.append(open,remove);list.append(item);
+  }
+}
+function removeTransportRoute(id){
+  state.transportRoutes=state.transportRoutes.filter(route=>route.id!==id);
+  if(state.transportInfoRouteId===id)closeTransportInfo();
+  saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();
+}
+function clearTransportRoutes(){
+  state.transportRoutes=[];closeTransportInfo();saveTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();
+}
+function startTransportRoute(){
+  if(state.transportBusy)return;
+  if(state.transportSelecting){state.transportSelecting=false;state.transportDraft=null;state.transportError=null;renderTransportRoutes();render();return;}
+  if(state.placing){state.placing=null;$("placementBar").classList.add("hidden");}
+  state.routeSelecting=false;
+  state.transportDraft={mode:$("transportMode").value,from:null};
+  state.transportSelecting=true;state.transportError=null;closeTransportInfo();
+  renderTransportRoutes();render();
+}
+async function selectTransportPin(entry){
+  if(!state.transportSelecting||!state.transportDraft)return;
+  if(!Number.isFinite(Number(entry.lat))||!Number.isFinite(Number(entry.lng))){
+    state.transportError="That pin has no valid map coordinates.";renderTransportRoutes();return;
+  }
+  if(!state.transportDraft.from){
+    state.transportDraft.from={id:entry.id,title:entry.title,lat:Number(entry.lat),lng:Number(entry.lng)};
+    state.transportError=null;renderTransportRoutes();render();return;
+  }
+  if(state.transportDraft.from.id===entry.id){state.transportError="Choose a different destination pin.";renderTransportRoutes();return;}
+  const from=state.transportDraft.from,to={id:entry.id,title:entry.title,lat:Number(entry.lat),lng:Number(entry.lng)},mode=state.transportDraft.mode;
+  state.transportSelecting=false;state.transportBusy=true;state.transportError=null;renderTransportRoutes();render();
+  try{
+    const {buildMultimodalRoute}=await import("./multimodal-routes.mjs?v=multimodal-routes-20261127");
+    const route=await buildMultimodalRoute({mode,from,to,id:randomKey()});
+    if(state.transportRoutes.length>=100)state.transportRoutes.shift();
+    state.transportRoutes.push(route);saveTransportRoutes();state.transportDraft=null;
+    renderTransportRoutes();render();showTransportInfo(route);fitTransportRoute(route);
+  }catch(error){
+    state.transportError=error.message||"Could not create this transport route.";
+    notify(state.transportError,true);
+  }finally{state.transportBusy=false;renderTransportRoutes();render();}
+}
+
 function clearRouteLayer(){
   if(state.library==="maplibre"&&state.map){
     try{if(state.map.getLayer("canvas-optimized-route"))state.map.removeLayer("canvas-optimized-route");}catch{}
@@ -554,6 +716,7 @@ function render() {
     attr(f, "aria-pressed", selected);
   });
   updateRoutePlanner();
+  renderTransportRoutes();
   const list = $("entries");
   list.replaceChildren();
   for (const entry of shown) {
@@ -575,11 +738,12 @@ function render() {
       if (entry.source === "hostel") price.append(text("small", "/ night"));
       row.append(price);
     }
-    row.addEventListener("click", () => state.routeSelecting ? toggleRoutePin(entry) : choose(entry, true));
+    row.addEventListener("click", () => state.routeSelecting ? toggleRoutePin(entry) : state.transportSelecting ? selectTransportPin(entry) : choose(entry, true));
     list.append(row);
   }
   if (!shown.length) list.append(text("p", "No matching entries.", "empty-results muted"));
   renderMarkers(shown);
+  renderMultimodalRoutes();
   enhanced?.renderOverlay();
 }
 
@@ -679,6 +843,7 @@ function attachMapPinClicks(map) {
     if(enhanced?.isDrawing())return;
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else if(state.routeSelecting)toggleRoutePin(entry);
+    else if(state.transportSelecting)selectTransportPin(entry);
     else choose(entry,false);
   });
   map.on("mouseenter", PIN_TOUCH, () => { map.getCanvas().style.cursor = "pointer"; });
@@ -735,6 +900,7 @@ function renderMarkers(entries) {
         if(enhanced?.isDrawing())return;
         if (state.placing) placeAt({lat:entry.lat,lng:entry.lng});
         else if(state.routeSelecting)toggleRoutePin(entry);
+        else if(state.transportSelecting)selectTransportPin(entry);
         else choose(entry,false);
       });
       state.markers.push(marker);
@@ -830,7 +996,7 @@ async function fallbackLeaflet(reason) {
   state.styleReady=true;
   state.provider="openstreetmap";
   document.documentElement.dataset.mapProvider="openstreetmap";
-  paintProvider();renderMarkers(filterEntries());updateLabels();renderOptimizedRoute();
+  paintProvider();renderMarkers(filterEntries());updateLabels();renderOptimizedRoute();renderMultimodalRoutes();
   announce("Using OpenStreetMap fallback" + (reason ? ": " + reason : "") + ".");
 }
 async function initMap() {
@@ -854,14 +1020,20 @@ async function initMap() {
     state.map=map;state.library="maplibre";
     map.addControl(new lib.NavigationControl({showCompass:false}),"bottom-right");
     let started=false;
-    map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());});
-    map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());renderOptimizedRoute();});
+    map.on("load",()=>{started=true;state.styleReady=true;clearNotice();renderMarkers(filterEntries());renderMultimodalRoutes();});
+    map.on("style.load",()=>{state.styleReady=true;renderMarkers(filterEntries());renderOptimizedRoute();renderMultimodalRoutes();});
     map.on("movestart",()=>{state.mapMoving=true;clearLabelMarkers();});
     map.on("moveend",()=>{state.mapMoving=false;updateLabels();enhanced?.renderOverlay();});
     map.on("move",()=>{enhanced?.renderOverlay();positionDetail();});
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{
+      if(state.library==="maplibre"&&state.styleReady){
+        const pinHits=map.queryRenderedFeatures(event.point,{layers:[PIN_TOUCH].filter(id=>map.getLayer(id))});
+        const routeHits=pinHits.length?[]:map.queryRenderedFeatures(event.point,{layers:TRANSPORT_LAYER_IDS.filter(id=>id.endsWith("-hit")&&map.getLayer(id))});
+        const routeId=routeHits[0]?.properties?.routeId;
+        if(routeId){showTransportInfo(String(routeId));return;}
+      }
       if(enhanced?.handleTap(event.lngLat))return;
       if(state.placing)placeAt(event.lngLat);
     });
@@ -1607,9 +1779,13 @@ function wire() {
   });
   $("refreshBtn").addEventListener("click",()=>reloadShared(false));
   $("offlineButton").addEventListener("click",openOfflineDialog);
-  $("routeSelectToggle").addEventListener("click",()=>{state.routeSelecting=!state.routeSelecting;updateRoutePlanner();render();});
+  $("routeSelectToggle").addEventListener("click",()=>{state.transportSelecting=false;state.transportDraft=null;state.routeSelecting=!state.routeSelecting;updateRoutePlanner();renderTransportRoutes();render();});
   $("routeOptimize").addEventListener("click",optimizeSelectedRoute);
   $("routeClear").addEventListener("click",clearRoutePlan);
+  $("transportAddRoute").addEventListener("click",startTransportRoute);
+  $("transportClearRoutes").addEventListener("click",clearTransportRoutes);
+  $("transportInfoClose").addEventListener("click",closeTransportInfo);
+  $("transportMode").addEventListener("change",()=>{if(state.transportSelecting)state.transportDraft={mode:$("transportMode").value,from:null};renderTransportRoutes();});
   $("offlineClose").addEventListener("click",()=>$("offlineDialog").close());
   $("offlineDownload").addEventListener("click",downloadCurrentOfflineArea);
   $("offlineCancel").addEventListener("click",cancelOfflineDownload);
@@ -1680,6 +1856,7 @@ function wire() {
     if(event.key==="Escape" && !$("settingsDialog").open){
       $("basemapSwitch").classList.add("hidden");
       if(state.placing) {$("placementBar").classList.add("hidden");state.placing=null;}
+      if(state.transportSelecting){state.transportSelecting=false;state.transportDraft=null;renderTransportRoutes();render();}
       if(openDetails.size)hideDetail();
     }
   });
@@ -1687,6 +1864,7 @@ function wire() {
 async function main() {
   state.features=readFeatureSettings();
   state.hiddenPinThemes=readPinVisibility();
+  state.transportRoutes=readSavedTransportRoutes();
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
@@ -1730,6 +1908,7 @@ async function main() {
   sensitivity.addEventListener("input",()=>setPopupSensitivity(sensitivity.value,true));
   applyFeatureSettings();
   window.addEventListener("storage",event=>{
+    if(event.key===TRANSPORT_ROUTE_STORAGE_KEY){state.transportRoutes=readSavedTransportRoutes();renderTransportRoutes();renderMultimodalRoutes();}
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
     if(event.key===SENSITIVITY_KEY)setPopupSensitivity(event.newValue);
     if(event.key===PIN_VISIBILITY_KEY){
@@ -1801,6 +1980,11 @@ if (["127.0.0.1","localhost"].includes(location.hostname)) {
     getRouteSelection: () => state.routeSelectedIds.slice(),
     getOptimizedRoute: () => state.optimizedRoute,
     selectRoutePins: ids => {state.routeSelectedIds=ids.slice();state.routeSelecting=false;clearRouteDisplay();render();},
+    getTransportRoutes: () => state.transportRoutes.slice(),
+    startTransportRoute,
+    selectTransportPin,
+    renderMultimodalRoutes,
+    showTransportInfo,
     optimizeSelectedRoute
   };
 }
