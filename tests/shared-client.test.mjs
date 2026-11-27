@@ -84,7 +84,7 @@ function client(){
     "enqueueOfflineChange","getQueuedChange","listQueuedChanges","removeQueuedChange","markQueuedConflict",
     "listOfflineAreas","mergePendingChanges","stripOfflineFlags","formatOfflineBytes",source+`
     render=()=>{}; notify=()=>{};
-    return {state,loadHostels,submitChange,recordChange,replayHistory,importPins};
+    return {state,loadHostels,submitChange,recordChange,replayHistory,importPins,getPendingChanges:listQueuedChanges};
   `);
   return make(document,window,location,FEATURE_DEFAULTS,localStorage,sharedFetch,navigator,
     enqueueOfflineChange,getQueuedChange,listQueuedChanges,removeQueuedChange,markQueuedConflict,
@@ -126,7 +126,7 @@ const previous=a.state.entries.find(pin=>pin.id===newPin.id);
 const offlineRetry=await a.submitChange("save",{...previous,title:"Retry"});
 assert.equal(offlineRetry.queued,true);
 assert.equal(a.state.entries.find(pin=>pin.id===newPin.id).title,"Retry");
-assert.equal((await listQueuedChanges()).length,1);
+assert.equal((await a.getPendingChanges()).length,1);
 await a.loadHostels();
 assert.equal((await listQueuedChanges()).length,0);
 await b.loadHostels();
