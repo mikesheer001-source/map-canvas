@@ -195,19 +195,25 @@ function normalizeOption(itinerary, route, date, kind, index) {
 export function rankTransportOptions(options) {
   const usable = (options || []).filter(option => Number.isFinite(Number(option.durationSeconds)) && Number(option.durationSeconds) >= 0);
   const fastest = usable.slice().sort((a, b) => a.durationSeconds - b.durationSeconds)[0] || null;
-  const currencies = [...new Set(usable.map(option => option.fare?.currency).filter(Boolean))];
-  const completeSameCurrency = usable.length > 0 &&
-    usable.every(option => option.fare && Number.isFinite(Number(option.fare.amount))) && currencies.length === 1;
-  const cheapest = completeSameCurrency ? usable.slice().sort((a, b) => a.fare.amount - b.fare.amount)[0] : null;
-  const bestValue = completeSameCurrency && fastest
-    ? usable.filter(option => option.durationSeconds <= fastest.durationSeconds * 1.25)
+  const priced = usable.filter(option => option.fare && Number.isFinite(Number(option.fare.amount)));
+  const currencies = [...new Set(priced.map(option => option.fare.currency))];
+  const comparablePrices = priced.length > 0 && currencies.length === 1;
+  const priceCoverageComplete = usable.length > 0 && priced.length === usable.length;
+  const cheapest = comparablePrices ? priced.slice().sort((a, b) => a.fare.amount - b.fare.amount)[0] : null;
+  const bestValue = comparablePrices && fastest
+    ? priced.filter(option => option.durationSeconds <= fastest.durationSeconds * 1.25)
       .sort((a, b) => a.fare.amount - b.fare.amount)[0] || null : null;
   return {
     cheapest: cheapest?.id || null, fastest: fastest?.id || null, bestValue: bestValue?.id || null,
-    currency: completeSameCurrency ? currencies[0] : null,
-    cheapestReason: cheapest ? null : "Not ranked: at least one option has no comparable published fare, or currencies differ.",
-    bestValueReason: bestValue ? "Lowest fare among options within 25% of the fastest journey." :
-      "Not ranked: comparable fares and journey times are required."
+    currency: comparablePrices ? currencies[0] : null,
+    priceCoverageComplete,
+    cheapestReason: cheapest
+      ? (priceCoverageComplete ? null : "Lowest published fare among priced options; options without fares are excluded.")
+      : "Not ranked: no comparable published fares or currencies differ.",
+    bestValueReason: bestValue
+      ? (priceCoverageComplete ? "Lowest fare among options within 25% of the fastest journey." :
+        "Lowest published fare among priced options within 25% of the fastest; unpriced options are excluded.")
+      : "Not ranked: comparable fares and journey times are required."
   };
 }
 
@@ -319,10 +325,11 @@ export function renderTransportOptions(container, route, research, state = {}) {
     const picks = makeElement("div", undefined, "transport-research-picks");
     const cheapestId = stale ? null : research.picks?.cheapest;
     const bestValueId = stale ? null : research.picks?.bestValue;
+    const partialPriceCoverage = research.picks?.priceCoverageComplete === false;
     const pickItems = [
-      ["Cheapest", cheapestId, research.picks?.cheapestReason || "Not ranked: no comparable published fares."],
+      [partialPriceCoverage ? "Cheapest priced" : "Cheapest", cheapestId, stale ? "Not ranked: saved fare data is stale." : research.picks?.cheapestReason || "Not ranked: no comparable published fares."],
       ["Fastest", research.picks?.fastest, "Shortest published journey duration."],
-      ["Best value", bestValueId, stale ? "Not ranked: saved fare data is stale." : research.picks?.bestValueReason || "No reliable value comparison."]
+      [partialPriceCoverage ? "Best value priced" : "Best value", bestValueId, stale ? "Not ranked: saved fare data is stale." : research.picks?.bestValueReason || "No reliable value comparison."]
     ];
     for (const [label, id, fallback] of pickItems) {
       const option = id ? byId.get(id) : null;
@@ -335,6 +342,9 @@ export function renderTransportOptions(container, route, research, state = {}) {
       picks.append(card);
     }
     container.append(picks);
+    if(partialPriceCoverage&&!stale)container.append(makeElement("p",
+      "Cheapest and best-value picks compare only options with published fares in the same currency; unpriced options are excluded, so these are not guaranteed cheapest overall.",
+      "transport-research-disclaimer"));
 
     const list = makeElement("div", undefined, "transport-research-options");
     for (const option of research.options) {
@@ -396,6 +406,6 @@ export function renderTransportOptions(container, route, research, state = {}) {
     container.append(details);
   }
   container.append(makeElement("p",
-    "Feed fares are unverified until the operator confirms the final ticket price and availability. Missing prices are not estimated. Transitous is a best-effort community service for open-source, non-commercial use.",
+    "Feed fares are unverified until the operator confirms the final ticket price and availability. Missing prices are not estimated. Fare lookup assumes one passenger. Transitous is a best-effort community service for open-source, non-commercial use.",
     "transport-research-disclaimer"));
 }

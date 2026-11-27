@@ -60,8 +60,9 @@ test("cheapest and best-value picks require complete same-currency fares",()=>{
   {id:"fast",durationSeconds:900,fare:{amount:8,currency:"USD"}},
   {id:"unknown",durationSeconds:800,fare:null}
  ];
- const partial=rankTransportOptions(options);assert.equal(partial.fastest,"unknown");assert.equal(partial.cheapest,null);assert.equal(partial.bestValue,null);
- const complete=rankTransportOptions(options.slice(0,2));assert.equal(complete.cheapest,"slow-cheap");assert.equal(complete.fastest,"fast");assert.equal(complete.bestValue,"fast");
+ const partial=rankTransportOptions(options);assert.equal(partial.fastest,"unknown");assert.equal(partial.cheapest,"slow-cheap");assert.equal(partial.bestValue,"fast");assert.equal(partial.priceCoverageComplete,false);
+ assert.match(partial.cheapestReason,/unpriced options are excluded/);assert.match(partial.bestValueReason,/unpriced options are excluded/);
+ const complete=rankTransportOptions(options.slice(0,2));assert.equal(complete.cheapest,"slow-cheap");assert.equal(complete.fastest,"fast");assert.equal(complete.bestValue,"fast");assert.equal(complete.priceCoverageComplete,true);
 });
 test("does not compare prices across currencies",()=>{
  const result=rankTransportOptions([{id:"usd",durationSeconds:100,fare:{amount:5,currency:"USD"}},{id:"eur",durationSeconds:120,fare:{amount:4,currency:"EUR"}}]);
