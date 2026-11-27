@@ -625,7 +625,7 @@ async function createItineraryRoute(dayId,from,to,mode){
   const draftId=state.itineraryDraft.id,requestId=++state.itineraryRequestId;state.itineraryBusy=true;state.itineraryError=null;renderItineraryBuilderUI();
   try{
     const {buildMultimodalRoute}=await import("./multimodal-routes.mjs?v=multimodal-routes-20261127");
-    const route=await buildMultimodalRoute({mode,from:{id:from.id,title:from.title,lat:Number(from.lat),lng:Number(from.lng)},to:{id:to.id,title:to.title,lat:Number(to.lat),lng:Number(to.lng)},id:randomKey()});
+    const route=await buildMultimodalRoute({mode,from:{id:from.sourcePinId||from.id,title:from.title,lat:Number(from.lat),lng:Number(from.lng)},to:{id:to.sourcePinId||to.id,title:to.title,lat:Number(to.lat),lng:Number(to.lng)},id:randomKey()});
     if(state.transportRoutes.length>=100)throw new Error("The saved route library is full. Remove a route before creating another.");
     state.transportRoutes.push(route);saveTransportRoutes();
     if(requestId===state.itineraryRequestId&&state.itineraryDraft?.id===draftId){
