@@ -1,5 +1,5 @@
 import { fetchRoutePin } from "./route-pins.mjs?v=routed-diamonds-20261128";
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-visibility-20261128";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=pin-sizing-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -43,9 +43,14 @@ let offlineAreaBounds=null;
 
 const SENSITIVITY_KEY="map-canvas:popup-sensitivity";
 const PHOTO_SIZE_KEY="map-canvas:photo-size";
+const PIN_SIZE_KEY="map-canvas:pin-size";
+const DETAIL_SIZE_KEY="map-canvas:detail-size";
+const normalizePinSize=value=>Math.max(50,Math.min(200,Number(value)||100));
 const normalizePhotoSize=value=>Math.max(100,Math.min(800,Number(value)||100));
 let popupSensitivity=2;
 let photoSize=100;
+let pinSize=100,detailSize=100;
+try{pinSize=normalizePinSize(globalThis.localStorage?.getItem(PIN_SIZE_KEY));detailSize=normalizePinSize(globalThis.localStorage?.getItem(DETAIL_SIZE_KEY));}catch{}
 try{popupSensitivity=Number(globalThis.localStorage?.getItem(SENSITIVITY_KEY))||2;}catch{}
 try{photoSize=normalizePhotoSize(globalThis.localStorage?.getItem(PHOTO_SIZE_KEY));}catch{}
 popupSensitivity=Math.max(0.5,Math.min(4,popupSensitivity));
@@ -146,6 +151,7 @@ function pinPassesRouteFilter(entry){return state.features.showRoutePins || !isR
 function makeEmojiPin(entry,className){
   const emoji=pinEmoji(entry);
   const pin=text("span",emoji,className);
+  pin.style.setProperty("--pin-size-factor",String(pinSize/100));
   pin.title=entry.title||"Map pin";
   if(isRoutePin(entry))pin.classList.add("route-pin");
   if(isRecentPin(entry)){pin.classList.add("recent-pin");pin.title+=" · Added within 24hrs";}
@@ -1044,21 +1050,21 @@ function renderMarkers(entries) {
       state.map.addLayer({
         id:PIN_DOTS,source:PIN_SOURCE,type:"circle",
         paint:{
-          "circle-radius":["case",["==",["get","id"],state.current?.id||""],10,8],
+          "circle-radius":["case",["==",["get","id"],state.current?.id||""],10*pinSize/100,8*pinSize/100],
           "circle-color":["get","color"],
           "circle-opacity":0.008
         }
       });
     } else {
       state.map.setPaintProperty(PIN_DOTS,"circle-radius",
-        ["case",["==",["get","id"],state.current?.id||""],10,8]);
+        ["case",["==",["get","id"],state.current?.id||""],10*pinSize/100,8*pinSize/100]);
     }
     if (!state.map.getLayer(PIN_TOUCH)) {
       state.map.addLayer({
         id:PIN_TOUCH,source:PIN_SOURCE,type:"circle",
-        paint:{"circle-radius":20,"circle-color":"#fff","circle-opacity":0.005}
+        paint:{"circle-radius":Math.max(14,20*pinSize/100),"circle-color":"#fff","circle-opacity":0.005}
       });
-    }
+    }else state.map.setPaintProperty(PIN_TOUCH,"circle-radius",Math.max(14,20*pinSize/100));
     attachMapPinClicks(state.map);
     renderEmojiMarkers(entries);
   } else if (state.library === "leaflet") {
@@ -1071,7 +1077,7 @@ function renderMarkers(entries) {
         icon:window.L.divIcon({
           className:"leaflet-emoji-marker",
           html:makeEmojiPin(entry,"emoji-pin-inner").outerHTML,
-          iconSize:[34,34],iconAnchor:[17,17]
+          iconSize:[34*pinSize/100,34*pinSize/100],iconAnchor:[17*pinSize/100,17*pinSize/100]
         })
       }).addTo(state.map);
       marker.on("click",()=>{
@@ -1239,19 +1245,20 @@ async function initMap() {
 }
 function positionDetail() {
   if(!state.map)return;
-  const scale=Math.max(0.3,Math.min(1.35,zoomScale(mapZoom())));
+  const scale=Math.max(0.3,Math.min(1.35,zoomScale(mapZoom())))*detailSize/100;
+  const pinOffset=17*pinSize/100+5;
   for(const {entry, node:detail} of openDetails.values()){
     const point=state.library === "maplibre" ? state.map.project([entry.lng,entry.lat]) : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
     const map=$("map");
     const visible=point.x>=0 && point.y>=0 && point.x<=map.clientWidth && point.y<=map.clientHeight;
     detail.style.visibility=visible?"visible":"hidden";
     const halfWidth=detail.offsetWidth*scale/2;
-    const centerX=Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
+    const centerX=halfWidth*2>=map.clientWidth?map.clientWidth/2:Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
     detail.style.left=centerX+"px";
     detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
     detail.style.setProperty("--detail-scale",scale);
-    const below=point.y<detail.offsetHeight*scale+24;
-    detail.style.top=(point.y+(below?22:-22))+"px";
+    const below=point.y<detail.offsetHeight*scale+pinOffset+2;
+    detail.style.top=(point.y+(below?pinOffset:-pinOffset))+"px";
     detail.classList.toggle("below-pin",below);
   }
 }
@@ -2102,7 +2109,7 @@ async function main() {
   enhanced=createEnhancements({state,DETAIL_ZOOM,PIN_SOURCE,
     allEntries,filterEntries,pinGeoJSON,render,notify,safeImage,openEditor,
     startPlacement,placeAt,choose,getKey,saveKey,randomKey,submitChange,recordChange,
-    reloadShared,importPins,mapZoom,photoZoomScale,photoSize:()=>photoSize/100});
+    reloadShared,importPins,mapZoom,photoZoomScale,photoSize:()=>photoSize/100,pinSize:()=>pinSize/100});
   wire();
   // An optional feature must never prevent the base map from initializing.
   try{enhanced.init();}catch(error){
@@ -2119,6 +2126,7 @@ async function main() {
   settingsUI.init();
   const sensitivity=$("popupSensitivity");
   const photoSizeSlider=$("photoSize");
+  const pinSizeSlider=$("pinSize"),detailSizeSlider=$("detailSize");
   const resizePopups=()=>{positionDetail();enhanced.renderOverlay();};
   function setPhotoSize(value,persist=false){
     photoSize=normalizePhotoSize(value);
@@ -2127,6 +2135,23 @@ async function main() {
     if(persist){try{localStorage.setItem(PHOTO_SIZE_KEY,String(photoSize));}catch{}}
     enhanced.renderOverlay();
   }
+  function setPinSize(value,persist=false){
+    pinSize=normalizePinSize(value);
+    pinSizeSlider.value=String(pinSize);$("pinSizeValue").value=pinSize+"%";
+    if(persist){try{localStorage.setItem(PIN_SIZE_KEY,String(pinSize));}catch{}}
+    if(state.map)renderMarkers(state.visiblePins);
+    positionDetail();enhanced.renderOverlay();
+  }
+  function setDetailSize(value,persist=false){
+    detailSize=normalizePinSize(value);
+    detailSizeSlider.value=String(detailSize);$("detailSizeValue").value=detailSize+"%";
+    if(persist){try{localStorage.setItem(DETAIL_SIZE_KEY,String(detailSize));}catch{}}
+    positionDetail();
+  }
+  setPinSize(pinSize);setDetailSize(detailSize);
+  pinSizeSlider.addEventListener("input",()=>setPinSize(pinSizeSlider.value,true));
+  detailSizeSlider.addEventListener("input",()=>setDetailSize(detailSizeSlider.value,true));
+  $("settingsReset").addEventListener("click",()=>{setPinSize(100,true);setDetailSize(100,true);});
   setPhotoSize(photoSize);
   photoSizeSlider.addEventListener("input",()=>setPhotoSize(photoSizeSlider.value,true));
   $("settingsReset").addEventListener("click",()=>setPhotoSize(100,true));
@@ -2149,6 +2174,8 @@ async function main() {
       renderItineraryBuilderUI();
     }
     if(event.key===PHOTO_SIZE_KEY)setPhotoSize(event.newValue);
+    if(event.key===PIN_SIZE_KEY)setPinSize(event.newValue);
+    if(event.key===DETAIL_SIZE_KEY)setDetailSize(event.newValue);
     if(event.key===SENSITIVITY_KEY)setPopupSensitivity(event.newValue);
     if(event.key===PIN_VISIBILITY_KEY){
       state.hiddenPinThemes=readPinVisibility();

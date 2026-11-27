@@ -475,3 +475,13 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .route-pin::before{content:"";position:absolute;inset:4px;background:#f4fff8;border:2px solid #4d8867;transform:rotate(45deg);border-radius:3px;z-index:-1;box-shadow:0 2px 8px #163d3059}
 .route-pin.recent-pin::before{background:#dbeafe;border-color:#3b82f6;box-shadow:0 0 0 3px #60a5fa70}
 .route-entry-ico{border-radius:4px;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+
+/* Independent marker sizing; do not override MapLibre/Leaflet positioning transforms. */
+.emoji-pin,.leaflet-emoji-marker .emoji-pin-inner{width:calc(34px * var(--pin-size-factor,1));height:calc(34px * var(--pin-size-factor,1));border-radius:calc(11px * var(--pin-size-factor,1));font-size:calc(23px * var(--pin-size-factor,1))}
+.maplibregl-marker.emoji-pin{width:calc(34px * var(--pin-size-factor,1));height:calc(34px * var(--pin-size-factor,1));border-radius:calc(11px * var(--pin-size-factor,1));font-size:calc(23px * var(--pin-size-factor,1))}
+.emoji-pin.has-rating,.emoji-pin-inner.has-rating{grid-template-rows:calc(18px * var(--pin-size-factor,1)) calc(10px * var(--pin-size-factor,1));font-size:calc(18px * var(--pin-size-factor,1))}
+.maplibregl-marker.emoji-pin.has-rating,.leaflet-emoji-marker .emoji-pin-inner.has-rating{font-size:calc(18px * var(--pin-size-factor,1))}
+.pin-rating{font-size:calc(8.5px * var(--pin-size-factor,1));line-height:calc(10px * var(--pin-size-factor,1))}
+.recent-pin::after{font-size:calc(9px * var(--pin-size-factor,1));padding:calc(2px * var(--pin-size-factor,1)) calc(4px * var(--pin-size-factor,1))}
+.emoji-pin.route-pin,.leaflet-emoji-marker .emoji-pin-inner.route-pin{border-radius:0;font-size:calc(22px * var(--pin-size-factor,1))}
+.route-pin::before{inset:calc(4px * var(--pin-size-factor,1))}

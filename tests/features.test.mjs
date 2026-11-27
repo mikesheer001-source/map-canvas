@@ -27,7 +27,7 @@ assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"));
 const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS","pinThemeVisible",
  app.replace(/^import .*;\s*/gm,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
- "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries,isRoutePin,routeMidpoint};")(
+ "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries,isRoutePin,routeMidpoint,normalizePinSize};")(
  {},{},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
  {onLine:true},FEATURE_DEFAULTS,pinThemeVisible);
 assert.equal(api.validColor("#ffaa22"),true);
@@ -90,3 +90,9 @@ api.state.features.showRoutePins=true;
 assert.deepEqual(api.filterEntries().map(e=>e.id),["ordinary","route"]);
 api.state.features.showRoutePins=false;
 assert.deepEqual(api.filterEntries().map(e=>e.id),["ordinary"]);
+
+assert.equal(api.normalizePinSize(null),100);
+assert.equal(api.normalizePinSize(10),50);
+assert.equal(api.normalizePinSize(300),200);
+assert.equal(api.normalizePinSize(150),150);
+assert.ok(html.includes('id="pinSize"')&&html.includes('id="detailSize"'));

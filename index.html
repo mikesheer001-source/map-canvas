@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.18.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="./style.css?v=route-pins-20261128">
+<link rel="stylesheet" href="./style.css?v=pin-sizing-20261128">
 </head>
 <body>
 <div id="app">
@@ -111,7 +111,17 @@
  <div class="settings-body">
   <div id="settingsGroups" class="settings-groups"></div>
   <details id="settingsSizing" class="settings-sizing">
-   <summary>Photo &amp; popup sizing</summary>
+   <summary>Pin, photo &amp; popup sizing</summary>
+   <div class="settings-range">
+    <label for="pinSize">Pin size</label><output id="pinSizeValue" for="pinSize">100%</output>
+    <input id="pinSize" type="range" min="50" max="200" step="10" value="100" aria-describedby="pinSizeHint">
+    <small id="pinSizeHint">Scale map markers, ratings, diamonds and 24-hour badges.</small>
+   </div>
+   <div class="settings-range">
+    <label for="detailSize">Detail popup size</label><output id="detailSizeValue" for="detailSize">100%</output>
+    <input id="detailSize" type="range" min="50" max="200" step="10" value="100" aria-describedby="detailSizeHint">
+    <small id="detailSizeHint">Scale the opened photo and notes cards independently of marker size and zoom sensitivity.</small>
+   </div>
    <div class="settings-range">
     <label for="popupSensitivity">Popup zoom sensitivity</label><output id="popupSensitivityValue" for="popupSensitivity">2</output>
     <input id="popupSensitivity" type="range" min="0.5" max="4" step="0.5" value="2" aria-describedby="popupSensitivityHint">
@@ -188,6 +198,6 @@
 <div class="mobile-list-tab hidden" id="mobileMapButton"><button>⌑ Map</button></div>
 <div id="toast" role="status" class="toast hidden"></div>
 </div>
-<script type="module" src="./app.js?v=route-visibility-20261128"></script>
+<script type="module" src="./app.js?v=pin-sizing-20261128"></script>
 </body>
 </html>

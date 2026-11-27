@@ -524,6 +524,7 @@ export function createEnhancements(api){
       if(!p || p.x<0 || p.x>=width || p.y<0 || p.y>=height)continue;
       items.push({entry,id:entry.id,x:p.x,y:p.y,count:urls.length,urls});
     }
+    const pinOffset=17*(api.pinSize?.()||1)+5;
     const avoid=state.features.avoidPhotoOverlap;
     const packed=avoid?layoutPinPhotos(items,width,height,size):null;
     overlay.style.setProperty("--pin-photo-size",(packed?.size??size)+"px");
@@ -565,7 +566,7 @@ export function createEnhancements(api){
         const ax=Math.max(rect.x,Math.min(rect.x+rect.w,p.x)),ay=Math.max(rect.y,Math.min(rect.y+rect.h,p.y));
         if(Math.abs(rect.x+rect.w/2-p.x)>2||Math.abs(rect.y+rect.h-(p.y-22))>2)
           photoConnectors.append(svgEl("line",{x1:p.x,y1:p.y,x2:ax,y2:ay}));
-      }else group.node.style.transform=`translate(${p.x}px,${p.y-22}px) translate(-50%,-100%)`;
+      }else group.node.style.transform=`translate(${p.x}px,${p.y-pinOffset}px) translate(-50%,-100%)`;
     }
     for(const [id,{node}] of photoGroups){
       if(shown.has(id))continue;
