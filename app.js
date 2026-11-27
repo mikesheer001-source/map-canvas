@@ -211,7 +211,8 @@ function jsonOptions(method,body){
   return {method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};
 }
 async function flushQueuedChanges(){
-  const queued=await listQueuedChanges();
+  let queued=[];
+  try{queued=await listQueuedChanges();}catch{return {synced:0,attempted:false};}
   let synced=0,attempted=false;
   state.syncingQueue=queued.length>0;
   try{
@@ -225,19 +226,21 @@ async function flushQueuedChanges(){
           const result=await requestShared(path,jsonOptions("PUT",{
             entry:value,expectedVersion:change.expectedVersion
           }));
+          if(Number.isSafeInteger(result.revision))state.revision=result.revision;
           const items=allEntries().slice();
           const index=items.findIndex(pin=>pin.id===change.pinId);
           if(index<0)items.push(result.entry);else items[index]=result.entry;
           storeMapSnapshot(items);
         }else{
-          await requestShared(path,jsonOptions("DELETE",{expectedVersion:change.expectedVersion}));
+          const result=await requestShared(path,jsonOptions("DELETE",{expectedVersion:change.expectedVersion}));
+          if(Number.isSafeInteger(result.revision))state.revision=result.revision;
           storeMapSnapshot(allEntries().filter(pin=>pin.id!==change.pinId));
         }
         await removeQueuedChange(change.pinId);
         synced++;
       }catch(error){
         if(error.status===409||(error.status>=400&&error.status<500&&error.status!==503)){
-          await markQueuedConflict(change.pinId,error.message);
+          try{await markQueuedConflict(change.pinId,error.message);}catch{}
           continue;
         }
         break;
@@ -254,20 +257,24 @@ async function loadHostels(){
     let data=await requestShared("/pins");
     if(epoch!==state.readEpoch||state.saving)return;
     state.localReady=true;
-    const pending=await listQueuedChanges();
-    let synced=0;
+    let pending=[];
+    try{pending=await listQueuedChanges();}catch{}
+    let synced=0,refreshFailed=false;
     if(pending.length){
       const result=await flushQueuedChanges();
       synced=result.synced;
       if(result.attempted){
-        try{data=await requestShared("/pins");}catch{}
+        try{data=await requestShared("/pins");}
+        catch{refreshFailed=true;}
       }
     }
     if(epoch!==state.readEpoch||state.saving)return;
-    state.revision=data.revision;
-    try{localStorage.setItem(REVISION_KEY,String(data.revision));}catch{}
-    const remaining=await listQueuedChanges();
-    const visible=mergePendingChanges(data.entries,remaining);
+    if(!refreshFailed)state.revision=data.revision;
+    try{localStorage.setItem(REVISION_KEY,String(state.revision??data.revision));}catch{}
+    let remaining=[];
+    try{remaining=await listQueuedChanges();}catch{}
+    const serverEntries=refreshFailed?allEntries():data.entries;
+    const visible=mergePendingChanges(serverEntries,remaining);
     storeMapSnapshot(visible);
     for(const [id,card] of [...openDetails]){
       const selected=state.entries.find(entry=>entry.id===id);
@@ -846,8 +853,10 @@ async function submitChange(action,entry){
   if(state.syncingQueue)throw new Error("Offline edits are syncing. Retry in a moment.");
   state.readEpoch++;
   const path="/pins/"+encodeURIComponent(entry.id);
-  const queued=await getQueuedChange(entry.id);
-  if(!navigator.onLine||queued)return queueOfflineChange(action,entry);
+  if(!navigator.onLine)return queueOfflineChange(action,entry);
+  let queued=null;
+  try{queued=await getQueuedChange(entry.id);}catch{}
+  if(queued)return queueOfflineChange(action,entry);
   try{
     let data;
     if(action==="delete"){
