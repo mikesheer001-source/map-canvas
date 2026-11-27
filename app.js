@@ -650,7 +650,7 @@ async function initMap() {
       container:"map",center:[105.8503,21.0345],zoom:15.5,
       style:openFreeMapStyle(),
       transformRequest:(url)=>{
-        if(url.startsWith("https://tiles.openfreemap.org/")){
+        if(url.startsWith("https://tiles.openfreemap.org/")&&navigator.serviceWorker?.controller){
           const local=new URL("/__offline_map_resource",location.origin);
           local.searchParams.set("url",url);
           return {url:local.href};
@@ -1093,14 +1093,22 @@ async function refreshOfflineStatus(){
     status.classList.remove("hidden");
   }
 }
-function setupOffline(){
+async function setupOffline(){
   window.addEventListener("online",()=>{refreshOfflineStatus();reloadShared(true);});
   window.addEventListener("offline",refreshOfflineStatus);
   if("serviceWorker" in navigator && (location.protocol==="https:"||["localhost","127.0.0.1"].includes(location.hostname))){
-    navigator.serviceWorker.register("./sw.js").then(registration=>{offlineRegistration=registration;})
-      .catch(()=>notify("Offline map storage could not start in this browser.",true));
+    try{
+      offlineRegistration=await navigator.serviceWorker.register("./sw.js");
+      await navigator.serviceWorker.ready;
+      if(!navigator.serviceWorker.controller){
+        await Promise.race([
+          new Promise(resolve=>navigator.serviceWorker.addEventListener("controllerchange",resolve,{once:true})),
+          delay(1500)
+        ]);
+      }
+    }catch{notify("Offline map storage could not start in this browser.",true);}
   }
-  refreshOfflineStatus();
+  await refreshOfflineStatus();
 }
 function getOfflineWorker(){
   return (offlineRegistration?Promise.resolve(offlineRegistration):navigator.serviceWorker.ready)
@@ -1541,7 +1549,7 @@ async function main() {
       settingsUI.sync();
     }
   });
-  setupOffline();
+  await setupOffline();
   try{
     const cached=readMapCache();
     if(Array.isArray(cached)){
