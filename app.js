@@ -1,11 +1,24 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
-import { optimizeSelectedPins, formatRouteDistance, formatRouteDuration, MAX_ROUTE_STOPS } from "./route-optimizer.mjs?v=route-optimization-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
 const DETAIL_ZOOM = 16.8;
+const MAX_ROUTE_STOPS = 500;
+function formatRouteDistance(meters){
+  const value=Number(meters);
+  if(!Number.isFinite(value)||value<0)return "—";
+  if(value<1000)return Math.round(value)+" m";
+  return (value/1000).toFixed(value>=100000?0:1)+" km";
+}
+function formatRouteDuration(seconds){
+  const value=Number(seconds);
+  if(!Number.isFinite(value)||value<0)return "—";
+  const minutes=Math.round(value/60),hours=Math.floor(minutes/60),remainder=minutes%60;
+  if(!hours)return minutes+" min";
+  return hours+" hr"+(remainder?" "+remainder+" min":"");
+}
 const SNAPSHOT_KEY = "map-canvas:shared-snapshot-v2";
 const REVISION_KEY = "map-canvas:shared-revision-v1";
 const openDetails=new Map();
@@ -459,6 +472,7 @@ async function optimizeSelectedRoute(){
   clearRouteDisplay();
   updateRoutePlanner();
   try{
+    const {optimizeSelectedPins}=await import("./route-optimizer.mjs?v=route-optimization-20261127");
     const route=await optimizeSelectedPins(pins,{
       signal:controller.signal,
       onProgress:progress=>{if(requestId===state.routeRequestId){state.routeProgress=progress;updateRoutePlanner();}}

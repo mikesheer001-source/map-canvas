@@ -57,7 +57,7 @@ try {
   assert.equal(requests.length,2,"101 stops are sent as two overlapping OSRM route segments");
   assert.deepEqual(requests.map(points=>points.length),[100,2]);
   assert.equal(await page.locator("#ordered li").count(),101);
-  assert.equal(await page.locator("#summary").textContent().then(value=>value.includes("4 km")),true);
+  assert.equal(await page.locator("#summary").textContent().then(value=>value.includes("4.0 km")),true);
   process.stdout.write("PASS: browser stop selection, optimized visit order, route metrics, and 101-stop chunking\n");
 } finally {
   await browser?.close();
