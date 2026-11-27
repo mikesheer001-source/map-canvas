@@ -13,6 +13,7 @@ on:
       - 'tests/offline-core.test.mjs'
       - 'tests/offline-harness.html'
       - 'tests/offline-browser.test.mjs'
+      - 'offline-tile-proxy/**'
       - 'tests/shared-client.test.mjs'
       - 'tests/features.test.mjs'
       - 'tests/canvas-features.test.mjs'

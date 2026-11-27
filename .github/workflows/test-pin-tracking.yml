@@ -22,6 +22,7 @@ on:
       - 'tests/pin-regression.test.mjs'
       - 'tests/canvas-features.test.mjs'
       - 'tests/shared-client.test.mjs'
+      - 'offline-tile-proxy/**'
       - 'README.md'
       - '.github/workflows/test-map-canvas-offline.yml'
   pull_request:

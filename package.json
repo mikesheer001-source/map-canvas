@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs tests/pin-regression.test.mjs tests/features.test.mjs tests/canvas-features.test.mjs tests/offline-core.test.mjs",
+    "test": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs tests/pin-regression.test.mjs tests/features.test.mjs tests/canvas-features.test.mjs tests/offline-core.test.mjs offline-tile-proxy/worker.test.mjs",
     "test:database": "node --experimental-strip-types --test backend/board.test.mjs backend/resources.test.mjs",
     "test:database:browser": "node --experimental-strip-types tests/database-browser.test.mjs",
     "build": "node --experimental-strip-types scripts/build.mjs",

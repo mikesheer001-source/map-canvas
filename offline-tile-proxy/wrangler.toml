@@ -1,0 +1,4 @@
+name = "map-canvas-tiles"
+main = "worker.mjs"
+compatibility_date = "2026-11-27"
+workers_dev = true

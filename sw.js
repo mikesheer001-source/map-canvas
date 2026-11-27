@@ -8,7 +8,6 @@ const MAX_TILES = 3000;
 const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_PARALLEL = 4;
 const cancelledAreas = new Set();
-const APP_HEADERS = { "X-Requested-With": "MapCanvas/1.0 (+https://mikesheer001-source.github.io/map-canvas/)" };
 const CORE = [
   "./", "./index.html",
   "./app.js?v=offline-sync-20261127",
@@ -95,14 +94,26 @@ function addAsset(assets, url, kind) {
   assets.set(href, previous === "tile" || kind === "tile" ? "tile" : (previous || kind));
 }
 
-async function fetchProvider(url) {
+function validateProxyOrigin(value) {
+  let url;
+  try { url = new URL(value); } catch { throw new Error("Enter the URL of the independent Map Canvas tile proxy."); }
+  const local = ["localhost", "127.0.0.1"].includes(url.hostname);
+  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
+    throw new Error("The tile proxy URL must use HTTPS.");
+  }
+  return url.origin;
+}
+
+async function fetchProvider(url, proxyOrigin) {
+  const proxyUrl = new URL("/proxy", proxyOrigin);
+  proxyUrl.searchParams.set("url", url);
   let response;
   for (let attempt = 0; attempt < 3; attempt++) {
-    response = await fetch(url, { headers: APP_HEADERS, cache: "no-store" });
+    response = await fetch(proxyUrl.href, { cache: "no-store" });
     if (![429, 503].includes(response.status) || attempt === 2) break;
     await delay(500 * (attempt + 1));
   }
-  if (!response.ok) throw new Error("OpenFreeMap returned HTTP " + response.status + " for an offline map resource.");
+  if (!response.ok) throw new Error("Map Canvas tile proxy returned HTTP " + response.status + ".");
   return response;
 }
 
@@ -111,9 +122,9 @@ function tileUrl(template, tile) {
     .replaceAll("{y}", String(tile.y)).replaceAll("{s}", "a").replaceAll("{ratio}", "");
 }
 
-async function collectStyleAssets(styleUrl, tiles, assets) {
+async function collectStyleAssets(styleUrl, tiles, assets, proxyOrigin) {
   addAsset(assets, styleUrl, "style");
-  const styleResponse = await fetchProvider(styleUrl);
+  const styleResponse = await fetchProvider(styleUrl, proxyOrigin);
   const style = await styleResponse.json();
 
   for (const source of Object.values(style.sources || {})) {
@@ -121,7 +132,7 @@ async function collectStyleAssets(styleUrl, tiles, assets) {
     if (source.url) {
       const metadataUrl = providerUrl(source.url);
       addAsset(assets, metadataUrl, "metadata");
-      tileSource = await (await fetchProvider(metadataUrl)).json();
+      tileSource = await (await fetchProvider(metadataUrl, proxyOrigin)).json();
     }
     for (const template of tileSource.tiles || []) {
       for (const tile of tiles) addAsset(assets, tileUrl(template, tile), "tile");
@@ -199,6 +210,7 @@ async function downloadOfflineArea(area, port) {
     if (!/^[a-z0-9_-]{1,80}$/i.test(id)) throw new Error("Invalid offline area ID.");
     const minZoom = Number(area.minZoom), maxZoom = Number(area.maxZoom);
     if (!Number.isInteger(minZoom) || !Number.isInteger(maxZoom)) throw new Error("Choose whole-number zoom levels.");
+    const proxyOrigin = validateProxyOrigin(area.proxyOrigin);
     const tiles = enumerateTiles(area.bounds, minZoom, maxZoom);
     if (!tiles.length) throw new Error("The selected area contains no map tiles.");
 
@@ -207,7 +219,7 @@ async function downloadOfflineArea(area, port) {
       "https://tiles.openfreemap.org/styles/liberty",
       "https://tiles.openfreemap.org/styles/dark"
     ];
-    for (const styleUrl of styles) await collectStyleAssets(styleUrl, tiles, assets);
+    for (const styleUrl of styles) await collectStyleAssets(styleUrl, tiles, assets, proxyOrigin);
     const tileCount = [...assets.values()].filter(kind => kind === "tile").length;
     if (tileCount > MAX_TILES) throw new Error("This style needs more than 3,000 vector tiles. Reduce the area or zoom range.");
     if (!tileCount) throw new Error("The selected OpenFreeMap style did not provide vector tiles.");
@@ -227,7 +239,7 @@ async function downloadOfflineArea(area, port) {
         if (index >= jobs.length) return;
         const [url, kind] = jobs[index];
         try {
-          const response = await fetchProvider(url);
+          const response = await fetchProvider(url, proxyOrigin);
           const bytes = await response.clone().arrayBuffer();
           totalBytes += bytes.byteLength;
           if (totalBytes > MAX_BYTES) {
@@ -256,7 +268,7 @@ async function downloadOfflineArea(area, port) {
       name: String(area.name || "Offline area").slice(0, 80),
       bounds: area.bounds,
       minZoom, maxZoom, tileCount, bytes: totalBytes,
-      cacheName, style: "OpenFreeMap Liberty + Dark",
+      cacheName, proxyOrigin, style: "OpenFreeMap Liberty + Dark",
       downloadedAt: Date.now()
     };
     await saveAreaRecord(saved);

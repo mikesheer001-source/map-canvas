@@ -8,9 +8,7 @@ await navigator.serviceWorker.ready;
 if (!navigator.serviceWorker.controller) {
   await new Promise(resolve => navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true }));
 }
-window.offlineHarness = {
-  enqueueOfflineChange, listQueuedChanges, removeQueuedChange, listOfflineAreas, removeOfflineAreaRecord
-};
+window.offlineHarness = { enqueueOfflineChange, listQueuedChanges, removeQueuedChange, listOfflineAreas, removeOfflineAreaRecord };
 document.getElementById("ready").textContent = "ready";
 window.offlineHarnessReady = true;
 </script></body></html>

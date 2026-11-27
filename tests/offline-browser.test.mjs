@@ -6,12 +6,9 @@ import { chromium } from "playwright";
 
 const root = resolve(process.cwd());
 const mime = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json",
-  ".svg": "image/svg+xml",
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".json": "application/json", ".svg": "image/svg+xml"
 };
 const server = createServer(async (request, response) => {
   try {
@@ -22,14 +19,40 @@ const server = createServer(async (request, response) => {
     const body = await readFile(file);
     response.writeHead(200, { "Content-Type": mime[extname(file)] || "application/octet-stream" });
     response.end(body);
-  } catch {
-    response.writeHead(404);
-    response.end("Not found");
-  }
+  } catch { response.writeHead(404); response.end("Not found"); }
 });
-await new Promise(resolveReady => server.listen(0, "127.0.0.1", resolveReady));
-const address = server.address();
-const base = "http://127.0.0.1:" + address.port;
+const style = {
+  version: 8,
+  sources: { openfreemap: { type: "vector", tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"] } },
+  sprite: "https://tiles.openfreemap.org/sprites/test",
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  layers: [{ id: "test-label", type: "symbol", layout: { "text-font": ["Noto Sans Regular"] } }]
+};
+const proxyServer = createServer((request, response) => {
+  const headers = {
+    "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type", "Cache-Control": "public, max-age=3600"
+  };
+  if (request.method === "OPTIONS") { response.writeHead(204, headers); response.end(); return; }
+  const target = new URL(request.url, "http://127.0.0.1").searchParams.get("url");
+  if (!target) { response.writeHead(400, headers); response.end("missing url"); return; }
+  const url = new URL(target);
+  let body, type = "application/octet-stream";
+  if (url.pathname.startsWith("/styles/")) { body = JSON.stringify(style); type = "application/json"; }
+  else if (url.pathname.endsWith(".json")) { body = "{}"; type = "application/json"; }
+  else if (url.pathname.endsWith(".png")) { body = Buffer.from([137,80,78,71,13,10,26,10]); type = "image/png"; }
+  else if (url.pathname.endsWith(".pbf")) { body = Buffer.from("offline-test-tile"); type = "application/x-protobuf"; }
+  else { response.writeHead(404, headers); response.end("not found"); return; }
+  response.writeHead(200, { ...headers, "Content-Type": type, "ETag": '"offline-test"' });
+  response.end(body);
+});
+
+await Promise.all([
+  new Promise(resolveReady => server.listen(0, "127.0.0.1", resolveReady)),
+  new Promise(resolveReady => proxyServer.listen(0, "127.0.0.1", resolveReady))
+]);
+const base = "http://127.0.0.1:" + server.address().port;
+const proxyOrigin = "http://127.0.0.1:" + proxyServer.address().port;
 
 let browser;
 try {
@@ -39,33 +62,22 @@ try {
   await page.goto(base);
   await page.waitForFunction(() => window.offlineHarnessReady === true);
 
-  const beforeOffline = await page.evaluate(async () => {
-    for (const item of await window.offlineHarness.listQueuedChanges()) {
-      await window.offlineHarness.removeQueuedChange(item.pinId);
-    }
-    const id = "live-openfreemap-test";
-    const worker = navigator.serviceWorker.controller;
+  const beforeOffline = await page.evaluate(async proxy => {
+    for (const item of await window.offlineHarness.listQueuedChanges()) await window.offlineHarness.removeQueuedChange(item.pinId);
+    const id = "browser-proxy-test";
     const channel = new MessageChannel();
     const downloaded = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("OpenFreeMap area download timed out.")), 45000);
+      const timeout = setTimeout(() => reject(new Error("Mock-proxy offline area download timed out.")), 15000);
       channel.port1.onmessage = event => {
         const message = event.data || {};
-        if (message.type === "OFFLINE_AREA_COMPLETE") {
-          clearTimeout(timeout);
-          resolve(message.area);
-        } else if (message.type === "OFFLINE_AREA_ERROR") {
-          clearTimeout(timeout);
-          reject(new Error(message.error));
-        }
+        if (message.type === "OFFLINE_AREA_COMPLETE") { clearTimeout(timeout); resolve(message.area); }
+        else if (message.type === "OFFLINE_AREA_ERROR") { clearTimeout(timeout); reject(new Error(message.error)); }
       };
     });
-    worker.postMessage({
+    navigator.serviceWorker.controller.postMessage({
       type: "DOWNLOAD_OFFLINE_AREA",
-      area: {
-        id, name: "Browser test area",
-        bounds: { west: 0.1, south: 0.1, east: 0.2, north: 0.2 },
-        minZoom: 5, maxZoom: 5
-      }
+      area: { id, proxyOrigin: proxy, name: "Browser test area",
+        bounds: { west: 0.1, south: 0.1, east: 0.2, north: 0.2 }, minZoom: 5, maxZoom: 5 }
     }, [channel.port2]);
     const area = await downloaded;
     const areas = await window.offlineHarness.listOfflineAreas();
@@ -73,22 +85,19 @@ try {
     const keys = await cache.keys();
     const tile = keys.find(request => new URL(request.url).pathname.endsWith(".pbf"));
     if (!tile) throw new Error("Offline area did not cache a vector tile.");
-
     await window.offlineHarness.enqueueOfflineChange({
       pinId: "browser-offline-pin", action: "save", expectedVersion: null,
-      entry: { id: "browser-offline-pin", title: "Created offline", version: 0 }, createdAt: 1,
+      entry: { id: "browser-offline-pin", title: "Created offline", version: 0 }, createdAt: 1
     });
     await window.offlineHarness.enqueueOfflineChange({
       pinId: "browser-offline-pin", action: "save", expectedVersion: 0,
-      entry: { id: "browser-offline-pin", title: "Edited again offline", version: 0 }, createdAt: 2,
+      entry: { id: "browser-offline-pin", title: "Edited again offline", version: 0 }, createdAt: 2
     });
-    return {
-      area, areas, tileUrl: tile.url,
-      queue: await window.offlineHarness.listQueuedChanges()
-    };
-  });
+    return { area, areas, tileUrl: tile.url, queue: await window.offlineHarness.listQueuedChanges() };
+  }, proxyOrigin);
+
   assert.ok(beforeOffline.area.tileCount > 0);
-  assert.equal(beforeOffline.areas.some(area => area.id === "live-openfreemap-test"), true);
+  assert.equal(beforeOffline.areas.some(area => area.id === "browser-proxy-test"), true);
   assert.equal(beforeOffline.queue.length, 1);
   assert.equal(beforeOffline.queue[0].expectedVersion, null);
   assert.equal(beforeOffline.queue[0].entry.title, "Edited again offline");
@@ -99,23 +108,26 @@ try {
   const offlineResult = await page.evaluate(async tileUrl => {
     const queue = await window.offlineHarness.listQueuedChanges();
     const response = await fetch(tileUrl);
-    return { title: document.title, queue, tileStatus: response.status, tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
+    return { title: document.title, queue, status: response.status, tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
   }, beforeOffline.tileUrl);
   assert.match(offlineResult.title, /offline browser test/i);
-  assert.equal(offlineResult.queue.length, 1, "IndexedDB edit queue survives a page reload");
+  assert.equal(offlineResult.queue.length, 1);
   assert.equal(offlineResult.queue[0].entry.title, "Edited again offline");
-  assert.equal(offlineResult.tileStatus, 200, "a downloaded OpenFreeMap vector tile is served without network access");
+  assert.equal(offlineResult.status, 200);
   assert.ok(offlineResult.tile.byteLength > 0);
   assert.equal(offlineResult.controller, true);
 
   await context.setOffline(false);
   await page.evaluate(async () => {
     await window.offlineHarness.removeQueuedChange("browser-offline-pin");
-    await window.offlineHarness.removeOfflineAreaRecord("live-openfreemap-test");
-    await caches.delete("map-canvas-area-live-openfreemap-test");
+    await window.offlineHarness.removeOfflineAreaRecord("browser-proxy-test");
+    await caches.delete("map-canvas-area-browser-proxy-test");
   });
-  process.stdout.write("PASS: OpenFreeMap area download, IndexedDB edit persistence and offline vector-tile retrieval\n");
+  process.stdout.write("PASS: proxied offline-area download, IndexedDB edit persistence and offline vector-tile retrieval\n");
 } finally {
   await browser?.close();
-  await new Promise(resolveClose => server.close(resolveClose));
+  await Promise.all([
+    new Promise(resolveClose => server.close(resolveClose)),
+    new Promise(resolveClose => proxyServer.close(resolveClose))
+  ]);
 }

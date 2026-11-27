@@ -1098,9 +1098,22 @@ function currentMapBounds(){
   const bounds=state.map.getBounds();
   return {west:bounds.getWest(),south:bounds.getSouth(),east:bounds.getEast(),north:bounds.getNorth()};
 }
+function offlineProxyOrigin(){
+  try{
+    const url=new URL($("offlineProxyUrl").value.trim());
+    const local=["localhost","127.0.0.1"].includes(url.hostname);
+    if(url.protocol!=="https:"&&!(local&&url.protocol==="http:"))return null;
+    return url.origin;
+  }catch{return null;}
+}
 function updateOfflineEstimate(){
   const output=$("offlineEstimate");
   const button=$("offlineDownload");
+  if(!offlineProxyOrigin()){
+    output.textContent="Deploy the independent tile proxy from offline-tile-proxy/ and paste its workers.dev URL above.";
+    button.disabled=true;
+    return;
+  }
   if(!offlineAreaBounds||state.provider!=="openfreemap"||state.library!=="maplibre"){
     output.textContent="Switch the basemap to OpenFreeMap to download offline areas. OpenStreetMap's public raster tiles cannot be bulk-downloaded.";
     button.disabled=true;
@@ -1127,6 +1140,7 @@ async function openOfflineDialog(){
     $("offlineMinZoom").value=String(min);
     $("offlineMaxZoom").value=String(Math.max(min,max));
     $("offlineAreaName").value="Map area "+new Date().toLocaleDateString();
+    try{$("offlineProxyUrl").value=localStorage.getItem("map-canvas:offline-tile-proxy-v1")||"";}catch{$("offlineProxyUrl").value="";}
     $("offlineProgress").textContent="";
     $("offlineProviderNote").textContent=state.provider==="openfreemap"&&state.library==="maplibre"
       ?"The current map view will be saved with both light and dark OpenFreeMap styles."
@@ -1163,9 +1177,12 @@ async function downloadCurrentOfflineArea(){
   if(offlineDownloadId)return;
   if(!navigator.onLine){$("offlineProgress").textContent="Connect to the internet to download this area.";return;}
   if(state.provider!=="openfreemap"||state.library!=="maplibre"){updateOfflineEstimate();return;}
+  const proxyOrigin=offlineProxyOrigin();
+  if(!proxyOrigin){updateOfflineEstimate();return;}
+  try{localStorage.setItem("map-canvas:offline-tile-proxy-v1",proxyOrigin);}catch{}
   const id=crypto.randomUUID().replaceAll("-","");
   const area={
-    id,name:$("offlineAreaName").value.trim()||"Offline area",
+    id,proxyOrigin,name:$("offlineAreaName").value.trim()||"Offline area",
     bounds:offlineAreaBounds,
     minZoom:Number($("offlineMinZoom").value),
     maxZoom:Number($("offlineMaxZoom").value)
@@ -1378,6 +1395,10 @@ function wire() {
   $("offlineCancel").addEventListener("click",cancelOfflineDownload);
   $("offlineMinZoom").addEventListener("change",updateOfflineEstimate);
   $("offlineMaxZoom").addEventListener("change",updateOfflineEstimate);
+  $("offlineProxyUrl").addEventListener("change",()=>{
+    try{localStorage.setItem("map-canvas:offline-tile-proxy-v1",offlineProxyOrigin()||"");}catch{}
+    updateOfflineEstimate();
+  });
   $("offlineSync").addEventListener("click",()=>reloadShared(false));
   $("offlineExport").addEventListener("click",exportPendingEdits);
   $("downloadLegacyBtn").addEventListener("click",downloadLegacyEdits);
