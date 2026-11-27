@@ -264,17 +264,17 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .import-help{display:block;font-size:11px;line-height:1.5;color:var(--muted);padding:2px 4px}
 
 /* The details card stays at the selected map coordinate while the map moves. */
-.side-panel{position:absolute;top:0;left:0;right:auto;bottom:auto;width:min(270px,75vw);max-height:min(320px,38dvh);padding:11px;z-index:12;transform:translate(-50%,-100%) scale(var(--detail-scale,1));transform-origin:bottom center;overscroll-behavior:contain;touch-action:pan-y}
+.side-panel{position:absolute;top:0;left:0;right:auto;bottom:auto;width:min(270px,75vw);max-height:min(320px,65dvh,var(--detail-room,65dvh));padding:11px;z-index:12;transform:translate(-50%,-100%) scale(var(--detail-scale,1));transform-origin:bottom center;overscroll-behavior:contain;touch-action:pan-y}
 .side-panel.below-pin{transform:translate(-50%,0) scale(var(--detail-scale,1));transform-origin:top center}
 .side-panel .detail-head h2{font-size:15px;line-height:1.25}
 .side-panel .detail-photo{max-height:110px;margin:5px 0}
 .side-panel .detail-pills{margin:6px 0}
 .side-panel .detail-notes{font-size:12px}
 .side-panel .detail-actions{margin-top:8px}
-@media(max-width:750px){.side-panel{top:0;left:0;right:auto;bottom:auto;width:min(260px,74vw);max-height:min(290px,38dvh)}}
+@media(max-width:750px){.side-panel{top:0;left:0;right:auto;bottom:auto;width:min(260px,74vw);max-height:min(290px,65dvh,var(--detail-room,65dvh))}}
 .side-panel::after{content:"";position:absolute;bottom:0;left:calc(50% + var(--anchor-x, 0px));transform:translateX(-50%);width:0;height:0;border:7px solid transparent;border-top-color:#75ac8b;pointer-events:none}
 .side-panel.below-pin::after{top:0;bottom:auto;border-top-color:transparent;border-bottom-color:#75ac8b}
-@media(max-width:750px){.side-panel{width:min(230px,calc(68vw / var(--detail-scale,1)));max-height:min(255px,calc(35dvh / var(--detail-scale,1)))}}
+@media(max-width:750px){.side-panel{width:min(230px,calc(90vw / var(--detail-scale,1)));max-height:min(255px,calc(65dvh / var(--detail-scale,1)),var(--detail-room,65dvh))}}
 
 .detail-layer{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}.detail-layer .side-panel{pointer-events:auto}
 

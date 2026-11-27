@@ -51,14 +51,15 @@ const normalizeDetailAutoClose=value=>value==null||value===""||!Number.isFinite(
 let detailAutoClose=DEFAULT_DETAIL_AUTO_CLOSE;
 try{detailAutoClose=normalizeDetailAutoClose(globalThis.localStorage?.getItem(DETAIL_AUTO_CLOSE_KEY));}catch{}
 const normalizePinSize=value=>Math.max(50,Math.min(200,Number(value)||100));
+const normalizeDetailSize=value=>Math.max(50,Math.min(600,Number(value)||100));
 const normalizePhotoSize=value=>Math.max(100,Math.min(800,Number(value)||100));
 let popupSensitivity=2;
 let photoSize=100;
 let pinSize=100,detailSize=100;
-try{pinSize=normalizePinSize(globalThis.localStorage?.getItem(PIN_SIZE_KEY));detailSize=normalizePinSize(globalThis.localStorage?.getItem(DETAIL_SIZE_KEY));}catch{}
+try{pinSize=normalizePinSize(globalThis.localStorage?.getItem(PIN_SIZE_KEY));detailSize=normalizeDetailSize(globalThis.localStorage?.getItem(DETAIL_SIZE_KEY));}catch{}
 try{popupSensitivity=Number(globalThis.localStorage?.getItem(SENSITIVITY_KEY))||2;}catch{}
 try{photoSize=normalizePhotoSize(globalThis.localStorage?.getItem(PHOTO_SIZE_KEY));}catch{}
-popupSensitivity=Math.max(0.5,Math.min(4,popupSensitivity));
+popupSensitivity=Math.max(0.5,Math.min(8,popupSensitivity));
 const ICONS = ["📍","🏨","☕","🍜","🏋️","🎨","📸","📝","🏖️","🛒","⭐"];
 let enhanced = null;
 let settingsUI = null;
@@ -1102,8 +1103,9 @@ function renderMarkers(entries) {
 function mapZoom() { return state.map ? state.map.getZoom() : 15; }
 function zoomScale(zoom,sensitivity=popupSensitivity){return Math.exp((zoom-17)*0.12*sensitivity);}
 function photoZoomScale(zoom){
-  const boost=zoom>17 ? Math.max(0,popupSensitivity-2) : 0;
-  return zoomScale(zoom,popupSensitivity+boost);
+  const photoSensitivity=Math.min(4,popupSensitivity);
+  const boost=zoom>17 ? Math.max(0,photoSensitivity-2) : 0;
+  return zoomScale(zoom,photoSensitivity+boost);
 }
 const osmStyle = {
   version:8, sources:{osm:{type:"raster",tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],tileSize:256,attribution:"© OpenStreetMap contributors"}},
@@ -1250,19 +1252,25 @@ async function initMap() {
 }
 function positionDetail() {
   if(!state.map)return;
-  const scale=Math.max(0.3,Math.min(1.35,zoomScale(mapZoom())))*detailSize/100;
+  const map=$("map");
+  // Keep enlarged cards readable and reachable on small map viewports.
+  const viewportScale=Math.max(0.3,Math.min((map.clientWidth-16)/145,(map.clientHeight-20)/100));
+  const scale=Math.min(viewportScale,Math.max(0.3,Math.min(3,zoomScale(mapZoom())))*detailSize/100);
   const pinOffset=17*pinSize/100+5;
   for(const {entry, node:detail} of openDetails.values()){
     const point=state.library === "maplibre" ? state.map.project([entry.lng,entry.lat]) : state.map.latLngToContainerPoint([entry.lat,entry.lng]);
-    const map=$("map");
     const visible=point.x>=0 && point.y>=0 && point.x<=map.clientWidth && point.y<=map.clientHeight;
     detail.style.visibility=visible?"visible":"hidden";
+    detail.style.setProperty("--detail-scale",scale);
+    detail.style.maxWidth=Math.max(1,(map.clientWidth-12)/scale)+"px";
+    const aboveRoom=point.y-pinOffset-4;
+    const belowRoom=map.clientHeight-point.y-pinOffset-4;
+    detail.style.setProperty("--detail-room",Math.max(1,Math.max(aboveRoom,belowRoom)/scale)+"px");
     const halfWidth=detail.offsetWidth*scale/2;
     const centerX=halfWidth*2>=map.clientWidth?map.clientWidth/2:Math.max(halfWidth,Math.min(map.clientWidth-halfWidth,point.x));
     detail.style.left=centerX+"px";
     detail.style.setProperty("--anchor-x",((point.x-centerX)/scale)+"px");
-    detail.style.setProperty("--detail-scale",scale);
-    const below=point.y<detail.offsetHeight*scale+pinOffset+2;
+    const below=aboveRoom<detail.offsetHeight*scale && belowRoom>aboveRoom;
     detail.style.top=(point.y+(below?pinOffset:-pinOffset))+"px";
     detail.classList.toggle("below-pin",below);
   }
@@ -2174,7 +2182,7 @@ async function main() {
     positionDetail();enhanced.renderOverlay();
   }
   function setDetailSize(value,persist=false){
-    detailSize=normalizePinSize(value);
+    detailSize=normalizeDetailSize(value);
     detailSizeSlider.value=String(detailSize);$("detailSizeValue").value=detailSize+"%";
     if(persist){try{localStorage.setItem(DETAIL_SIZE_KEY,String(detailSize));}catch{}}
     positionDetail();
@@ -2187,7 +2195,7 @@ async function main() {
   photoSizeSlider.addEventListener("input",()=>setPhotoSize(photoSizeSlider.value,true));
   $("settingsReset").addEventListener("click",()=>setPhotoSize(100,true));
   function setPopupSensitivity(value,persist=false){
-    popupSensitivity=Math.max(0.5,Math.min(4,Number(value)||2));
+    popupSensitivity=Math.max(0.5,Math.min(8,Number(value)||2));
     sensitivity.value=String(popupSensitivity);
     $("popupSensitivityValue").value=sensitivity.value;
     if(persist){try{localStorage.setItem(SENSITIVITY_KEY,sensitivity.value);}catch{}}
