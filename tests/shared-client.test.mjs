@@ -128,7 +128,7 @@ assert.equal(offlineRetry.queued,true);
 assert.equal(a.state.entries.find(pin=>pin.id===newPin.id).title,"Retry");
 assert.equal((await a.getPendingChanges()).length,1);
 await a.loadHostels();
-assert.equal((await listQueuedChanges()).length,0);
+assert.equal((await a.getPendingChanges()).length,0);
 await b.loadHostels();
 assert.equal(b.state.entries.find(pin=>pin.id===newPin.id).title,"Retry");
 // Another client's update must not be erased by a stale replace.
