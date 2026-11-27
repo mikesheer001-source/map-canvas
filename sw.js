@@ -240,14 +240,15 @@ async function downloadOfflineArea(area, port) {
         const [url, kind] = jobs[index];
         try {
           const response = await fetchProvider(url, proxyOrigin);
-          const bytes = await response.clone().arrayBuffer();
+          const cacheCopy = response.clone();
+          const bytes = await response.arrayBuffer();
           totalBytes += bytes.byteLength;
           if (totalBytes > MAX_BYTES) {
             failure = failure || new Error("This download reached the 50 MB limit. Choose a smaller area or zoom range.");
             return;
           }
           if (failure) return;
-          await cache.put(url, response.clone());
+          await cache.put(url, cacheCopy);
           completed++;
           send(port, {
             type: "OFFLINE_AREA_PROGRESS", id, completed, total: jobs.length,
