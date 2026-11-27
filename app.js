@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-order-20261127";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=recent-filter-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -134,6 +134,9 @@ function clearEmojiMarkers(){
 function isRecentPin(entry, now=Date.now()){
   const age=now-Number(entry.createdAt);
   return Number.isFinite(age)&&age>=0&&age<24*60*60*1000;
+}
+function pinPassesAgeFilter(entry){
+  return !state.features.recentPinsOnly || isRecentPin(entry);
 }
 function makeEmojiPin(entry,className){
   const emoji=pinEmoji(entry);
@@ -376,6 +379,7 @@ function filterEntries() {
   const needle = (state.features.search?state.query:"").toLowerCase().trim();
   const shown = allEntries().filter((e) =>
     pinThemeVisible(e,state.hiddenPinThemes)
+    && pinPassesAgeFilter(e)
     && (!state.features.filters || state.category === "all" || e.category === state.category)
     && (!state.features.filters || state.filter === "all" || state.filter === "place" ||
       (state.filter === "note" && (e.notes || e.kind === "note")) ||
@@ -848,10 +852,11 @@ function fitOptimizedRoute(){
 function render() {
   enhanced?.selections();
   settingsUI?.syncThemeOptions(allEntries());
-  if(openDetails.size && state.hiddenPinThemes.size){
+  if(openDetails.size && (state.hiddenPinThemes.size || state.features.recentPinsOnly)){
     const entriesById=new Map(allEntries().map(entry=>[entry.id,entry]));
     for(const [id,card] of openDetails){
-      if(!pinThemeVisible(entriesById.get(id)||card.entry,state.hiddenPinThemes))hideDetail(id,false);
+      const entry=entriesById.get(id)||card.entry;
+      if(!pinThemeVisible(entry,state.hiddenPinThemes)||!pinPassesAgeFilter(entry))hideDetail(id,false);
     }
   }
   const shown = filterEntries();
@@ -1108,7 +1113,7 @@ function mapFocus(entry) {
   else state.map.flyTo([entry.lat,entry.lng],Math.max(mapZoom(),17.3));
 }
 function fitPins() {
-  const valid = allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
+  const valid = allEntries().filter((e) => pinThemeVisible(e,state.hiddenPinThemes) && pinPassesAgeFilter(e) && Number.isFinite(e.lat) && Number.isFinite(e.lng));
   if (!valid.length || !state.map) return;
   if (state.library === "maplibre") {
     const minLng = Math.min(...valid.map((x) => x.lng)), minLat = Math.min(...valid.map((x) => x.lat));
@@ -1525,7 +1530,7 @@ async function sharePin(entry) {
 function applyDeepLink() {
   if(!state.pendingPin)return;
   const entry=allEntries().find(e=>e.id===state.pendingPin);
-  if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)){state.pendingPin=null;choose(entry,true);}
+  if(entry&&pinThemeVisible(entry,state.hiddenPinThemes)&&pinPassesAgeFilter(entry)){state.pendingPin=null;choose(entry,true);}
 }
 function locateUser() {
   if (!navigator.geolocation) {notify("Location is unavailable in this browser.",true);return;}
@@ -1845,6 +1850,7 @@ function setFeatureSetting(key,value,persist=true){
   if(persist || key===null){
     applyFeatureSettings(key);
     settingsUI?.sync();
+    if(key==="recentPinsOnly"&&state.map)applyDeepLink();
   }
 }
 

@@ -172,7 +172,7 @@ export function layoutPinPhotos(items,width,height,requestedSize){
 export const FEATURE_DEFAULTS=Object.freeze({
   search:true,filters:true,layers:true,importExport:true,
   addPins:true,canvasObjects:true,galleries:true,undoRedo:true,
-  labels:true,showAllPictures:false,onePicturePerPin:false,avoidPhotoOverlap:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
+  labels:true,showAllPictures:false,onePicturePerPin:false,avoidPhotoOverlap:false,recentPinsOnly:false,pinRatings:false,gps:true,basemaps:true,navigation:true,darkTheme:false
 });
 export const FEATURE_GROUPS=[
   {title:"Map appearance",features:[
@@ -184,6 +184,7 @@ export const FEATURE_GROUPS=[
     ["darkTheme","Dark theme","Dark interface and a matching dark map"]
   ]},
   {title:"Browse & organize",features:[
+    ["recentPinsOnly","Hide pins older than 24 hours","Only show newly added pins on the map and in the list; pins without a creation date are hidden"],
     ["search","Search","Show the pin search box"],
     ["filters","Filters and sorting","Category, type, and sorting controls"],
     ["layers","Layers and groups","Show layer toggles and nested groups"]

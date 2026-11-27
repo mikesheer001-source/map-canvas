@@ -63,4 +63,17 @@ assert.equal(api.filterEntries().length,0);
 api.state.hiddenPinThemes.clear();
 api.state.query="";
 assert.equal(api.filterEntries().length,12);
+assert.equal(FEATURE_DEFAULTS.recentPinsOnly,false);
+api.state.hostels=[];
+api.state.entries=[
+  {id:"recent",title:"Recent",category:"Hostel",createdAt:Date.now()-3600000},
+  {id:"old",title:"Old",category:"Hostel",createdAt:Date.now()-25*3600000},
+  {id:"undated",title:"Undated",category:"Hostel"},
+  {id:"future",title:"Future",category:"Hostel",createdAt:Date.now()+3600000}
+];
+assert.equal(api.filterEntries().length,4);
+api.state.features.recentPinsOnly=true;
+assert.deepEqual(api.filterEntries().map(e=>e.id),["recent"]);
+api.state.features.recentPinsOnly=false;
+assert.equal(api.filterEntries().length,4);
 console.log("PASS: shared public map, filters, emoji pins, manual Sheets import, and cache");
