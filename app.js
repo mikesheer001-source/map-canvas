@@ -131,10 +131,15 @@ function clearEmojiMarkers(){
   for(const marker of state.emojiMarkers){try{marker.remove();}catch{}}
   state.emojiMarkers=[];
 }
+function isRecentPin(entry, now=Date.now()){
+  const age=now-Number(entry.createdAt);
+  return Number.isFinite(age)&&age>=0&&age<24*60*60*1000;
+}
 function makeEmojiPin(entry,className){
   const emoji=pinEmoji(entry);
   const pin=text("span",emoji,className);
   pin.title=entry.title||"Map pin";
+  if(isRecentPin(entry)){pin.classList.add("recent-pin");pin.title+=" · Added within 24hrs";}
   if(!state.features.pinRatings)return pin;
   const rating=String(entry.rating??"").trim().match(/^([0-5](?:\.\d+)?)(?:\s*\(([\d,]+) reviews?\))?$/i);
   if(!rating || Number(rating[1])>5)return pin;
@@ -356,7 +361,10 @@ async function importPins(imported,mode){
   state.saving=true;state.readEpoch++;
   try{
     const entries=[];
-    for(const entry of imported)entries.push(await uploadEntryPhotos(entry));
+    for(const entry of imported){
+      const previous=allEntries().find(pin=>pin.id===entry.id);
+      entries.push(await uploadEntryPhotos({...entry,createdAt:previous ? (previous.createdAt??entry.createdAt) : (entry.createdAt??Date.now())}));
+    }
     const data=await requestShared("/import",jsonOptions("POST",{entries,mode,expectedRevision:state.revision}));
     state.revision=data.revision;storeMapSnapshot(data.entries);
     for(const [id,card] of [...openDetails]){const pin=state.entries.find(e=>e.id===id);if(pin)renderDetail(pin,card.node);else hideDetail(id);}
@@ -875,6 +883,7 @@ function render() {
     }
     const wrap = text("span", "", "entry-main");
     wrap.append(text("strong", entry.title), text("small", entry.category || entry.kind));
+    if(isRecentPin(entry)){row.classList.add("recent-entry");wrap.append(text("small","New · 24hrs","recent-pin-label"));}
     row.append(ico, wrap);
     if(state.routeSelecting||routeOrder>=0)row.append(text("span",routeOrder>=0?String(routeOrder+1):"+","route-order-badge"));
     if (entry.price) {
@@ -921,7 +930,7 @@ function clearLabelMarkers() {
 }
 function makeCard(entry) {
   const root = document.createElement("div");
-  root.className = "canvas-pin map-detail-card";
+  root.className = "canvas-pin map-detail-card" + (isRecentPin(entry) ? " recent-card" : "");
   root.style.pointerEvents = "none";
   const label = text("span", "", "pin-label");
   if (entry.photo) {
@@ -933,6 +942,7 @@ function makeCard(entry) {
   }
   const lines = document.createElement("span");
   lines.append(text("strong", pinEmoji(entry) + " " + entry.title));
+  if(isRecentPin(entry))lines.append(text("small","New · 24hrs","recent-pin-label"));
   const extra = [entry.price, entry.rating ? "★ " + entry.rating : ""].filter(Boolean).join(" · ");
   if (extra) lines.append(text("small", extra));
   else if (entry.kind === "note" && entry.notes) lines.append(text("small", entry.notes.slice(0, 55)));
@@ -1365,6 +1375,7 @@ async function queueOfflineChange(action,entry){
   return {version:baseVersion??0,queued:true,cancelled:!!queued.cancelled};
 }
 async function submitChange(action,entry){
+  if(action==="save"&&!allEntries().some(pin=>pin.id===entry.id)&&!entry.createdAt)entry={...entry,createdAt:Date.now()};
   if(!state.localReady)throw new Error("Open the shared map online once before editing offline.");
   if(state.syncingQueue)throw new Error("Offline edits are syncing. Retry in a moment.");
   state.readEpoch++;

@@ -456,3 +456,12 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 @media(max-width:750px){.itinerary-toolbar{grid-template-columns:minmax(0,1fr) auto auto}.itinerary-toolbar button:last-child{grid-column:3;grid-row:2}.itinerary-totals{grid-template-columns:1fr}.itinerary-stop-actions button{min-height:29px}}
 
 .itinerary-delete-confirmation{font-size:10px;color:#a35d20;line-height:1.4;padding:3px 1px}
+
+/* New pins: temporary blue hue and 24-hour label, independent of custom color. */
+.emoji-pin.recent-pin,.leaflet-emoji-marker .emoji-pin-inner.recent-pin{background:#dbeafe!important;border-color:#3b82f6!important;box-shadow:0 0 0 3px #60a5fa70,0 2px 8px #1d4ed85c;position:relative}
+.maplibregl-marker.emoji-pin.recent-pin{position:absolute}
+.recent-pin::after{content:"24hrs";position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font:700 9px/1.2 system-ui,sans-serif;background:#2563eb;color:white;padding:2px 4px;border-radius:5px;white-space:nowrap}
+.entry.recent-entry{box-shadow:inset 3px 0 #3b82f6;background-color:#3b82f614}
+.recent-card .pin-label{border-color:#3b82f6;box-shadow:0 0 0 2px #60a5fa70}
+.recent-pin-label{color:#2563eb!important;font-weight:700}
+:root[data-theme="dark"] .recent-pin-label{color:#93c5fd!important}

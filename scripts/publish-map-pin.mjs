@@ -75,7 +75,7 @@ export async function publishPin(manifest, { base = production, root = process.c
   await request(call, base + "/pins/" + entry.id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entry: { ...current, ...changes }, expectedVersion }),
+    body: JSON.stringify({ entry: { ...current, ...changes, ...(!current ? { createdAt: Date.now() } : {}) }, expectedVersion }),
   });
   const saved = await read();
   if (!matches(saved)) throw new Error(`Pin ${entry.id} did not match after publishing.`);
