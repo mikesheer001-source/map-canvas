@@ -250,7 +250,7 @@ async function downloadOfflineArea(area, port) {
           const headers = new Headers(response.headers);
           headers.delete("Content-Length");
     headers.delete("Content-Encoding");
-          await cache.put(url, new Response(new Uint8Array(bytes.slice(0)), {
+          await cache.put(url, new Response(new Blob([bytes.slice(0)]), {
             status: response.status, statusText: response.statusText, headers
           }));
           completed++;
@@ -331,7 +331,7 @@ async function serveOfflineMapResource(requestUrl) {
     headers.delete("Content-Encoding");
     headers.set("X-Offline-Cache-Hit", "yes");
     headers.set("X-Offline-Cache-Bytes", String(bytes.byteLength));
-    return new Response(new Uint8Array(bytes), { status: cached.status, statusText: cached.statusText, headers });
+    return new Response(new Blob([bytes]), { status: cached.status, statusText: cached.statusText, headers });
   }
   try {
     const upstream = await fetch(target.href);
@@ -343,11 +343,11 @@ async function serveOfflineMapResource(requestUrl) {
     headers.set("X-Offline-Cache-Bytes", String(bytes.byteLength));
     if (upstream.ok) {
       const cache = await caches.open(TILES);
-      await cache.put(target.href, new Response(new Uint8Array(bytes.slice(0)), { status: upstream.status, statusText: upstream.statusText, headers }));
+      await cache.put(target.href, new Response(new Blob([bytes.slice(0)]), { status: upstream.status, statusText: upstream.statusText, headers }));
       const keys = await cache.keys();
       if (keys.length > 180) await Promise.all(keys.slice(0, keys.length - 180).map(key => cache.delete(key)));
     }
-    return new Response(new Uint8Array(bytes), { status: upstream.status, statusText: upstream.statusText, headers });
+    return new Response(new Blob([bytes]), { status: upstream.status, statusText: upstream.statusText, headers });
   } catch {
     return new Response("This OpenFreeMap resource is not saved for offline use.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
@@ -384,7 +384,7 @@ self.addEventListener("fetch", event => {
         const headers = new Headers(cached.headers);
         headers.delete("Content-Length");
     headers.delete("Content-Encoding");
-        return new Response(new Uint8Array(bytes), { status: cached.status, statusText: cached.statusText, headers });
+        return new Response(new Blob([bytes]), { status: cached.status, statusText: cached.statusText, headers });
       }
       const response = await fetch(request);
       if (response.ok && response.type !== "opaque") {
