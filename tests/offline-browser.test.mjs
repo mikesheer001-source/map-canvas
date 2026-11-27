@@ -117,6 +117,7 @@ try {
     offlineUrl.searchParams.set("url", tileUrl);
     const response = await fetch(offlineUrl.href);
     return { title: document.title, queue, status: response.status, type: response.type,
+      cacheHit: response.headers.get("X-Offline-Cache-Hit"), cacheBytes: response.headers.get("X-Offline-Cache-Bytes"),
       directCacheBytes: directCacheBytes.byteLength, directCacheType: directCache?.type,
       tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
   }, beforeOffline.tileUrl);

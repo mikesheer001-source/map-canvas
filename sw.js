@@ -327,6 +327,8 @@ async function serveOfflineMapResource(requestUrl) {
     const bytes = await cached.arrayBuffer();
     const headers = new Headers(cached.headers);
     headers.delete("Content-Length");
+    headers.set("X-Offline-Cache-Hit", "yes");
+    headers.set("X-Offline-Cache-Bytes", String(bytes.byteLength));
     return new Response(bytes, { status: cached.status, statusText: cached.statusText, headers });
   }
   try {
@@ -334,6 +336,8 @@ async function serveOfflineMapResource(requestUrl) {
     const bytes = await upstream.arrayBuffer();
     const headers = new Headers(upstream.headers);
     headers.delete("Content-Length");
+    headers.set("X-Offline-Cache-Hit", "no");
+    headers.set("X-Offline-Cache-Bytes", String(bytes.byteLength));
     if (upstream.ok) {
       const cache = await caches.open(TILES);
       await cache.put(target.href, new Response(bytes.slice(0), { status: upstream.status, statusText: upstream.statusText, headers }));
