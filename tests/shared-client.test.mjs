@@ -49,11 +49,25 @@ function client(){
   }};
   const window={};
   const location={hostname:"test.invalid",search:""};
-  const make=new Function("document","window","location","FEATURE_DEFAULTS","localStorage","fetch",source+`
+  const navigator={onLine:true};
+  const enqueueOfflineChange=async change=>change;
+  const getQueuedChange=async()=>null;
+  const listQueuedChanges=async()=>[];
+  const removeQueuedChange=async()=>true;
+  const markQueuedConflict=async()=>true;
+  const listOfflineAreas=async()=>[];
+  const mergePendingChanges=entries=>entries;
+  const stripOfflineFlags=entry=>entry;
+  const formatOfflineBytes=()=> "0 B";
+  const make=new Function("document","window","location","FEATURE_DEFAULTS","localStorage","fetch","navigator",
+    "enqueueOfflineChange","getQueuedChange","listQueuedChanges","removeQueuedChange","markQueuedConflict",
+    "listOfflineAreas","mergePendingChanges","stripOfflineFlags","formatOfflineBytes",source+`
     render=()=>{}; notify=()=>{};
     return {state,loadHostels,submitChange,recordChange,replayHistory,importPins};
   `);
-  return make(document,window,location,FEATURE_DEFAULTS,localStorage,sharedFetch);
+  return make(document,window,location,FEATURE_DEFAULTS,localStorage,sharedFetch,navigator,
+    enqueueOfflineChange,getQueuedChange,listQueuedChanges,removeQueuedChange,markQueuedConflict,
+    listOfflineAreas,mergePendingChanges,stripOfflineFlags,formatOfflineBytes);
 }
 const a=client(),b=client();
 await a.loadHostels();await b.loadHostels();
