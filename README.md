@@ -95,13 +95,13 @@ Use a GitHub-connected Chat that can commit to this repository. For map content,
 }
 ```
 
-Use a fresh UUID for each new pin. For updates, include the existing ID and only the fields to change. Use a public HTTPS photo URL or commit a JPG, PNG, WebP, or GIF of up to 5 MiB alongside the submission under `publish/photos/`. The same formats work for `gallery` entries. Submit photo and JSON changes in the same push. The example is documentation only.
+Use a fresh UUID for each new pin. For updates, include the existing ID and only the fields to change. Find the best real, representative web photo of the exact place that may be reused. Download its actual bytes and commit a JPG, PNG, WebP, or GIF of up to 5 MiB alongside the submission under `publish/photos/`; retain source and attribution. Do not use external hotlinks. The same formats work for `gallery` entries. Submit photo and JSON changes in the same push. The example is documentation only.
 
 A push to `main` runs **Publish Map Canvas pins** for new or changed submissions. The workflow copies committed image files to the existing photo store, verifies their bytes, saves the pin if needed, and reads it back. Check the [workflow runs](https://github.com/mikesheer001-source/map-canvas/actions/workflows/publish-map-pins.yml) before marking a submission complete. For a version conflict, reread the live pin and commit a reviewed update. A rerun of a successful submission leaves matching pins alone. Removing a submission file does not delete the live pin. The public map and its existing editing controls require no account.
 
 ## Consistent place uploads
 
-See [AGENTS.md](AGENTS.md) for the standard required for researched pins, including Google ratings, working photos, attribution, and live verification.
+See [AGENTS.md](AGENTS.md) for the standard required for researched pins, including Google ratings, web photo research, actual stored image files, attribution, and live verification. These instructions also appear in the site under Settings → Pin upload instructions.
 
 ### Image storage requirement
 

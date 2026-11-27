@@ -138,6 +138,15 @@
     <small id="photoSizeHint">Size of floating photos (100–800%). Large photos may extend beyond the map.</small>
    </div>
   </details>
+  <details id="settingsUploadInstructions" class="settings-sizing">
+   <summary>Pin upload instructions</summary>
+   <div class="settings-range">
+    <p>For every researched place, find the exact Google Maps listing, check for duplicates, and include the current rating and review count, accurate price, useful short notes and verified coordinates.</p>
+    <p><strong>Photos:</strong> Search the web for the best real, representative photo of the exact location. Prefer a clear, high-resolution interior, exterior or distinctive view with permission to reuse. Download the actual image file, then upload it to Map Canvas; do not paste external image links, screenshots of search results, generic stock photos or AI-generated substitutes. One excellent photo is enough. Retain the source and attribution, remove private metadata, and use the stored Map Canvas photo URL.</p>
+    <p>For automated uploads, commit the image under <code>publish/photos/</code> with the pin submission, or use the approved licensed Wikimedia import. Verify the published pin and that its photo actually opens on the map. If a photo cannot be obtained or verified, disclose the blocker instead of silently skipping it.</p>
+    <small>Public pins do not require sign-in. See <a href="https://github.com/mikesheer001-source/map-canvas/blob/main/AGENTS.md" target="_blank" rel="noopener noreferrer">full upload standard</a>.</small>
+   </div>
+  </details>
   <div class="settings-hidden-controls" id="settingsLegacy" hidden><button type="button" id="downloadLegacyBtn" class="secondary">Download previous browser edits</button><small>Review the older snapshot before importing. It can overwrite newer edits or restore deleted pins.</small></div>
  </div>
  <footer class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this browser</span><button type="button" class="primary" id="settingsDone">Done</button></footer>
@@ -180,7 +189,7 @@
   <div class="form-grid"><label>Pin icon<select id="pinIcon" aria-label="Pin icon"><option>📍</option><option>🏨</option><option>☕</option><option>🍜</option><option>🏋️</option><option>🎨</option><option>📸</option><option>📝</option><option>🏖️</option><option>🛒</option><option>⭐</option></select></label><label>Pin color<input id="pinColor" type="color" value="#245c48"></label></div>
   <label>Description / notes<textarea id="notes" rows="3" maxlength="4000" placeholder="What makes this place special?"></textarea></label>
   <div class="photo-box">
-   <label>Photo <span class="muted">(optional for places and notes)</span>
+   <label>Photo <span class="muted">(expected for researched places; optional for notes)</span>
     <input id="imageUrl" type="url" placeholder="https://example.com/photo.jpg">
    </label>
    <button id="uploadPhoto" type="button" class="secondary">▧ Upload or paste photo</button>
@@ -189,7 +198,7 @@
    <button id="galleryUpload" type="button" class="secondary">Upload more gallery photos</button>
    <input id="galleryFile" type="file" accept="image/*" multiple hidden>
    <div id="galleryPreview" class="gallery-preview"></div>
-   <small class="muted">Uploaded gallery photos are compressed thumbnails. Use HTTPS links for larger images.</small>
+   <small class="muted">For new researched places, upload actual photo files rather than external links. Use the best relevant photo you have permission to reuse.</small>
    </div>
    <label class="canvas-width-label">Picture / text width <input id="canvasWidth" type="range" min="100" max="420" step="10" value="210"><output id="canvasWidthValue">210 px</output></label>
    <input id="photoFile" type="file" accept="image/*" hidden>
