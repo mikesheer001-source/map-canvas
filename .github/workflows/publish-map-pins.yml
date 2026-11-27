@@ -1,0 +1,39 @@
+name: Publish Map Canvas pins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'publish/pins/*.json'
+      - '.github/workflows/publish-map-pins.yml'
+      - 'scripts/publish-map-pin.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Publish changed submissions and verify live results
+        env:
+          PREVIOUS_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PREVIOUS_SHA" ]]; then
+            node scripts/publish-map-pin.mjs --check
+          else
+            git diff --no-renames --diff-filter=AM --name-only -z "$PREVIOUS_SHA" "$GITHUB_SHA" -- 'publish/pins/*.json' > "$RUNNER_TEMP/map-submissions"
+            mapfile -d '' -t submissions < "$RUNNER_TEMP/map-submissions"
+            node scripts/publish-map-pin.mjs -- "${submissions[@]}"
+          fi

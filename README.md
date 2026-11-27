@@ -70,3 +70,25 @@ Open **Itinerary builder** in the sidebar to create a named, day-by-day plan. Ad
 The summary adds selected leg durations and shows selected fares by currency. It never converts currencies or invents missing fares. Travel times are estimates from the saved route or selected timetable option; feed fares remain unverified until confirmed with the operator. Totals are partial when a leg has no route or no selected fare.
 
 Saved itineraries are stored in this browser's local storage under \`map-canvas:itineraries-v1\`; they are not uploaded to the shared map database and do not automatically sync to other devices. Saving writes a compact copy of each selected route and fare into the itinerary. Deleting a map pin leaves its saved stop name and coordinates in the itinerary and marks the pin as deleted. Deleting a route from the route library leaves its saved route/fare snapshot and estimated totals intact, and marks the route as removed from the library. Neither deletion silently removes itinerary stops or connections.
+
+## Publish pins from ChatGPT through GitHub
+
+Use a GitHub-connected Chat that can commit to this repository. For map content, commit one JSON submission per pin under `publish/pins/`. Include the pin data inside `entry` and set `expectedVersion` to `null` for a new pin, or to the version returned by the [live pin API](https://map-canvas-api.mikesheer001.workers.dev/api/shared-map/pins) for an update.
+
+```json
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "7ad12a8b-a07c-49f4-923b-d92a1a674b6c",
+    "kind": "place",
+    "title": "Example place",
+    "lat": 21.0285,
+    "lng": 105.8542,
+    "photo": "publish/photos/example.jpg"
+  }
+}
+```
+
+Use a fresh UUID for each new pin. For updates, include the existing ID and only the fields to change. Use a public HTTPS photo URL or commit a JPG, PNG, WebP, or GIF of up to 5 MiB alongside the submission under `publish/photos/`. The same formats work for `gallery` entries. Submit photo and JSON changes in the same push. The example is documentation only.
+
+A push to `main` runs **Publish Map Canvas pins** for new or changed submissions. The workflow copies committed image files to the existing photo store, verifies their bytes, saves the pin if needed, and reads it back. Check the [workflow runs](https://github.com/mikesheer001-source/map-canvas/actions/workflows/publish-map-pins.yml) before marking a submission complete. For a version conflict, reread the live pin and commit a reviewed update. A rerun of a successful submission leaves matching pins alone. Removing a submission file does not delete the live pin. The public map and its existing editing controls require no account.
