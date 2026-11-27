@@ -1,4 +1,4 @@
-import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-pins-20261128";
+import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=route-pins-fix-20261128";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
 import { TRANSITOUS_ENABLED, searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
@@ -1002,6 +1002,7 @@ function updateLabels() {
     (state.features.showAllPictures ? (mapZoom() < PIN_PHOTO_MIN_ZOOM ? "Zoom in for pictures" : "Pictures visible") :
       mapZoom() < DETAIL_ZOOM ? "Zoom in for details" : expanded ? "Labels and photos visible" : "Labels hidden");
 }
+const routePlacementClicks=new WeakSet();
 function attachMapPinClicks(map) {
   if (state.pinEventsAttached) return;
   state.pinEventsAttached = true;
@@ -1010,7 +1011,11 @@ function attachMapPinClicks(map) {
     const entry = state.visiblePins.find((item) => item.id === id);
     if (!entry) return;
     if(enhanced?.isDrawing())return;
-    if(state.placing?.kind==="route")return; // global MapLibre click handles the two route endpoints once
+    if(event.originalEvent&&routePlacementClicks.has(event.originalEvent))return;
+    if(state.placing?.kind==="route"){
+      if(event.originalEvent)routePlacementClicks.add(event.originalEvent);
+      placeAt({lng:entry.lng,lat:entry.lat});return;
+    }
     if (state.placing) placeAt({lng:entry.lng,lat:entry.lat});
     else if(state.routeSelecting)toggleRoutePin(entry);
     else if(state.transportSelecting)selectTransportPin(entry);
@@ -1199,9 +1204,11 @@ async function initMap() {
     map.on("mousemove",e=>enhanced?.updateHover(e.lngLat));
     map.on("zoomend",updateLabels);
     map.on("click",(event)=>{
+      if(event.originalEvent&&routePlacementClicks.has(event.originalEvent))return;
       if(state.library==="maplibre"&&state.styleReady){
         const pinHits=map.queryRenderedFeatures(event.point,{layers:[PIN_TOUCH].filter(id=>map.getLayer(id))});
         if(state.placing?.kind==="route"){
+          if(event.originalEvent)routePlacementClicks.add(event.originalEvent);
           const entry=state.visiblePins.find(p=>p.id===pinHits[0]?.properties?.id);
           placeAt(entry?{lng:entry.lng,lat:entry.lat}:event.lngLat);return;
         }
@@ -1330,6 +1337,7 @@ function startPlacement(kind, draft) {
 async function placeAt({lng,lat}) {
   if (!state.placing) return;
   const p=state.placing;
+  if(p.kind==="route"&&(!Number.isFinite(Number(lng))||!Number.isFinite(Number(lat))||Math.abs(Number(lat))>85||Math.abs(Number(lng))>180)){notify("Choose a valid map point.",true);return;}
   if(p.kind==="route"&&!p.start){
     p.start=[Number(lng),Number(lat)];
     $("placementInstruction").textContent="Tap the route end point";

@@ -611,7 +611,7 @@ export function createEnhancements(api){
       shape.addEventListener("click",e=>{
         e.stopPropagation();
         const item=api.allEntries().find(x=>x.id===id);
-        if(item){if(state.placing){const [x,y]=viewPoint(e);const p=unproject(x,y);if(p)api.placeAt(p);}else api.choose(item,false);}
+        if(item){if(state.placing){const [x,y]=viewPoint(e);const p=unproject(x,y);if(p)api.placeAt({lng:p[0],lat:p[1]});}else api.choose(item,false);}
       });
     }
   }
