@@ -10,6 +10,15 @@ on:
       - 'tests/database-browser.test.mjs'
       - '.github/workflows/test-map-canvas-database.yml'
       - '.github/workflows/test-pin-tracking.yml'
+      - 'app.js'
+      - 'index.html'
+      - 'style.css'
+      - 'sw.js'
+      - 'offline-store.mjs'
+      - 'offline-tiles.mjs'
+      - 'tests/offline-*'
+      - 'README.md'
+      - '.github/workflows/test-map-canvas-offline.yml'
   pull_request:
 
 permissions:

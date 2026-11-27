@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 const javascript = [
   "app.js", "enhancements.js", "backend/board.mjs", "backend/resources.mjs",
-  "backend/test-server.mjs", "tests/database-browser.test.mjs",
+  "backend/test-server.mjs", "tests/database-browser.test.mjs", "offline-store.mjs", "offline-tiles.mjs", "tests/offline-core.test.mjs", "tests/offline-browser.test.mjs",
 ];
 for (const file of javascript) {
   const result = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });

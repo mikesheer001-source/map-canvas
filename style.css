@@ -288,3 +288,23 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 #trashEntries li div{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
 #trashEntries small{color:var(--muted);font-size:.875rem}
 #trashEntries button{flex:none}
+
+
+/* Offline areas and queued-edit controls */
+.offline-dialog{width:min(540px,calc(100vw - 24px));max-height:88dvh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--white);color:var(--ink);box-shadow:var(--shadow)}
+.offline-dialog::backdrop{background:#10271f88}
+.offline-dialog .dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.offline-dialog .dialog-heading h2{margin:0;font-size:22px}
+.offline-dialog p{line-height:1.5}
+.offline-dialog label{display:grid;gap:5px;font-weight:650;margin:10px 0}
+.offline-dialog input,.offline-dialog select{width:100%;min-height:40px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper)}
+.offline-provider-note{background:var(--pale);border-radius:8px;padding:9px 11px;font-size:12px}
+.offline-progress{min-height:22px;font-weight:650;font-size:12px}
+.offline-area-list{list-style:none;padding:0;display:grid;gap:8px}
+.offline-area-item{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:12px}
+.offline-area-item button{padding:5px 9px;min-height:30px}
+.offline-dialog hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+.offline-dialog h3{font-size:15px;margin:12px 0 6px}
+.offline-dialog .form-actions{gap:8px;flex-wrap:wrap}
+.offline-dialog .form-actions button{flex:1}
+@media(max-width:720px){.offline-dialog{padding:15px}.offline-area-item{align-items:flex-start}.offline-dialog .form-actions button{min-width:44%}}

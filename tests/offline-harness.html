@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Map Canvas offline browser test</title></head>
+<body><h1>Offline browser test</h1><p id="ready">Loading</p>
+<script type="module">
+import { enqueueOfflineChange, listQueuedChanges, removeQueuedChange } from "../offline-store.mjs?v=offline-areas-20261127";
+await navigator.serviceWorker.register("../sw.js");
+await navigator.serviceWorker.ready;
+if (!navigator.serviceWorker.controller) {
+  await new Promise(resolve => navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true }));
+}
+window.offlineHarness = { enqueueOfflineChange, listQueuedChanges, removeQueuedChange };
+document.getElementById("ready").textContent = "ready";
+window.offlineHarnessReady = true;
+</script></body></html>

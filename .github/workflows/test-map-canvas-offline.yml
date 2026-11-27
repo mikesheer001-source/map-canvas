@@ -1,0 +1,54 @@
+name: Map Canvas offline checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'style.css'
+      - 'sw.js'
+      - 'offline-store.mjs'
+      - 'offline-tiles.mjs'
+      - 'tests/offline-core.test.mjs'
+      - 'tests/offline-harness.html'
+      - 'tests/offline-browser.test.mjs'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - '.github/workflows/test-map-canvas-offline.yml'
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'style.css'
+      - 'sw.js'
+      - 'offline-store.mjs'
+      - 'offline-tiles.mjs'
+      - 'tests/offline-core.test.mjs'
+      - 'tests/offline-harness.html'
+      - 'tests/offline-browser.test.mjs'
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - '.github/workflows/test-map-canvas-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run complete Node test suite
+        run: npm test
+      - name: Validate build and offline modules
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Run targeted offline browser checks
+        run: npm run test:offline:browser

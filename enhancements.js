@@ -613,9 +613,9 @@ export function createEnhancements(api){
     try{
       const before=api.allEntries().find(x=>x.id===entry.id);
       if(!before)throw new Error("This pin is no longer available.");
-      await api.submitChange("save",{...before,...updates});
+      const result=await api.submitChange("save",{...before,...updates});
       api.recordChange({before,after:api.allEntries().find(x=>x.id===entry.id)});
-      notify("Saved to the shared map.");
+      notify(result.queued?"Canvas edit queued for sync.":"Saved to the shared map.");
     }catch(e){notify("Could not save change: "+e.message,true);}
     finally{state.saving=false;api.render();}
   }

@@ -54,7 +54,7 @@
   <nav class="map-tools" aria-label="Map controls">
    <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
    <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
-   <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
+   <button id="locateButton" title="Find my location" aria-label="Find my location">◎</button><button id="offlineButton" title="Download map areas for offline use" aria-label="Offline map areas">⇩</button><button id="fitPins" title="Fit all pins" aria-label="Fit all pins">⌖</button>
    <button id="toggleLabels" title="Show or hide labels" aria-label="Show or hide labels">▤</button>
    <button id="basemapButton" title="Change map imagery" aria-label="Change map imagery" aria-expanded="false">▱</button>
   </nav>
@@ -91,6 +91,24 @@
   <div class="settings-hidden-controls" id="settingsLegacy" hidden><button type="button" id="downloadLegacyBtn" class="secondary">Download previous browser edits</button><small>Review the older snapshot before importing. It can overwrite newer edits or restore deleted pins.</small></div>
  </div>
  <footer class="settings-footer"><button type="button" class="secondary" id="settingsReset">Restore defaults</button><span id="settingsStatus" role="status">Saved on this browser</span><button type="button" class="primary" id="settingsDone">Done</button></footer>
+</dialog>
+<dialog id="offlineDialog" class="offline-dialog" aria-labelledby="offlineTitle">
+ <header class="dialog-heading"><h2 id="offlineTitle">Offline map areas</h2><button type="button" id="offlineClose" class="icon-button" aria-label="Close offline areas">×</button></header>
+ <p>Save the current map view for use without a connection. Downloads use OpenFreeMap vector tiles and include both light and dark map styles.</p>
+ <p id="offlineProviderNote" class="offline-provider-note"></p>
+ <label>Area name<input id="offlineAreaName" maxlength="80" value="Offline area"></label>
+ <div class="form-grid">
+  <label>Minimum zoom<select id="offlineMinZoom"></select></label>
+  <label>Maximum zoom<select id="offlineMaxZoom"></select></label>
+ </div>
+ <p id="offlineEstimate" class="hint" aria-live="polite"></p>
+ <p id="offlineProgress" class="offline-progress" role="status" aria-live="polite"></p>
+ <div class="form-actions"><button type="button" id="offlineCancel" class="secondary hidden">Cancel download</button><button type="button" id="offlineDownload" class="primary">Download current view</button></div>
+ <hr>
+ <h3>Saved areas</h3><ul id="offlineAreas" class="offline-area-list"></ul>
+ <h3>Offline edits</h3><p id="offlineQueueStatus" role="status">Checking queued edits…</p>
+ <div class="form-actions"><button type="button" id="offlineSync" class="secondary">Sync now</button><button type="button" id="offlineExport" class="secondary">Export pending edits</button></div>
+ <small class="muted">Conflicts are kept on this device and never overwrite a newer shared edit automatically. Photos from external websites may still need a connection unless the browser has cached them.</small>
 </dialog>
 <dialog id="trashDialog" class="trash-dialog" aria-labelledby="trashTitle">
  <header class="dialog-heading">
