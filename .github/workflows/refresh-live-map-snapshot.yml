@@ -1,0 +1,58 @@
+name: Refresh live Map Canvas snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh-live-map-snapshot.yml'
+      - 'scripts/export-live-pins.mjs'
+      - 'tests/export-live-pins.test.mjs'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Publish Map Canvas pins']
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-map-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test snapshot exporter
+        run: node --test tests/export-live-pins.test.mjs
+      - name: Read live public pins and write snapshot
+        run: node scripts/export-live-pins.mjs "$RUNNER_TEMP/map-snapshot"
+      - name: Publish snapshot to dedicated branch and verify ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=refs/heads/live-map-snapshot
+          previous=$(git ls-remote --heads origin "$branch" | cut -f1)
+          git switch --orphan live-map-snapshot
+          cp "$RUNNER_TEMP/map-snapshot/snapshot.json" .
+          cp -r "$RUNNER_TEMP/map-snapshot/pins" .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- snapshot.json pins
+          git commit -m "Refresh public live pin snapshot"
+          git push --force-with-lease="$branch:$previous" origin "HEAD:$branch"
+          remote=$(git ls-remote --heads origin "$branch" | cut -f1)
+          test "$remote" = "$(git rev-parse HEAD)"
+          echo "Verified snapshot branch at $remote"

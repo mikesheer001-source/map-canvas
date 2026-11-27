@@ -14,6 +14,12 @@ A browser with edits from the previous local-only version can download its old s
 
 The GitHub Pages frontend connects to the Cloudflare shared map service at `https://map-canvas-api.mikesheer001.workers.dev/api/shared-map`. D1 stores pins and Recently Deleted, and R2 stores uploaded photos. If the service is unavailable, the last loaded snapshot stays visible. Pins and canvas drawing edits can be queued on this device and synced when the connection returns; version conflicts are kept locally for review rather than overwriting newer shared edits. Existing browser-only feature and theme settings remain on that browser.
 
+## Read-only live pin snapshot
+
+The [live-map-snapshot branch](https://github.com/mikesheer001-source/map-canvas/tree/live-map-snapshot) mirrors active public pins from the Cloudflare GET pins endpoint. Read `snapshot.json` for the capture time (UTC), board revision, count, and ID/title/category/coordinate/version index. Each `pins/<id>.json` file holds the complete public pin record, including its notes and photo URLs. This structure keeps individual reads small.
+
+The snapshot is refreshed every 15 minutes (GitHub Actions schedules are best effort), after the publishing workflow completes, or by manually running **Refresh live Map Canvas snapshot**. It is a read-only mirror, not the live database or an import source. Always check capture time and use the current pin version for updates. The exporter never accesses trash, credentials, or private backend endpoints, and never writes to Cloudflare. The dedicated branch is replaced rather than accumulating a normal commit history; however, public GitHub copies and cached commits may persist. Do not put sensitive data on the public map.
+
 ## Testing
 
 GitHub Actions runs Node tests and Chromium/WebKit browser checks.
