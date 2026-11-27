@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000001",
+    "kind": "place",
+    "category": "Village",
+    "title": "Cát Cát Village",
+    "lat": 22.33,
+    "lng": 103.83,
+    "price": "150,000 VND reported",
+    "rating": "3.5 (1,173 reviews)",
+    "notes": "Ticketed Hmong village route with Tiên Sa waterfall, waterwheels and shops. Steep uphill return; go early. Village-area pin.",
+    "photo": "https://vpt-en.b-cdn.net/wp-content/uploads/c/48/Cat-Cat-Village.jpg.webp",
+    "source": "https://sapanomad.com/cat-cat-village-sapa/",
+    "link": "https://www.google.com/maps/search/?api=1&query=C%C3%A1t%20C%C3%A1t%20Village%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

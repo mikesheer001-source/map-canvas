@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000002",
+    "kind": "place",
+    "category": "History",
+    "title": "Tả Phìn Ancient Monastery",
+    "lat": 22.377313,
+    "lng": 103.851547,
+    "price": "Free ruin; village fee possible",
+    "rating": "4.1 (774 reviews)",
+    "notes": "Atmospheric abandoned 1940s French Catholic monastery. View from safe areas; unstable masonry. Combine with herbal bath and cave.",
+    "photo": "https://www.asiatouradvisor.com/img/2024/02/17/ta-phin-monastery.jpg?h=600&w=900",
+    "source": "https://visitsapa.com.vn/en/top-cac-diem-du-lich-sa-pa-noi-tieng-du-khach-khong-nen-bo-qua-6758",
+    "link": "https://www.google.com/maps/search/?api=1&query=T%E1%BA%A3%20Ph%C3%ACn%20Ancient%20Monastery%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

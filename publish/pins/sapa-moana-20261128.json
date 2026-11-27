@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000011",
+    "kind": "place",
+    "category": "Viewpoint",
+    "title": "Moana Sa Pa",
+    "lat": 22.3275,
+    "lng": 103.8448,
+    "price": "80,000–100,000 VND reported",
+    "rating": "4.0 (24 reviews)",
+    "notes": "Bali-style photo park at 68 Violet Street with giant sculptures and valley views. Avoid heavy fog and crowds. Approximate pin; use Maps link.",
+    "photo": "https://kampatour.com/pic/blog/96cf7f0c-8162-4612-b9c9-5cc8dbc55ecc.jpg",
+    "source": "https://www.paraglidingsapa.com/en/sapa-map/moana",
+    "link": "https://www.google.com/maps/search/?api=1&query=Moana%20Sa%20Pa%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

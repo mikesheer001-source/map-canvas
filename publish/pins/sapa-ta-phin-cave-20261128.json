@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000008",
+    "kind": "place",
+    "category": "Cave",
+    "title": "Tả Phìn Cave",
+    "lat": 22.39529,
+    "lng": 103.84303,
+    "price": "20,000 VND lighting reported",
+    "rating": "4.0 (591 reviews)",
+    "notes": "Rustic limestone cave; slippery and dark. Use a guide and headlamp. Approximate Tả Phìn village-area pin, not exact cave entrance; navigate via Maps link.",
+    "photo": "https://lilystravelagency.com/wp-content/uploads/2022/06/Ta-Phin-Cave.jpg",
+    "source": "https://visitsapa.com.vn/en/discover-the-unique-culture-of-the-dao-do-in-ta-phin-village-5416",
+    "link": "https://www.google.com/maps/search/?api=1&query=T%E1%BA%A3%20Ph%C3%ACn%20Cave%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

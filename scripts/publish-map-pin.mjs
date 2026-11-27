@@ -61,6 +61,12 @@ export async function publishPin(manifest, { base = production, root = process.c
     return entries.find(({ id }) => id === entry.id);
   };
   const current = await read();
+  if (!current && expectedVersion === null && manifest.checkDuplicate === true) {
+    const { entries } = await (await request(call, base + "/pins")).json();
+    const normalize = (value) => String(value ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/đ/g, "d").replace(/[^a-z0-9]/g, "");
+    const existing = entries.find(pin => normalize(pin.title) === normalize(entry.title) && Math.hypot(pin.lat-entry.lat, pin.lng-entry.lng) < 0.025);
+    if (existing) { console.log("Existing matching pin: " + existing.title + " (" + existing.id + ")"); return existing; }
+  }
   const changes = { ...entry };
   if ("photo" in entry) changes.photo = await resolvePhoto(entry.photo, { base, root, call });
   if ("gallery" in entry) {

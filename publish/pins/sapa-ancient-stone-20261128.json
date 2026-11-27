@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000012",
+    "kind": "place",
+    "category": "History",
+    "title": "Sa Pa Ancient Stone Field",
+    "lat": 22.303888,
+    "lng": 103.898797,
+    "price": "Free when open",
+    "rating": "4.4 (5 reviews)",
+    "notes": "Ancient carved boulders across Mường Hoa Valley; reported closed for conservation, verify before visiting. Do not climb or damage carvings.",
+    "photo": "https://vietnamdiscovery.com/wp-content/uploads/2020/09/Mysterious-ancient-rock-in-Sapa.jpg",
+    "source": "https://sapanomad.com/sapa-ancient-rock-field/",
+    "link": "https://www.google.com/maps/search/?api=1&query=Sa%20Pa%20Ancient%20Stone%20Field%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

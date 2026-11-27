@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000013",
+    "kind": "place",
+    "category": "Market",
+    "title": "Sa Pa Night Market",
+    "lat": 22.33829,
+    "lng": 103.85199,
+    "price": "Free entry",
+    "rating": "",
+    "notes": "Evening food, textiles and souvenirs near Sapa Market. Approximate market-area pin; hours and stalls vary.",
+    "photo": "https://duaelbluiumc3.cloudfront.net/Media/Images/InboundImages/Blog/sapa-center-things-to-do-in-sapa-center-no-trekking-required-nighttime-experiences-sapa-night-market%C2%A0.jpg",
+    "source": "https://mapcarta.com/N4811351954",
+    "link": "https://www.google.com/maps/search/?api=1&query=Sa%20Pa%20Night%20Market%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

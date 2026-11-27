@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000005",
+    "kind": "place",
+    "category": "Nature",
+    "title": "Séo Mý Tỷ Lake",
+    "lat": 22.250587,
+    "lng": 103.891828,
+    "price": "Access fee unconfirmed",
+    "rating": "4.3 (38 reviews)",
+    "notes": "Remote high-elevation hydropower reservoir; steep rough access road. Bring supplies, avoid riding after dark and do not assume safe swimming.",
+    "photo": "https://cdn-i.vtcnews.vn/resize/th/upload/2022/06/24/seo-my-ty-vu-ngoc-huong-1-14051489.jpg",
+    "source": "https://www.paraglidingsapa.com/en/sapa-map/seo-my-ty",
+    "link": "https://www.google.com/maps/search/?api=1&query=S%C3%A9o%20M%C3%BD%20T%E1%BB%B7%20Lake%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

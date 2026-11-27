@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000003",
+    "kind": "place",
+    "category": "Village",
+    "title": "Sín Chải Village",
+    "lat": 22.331163,
+    "lng": 103.829391,
+    "price": "Free entry reported",
+    "rating": "4.4 (813 reviews)",
+    "notes": "Quiet Hmong village near Cát Cát, rice terraces and views of Fansipan. Ask before photographing residents; paths can be slippery.",
+    "photo": "https://authentikvietnam.com/media/blog/Village-Sin-Chai-Sapa-maison.jpg",
+    "source": "https://vietnamnews.vn/life-style/1205285/the-remote-rustic-beauty-of-sin-chai-village.html",
+    "link": "https://www.google.com/maps/search/?api=1&query=S%C3%ADn%20Ch%E1%BA%A3i%20Village%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

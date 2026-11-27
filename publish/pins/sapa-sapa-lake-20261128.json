@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000009",
+    "kind": "place",
+    "category": "Nature",
+    "title": "Sa Pa Lake",
+    "lat": 22.3375,
+    "lng": 103.8468,
+    "price": "Free",
+    "rating": "4.5 (378 reviews)",
+    "notes": "Central lake with walking path, cafés and evening reflections. Approximate lake-area pin; water not suitable for swimming.",
+    "photo": "https://airial.travel/_next/image?q=75&url=https%3A%2F%2Fcoinventmediastorage.blob.core.windows.net%2Fmedia-storage-container%2Fgphoto_ChIJM2y5HxNBzTYR4HCQimry7wI_0.jpg&w=3840",
+    "source": "https://airial.travel/attractions/vietnam/sapa-lake-sapa-vietnam-46Diq-3q",
+    "link": "https://www.google.com/maps/search/?api=1&query=Sa%20Pa%20Lake%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000006",
+    "kind": "place",
+    "category": "Waterfall",
+    "title": "Giàng Tả Chải Waterfall",
+    "lat": 22.29772,
+    "lng": 103.90994,
+    "price": "Valley fee possible",
+    "rating": "",
+    "notes": "Seasonal cascade reached via bamboo forest beyond Tả Van. Approximate village-area pin, not exact waterfall entrance; use navigation link and ask locally.",
+    "photo": "https://bucketlist2life.com/_ipx/f_webp/blogposts/sapa-trekking-vietnam/waterfall.jpg",
+    "source": "https://trekkingtoursapa.com/giang-ta-chai-bamboo-forest-sapa.html",
+    "link": "https://www.google.com/maps/search/?api=1&query=Gi%C3%A0ng%20T%E1%BA%A3%20Ch%E1%BA%A3i%20Waterfall%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

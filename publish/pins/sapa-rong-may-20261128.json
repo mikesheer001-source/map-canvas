@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000010",
+    "kind": "place",
+    "category": "Adventure",
+    "title": "Rồng Mây Glass Bridge",
+    "lat": 22.3727,
+    "lng": 103.75729,
+    "price": "Paid; verify current ticket",
+    "rating": "",
+    "notes": "Glass skywalk and lift on the Lai Châu side of the pass. Check visibility and opening status. OSM attraction pin; confirm entrance on Maps.",
+    "photo": "https://cdn.getyourguide.com/image/format%3Dauto%2Cfit%3Dcrop%2Cgravity%3Dcenter%2Cquality%3D60%2Cwidth%3D400%2Cheight%3D265%2Cdpr%3D2/tour_img/2a0d1275a7ece45e3e75a744421ee95fec9c347fd9bf5d9cc18869d7eb4df08a.png",
+    "source": "https://mapcarta.com/N11377886669",
+    "link": "https://www.google.com/maps/search/?api=1&query=R%E1%BB%93ng%20M%C3%A2y%20Glass%20Bridge%20Lai%20Chau%20Vietnam"
+  },
+  "checkDuplicate": true
+}

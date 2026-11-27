@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000007",
+    "kind": "place",
+    "category": "Nature",
+    "title": "Bản Hồ Hot Springs",
+    "lat": 22.264063,
+    "lng": 103.964328,
+    "price": "Ask locally",
+    "rating": "5.0 (67 reviews)",
+    "notes": "Local mineral soaking pool in Bản Hồ. Bring towel and cash; call +84 917 236 266 to confirm pool availability and price.",
+    "photo": "https://worldmatetravel.com/uploads/hot-spring-bath-in-Ban-Ho.png-image-haqadxrg.png",
+    "source": "https://www.paraglidingsapa.com/en/sapa-map/ban-ho",
+    "link": "https://www.google.com/maps/search/?api=1&query=B%E1%BA%A3n%20H%E1%BB%93%20Hot%20Springs%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

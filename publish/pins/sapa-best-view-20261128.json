@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000014",
+    "kind": "place",
+    "category": "Viewpoint",
+    "title": "Best View Sa Pa",
+    "lat": 22.317,
+    "lng": 103.879,
+    "price": "120,000 VND with drink reported",
+    "rating": "4.2 (1,008 reviews)",
+    "notes": "Cloud-hunting hilltop terraces, sunrise and valley vistas. Rough approach; skip in dense fog. Approximate Hàng Đá area pin; use Maps link.",
+    "photo": "https://d3rftsiup4wf15.cloudfront.net/uploads/2025/08/04/z6872166875363_61a988515498545b26ed2df2bd66fdee.webp",
+    "source": "https://www.paraglidingsapa.com/en/sapa-map",
+    "link": "https://www.google.com/maps/search/?api=1&query=Best%20View%20Sa%20Pa%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}

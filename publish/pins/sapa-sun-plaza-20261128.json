@@ -1,0 +1,18 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "c1a52628-1128-4c00-9a00-000000000015",
+    "kind": "place",
+    "category": "Landmark",
+    "title": "Sun Plaza",
+    "lat": 22.335,
+    "lng": 103.8407,
+    "price": "Free exterior; train extra",
+    "rating": "",
+    "notes": "Yellow European-style clock tower by central square; station for Mường Hoa funicular. Approximate landmark pin; use Maps link.",
+    "photo": "https://img1.daumcdn.net/thumb/R1280x0.fjpg/?fname=http%3A%2F%2Ft1.daumcdn.net%2Fbrunch%2Fservice%2Fuser%2F7ZpU%2Fimage%2FvY5l-8Zni5zI_ZFdubJpTxKYMpU.jpg",
+    "source": "https://sunworld.vn/en/fansipan/activities/trung-tam-thuong-mai-sun-plaza",
+    "link": "https://www.google.com/maps/search/?api=1&query=Sun%20Plaza%20Sa%20Pa%20Vietnam"
+  },
+  "checkDuplicate": true
+}
