@@ -111,14 +111,18 @@ try {
   await page.waitForFunction(() => window.offlineHarnessReady === true);
   const offlineResult = await page.evaluate(async tileUrl => {
     const queue = await window.offlineHarness.listQueuedChanges();
+    const directCache = await caches.match(tileUrl);
+    const directCacheBytes = directCache ? await directCache.clone().arrayBuffer() : new ArrayBuffer(0);
     const response = await fetch(tileUrl);
     return { title: document.title, queue, status: response.status, type: response.type,
+      directCacheBytes: directCacheBytes.byteLength, directCacheType: directCache?.type,
       tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
   }, beforeOffline.tileUrl);
   assert.match(offlineResult.title, /offline browser test/i);
   assert.equal(offlineResult.queue.length, 1);
   assert.equal(offlineResult.queue[0].entry.title, "Edited again offline");
   assert.equal(offlineResult.status, 200);
+  assert.ok(offlineResult.directCacheBytes > 0, "offline CacheStorage entry missing/empty: " + offlineResult.directCacheType);
   assert.ok(offlineResult.tile.byteLength > 0, "offline response was empty: " + offlineResult.type + " " + offlineResult.status);
   assert.equal(offlineResult.controller, true);
 
