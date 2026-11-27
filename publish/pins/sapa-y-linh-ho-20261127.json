@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53104",
+    "kind": "place",
+    "category": "Trekking",
+    "title": "Y Linh Ho Village",
+    "lat": 22.31307,
+    "lng": 103.84701,
+    "price": "",
+    "rating": "",
+    "notes": "Black Hmong village and rice terraces; combine with Lao Chai and Ta Van on a valley trek. Village-area marker; routes and checkpoint fees vary. Guided tour advertised $23/day shared, $38 private.",
+    "photo": "https://static.vinwonders.com/production/Y-Linh-Ho-Village.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Y%20Linh%20Ho%20Village%20Sa%20Pa%20Vietnam",
+    "source": "https://mapcarta.com/15465690"
+  }
+}

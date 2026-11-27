@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53105",
+    "kind": "place",
+    "category": "Trekking",
+    "title": "Lao Chai Village",
+    "lat": 22.31002,
+    "lng": 103.87623,
+    "price": "",
+    "rating": "",
+    "notes": "Black Hmong hamlet in Muong Hoa Valley; rice terraces, local village trails and onward walk to Ta Van. Bring cash for possible checkpoint fees; paths can be muddy.",
+    "photo": "https://statics.vinpearl.com/Lao-Chai-Village-01_1699787927.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Lao%20Chai%20Village%20Sa%20Pa%20Vietnam",
+    "source": "https://mapcarta.com/15498228"
+  }
+}

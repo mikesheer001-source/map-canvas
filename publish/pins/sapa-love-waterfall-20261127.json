@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53103",
+    "kind": "place",
+    "category": "Attraction",
+    "title": "Love Waterfall (Thác Tình Yêu)",
+    "lat": 22.34734,
+    "lng": 103.77243,
+    "price": "70k VND reported; variable",
+    "rating": "4.3 (830 reviews)",
+    "notes": "Forest hike from Trạm Tôn gate, around 25–30 minutes each way with steps. Allow 1–2 hours; bring cash and grippy shoes. Marker is the falls, not the road entrance.",
+    "photo": "https://booking.pystravel.vn/uploads/posts/avatar/1765118418.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Love%20Waterfall%20(Th%C3%A1c%20T%C3%ACnh%20Y%C3%AAu)%20Sa%20Pa%20Vietnam",
+    "source": "https://www.raiyai.com/biz/love-waterfall-sapa/"
+  }
+}

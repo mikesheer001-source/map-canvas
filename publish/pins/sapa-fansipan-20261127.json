@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53108",
+    "kind": "place",
+    "category": "Trekking",
+    "title": "Fansipan Summit",
+    "lat": 22.30308,
+    "lng": 103.77544,
+    "price": "Hiking permit 150k reported; guide extra",
+    "rating": "",
+    "notes": "Roof of Indochina, about 3,143 m. Reach by cable car or licensed guided trek via Tram Ton. Advertised shared trek $70/1 day or $89/2 days; private $97/$143. Check permits and weather before hiking.",
+    "photo": "https://duaelbluiumc3.cloudfront.net/Media/Images/InboundImages/Blog/fansipan-sapa-introduction.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Fansipan%20Summit%20Sa%20Pa%20Vietnam",
+    "source": "https://mapcarta.com/15509724"
+  }
+}

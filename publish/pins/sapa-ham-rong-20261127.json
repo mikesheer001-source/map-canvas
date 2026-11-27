@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53107",
+    "kind": "place",
+    "category": "Attraction",
+    "title": "Ham Rong Mountain",
+    "lat": 22.33258,
+    "lng": 103.86243,
+    "price": "70k VND (reported)",
+    "rating": "",
+    "notes": "Gardens, rocky limestone features and views of Sa Pa. This marker is the mapped mountain peak, not the town-side ticket entrance near the stone church; use Maps for access. Confirm admission locally.",
+    "photo": "https://dulichdaiviet.com/uploaded/2024/06/nui-ham-rong-sapa.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Ham%20Rong%20Mountain%20Sa%20Pa%20Vietnam",
+    "source": "https://mapcarta.com/33609086"
+  }
+}

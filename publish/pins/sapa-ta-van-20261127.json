@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53106",
+    "kind": "place",
+    "category": "Trekking",
+    "title": "Ta Van Village",
+    "lat": 22.30266,
+    "lng": 103.88858,
+    "price": "",
+    "rating": "4.2 (57 reviews)",
+    "notes": "Giay village with rice terraces, homestays and cafés. Good overnight stop on the Y Linh Ho–Lao Chai–Ta Van trek. Bring cash for possible valley checkpoint fees; village-area marker.",
+    "photo": "https://asiapacifictravel.vn/public/upload/megaseo/Sapa/ta-van-village-20%20%281%29.png",
+    "link": "https://www.google.com/maps/search/?api=1&query=Ta%20Van%20Village%20Sa%20Pa%20Vietnam",
+    "source": "https://mapcarta.com/15478878"
+  }
+}

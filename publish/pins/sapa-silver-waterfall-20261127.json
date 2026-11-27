@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53102",
+    "kind": "place",
+    "category": "Attraction",
+    "title": "Silver Waterfall (Thác Bạc)",
+    "lat": 22.361626,
+    "lng": 103.778912,
+    "price": "20k VND (reported)",
+    "rating": "",
+    "notes": "Roadside multi-tiered waterfall; short stair climb to bridge. Combine with Love Waterfall and O Quy Ho Pass. Confirm ticket price at entrance.",
+    "photo": "https://dulichhuongviet.com/upload_images/images/thac-bac-sapa-lao-cai.jpg",
+    "link": "https://www.google.com/maps/search/?api=1&query=Silver%20Waterfall%20(Th%C3%A1c%20B%E1%BA%A1c)%20Sa%20Pa%20Vietnam",
+    "source": "https://impresstravel.com/silver-waterfall-in-o-quy-ho-sapa-tours-landscape/"
+  }
+}
