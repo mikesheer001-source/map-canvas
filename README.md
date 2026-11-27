@@ -21,7 +21,7 @@ GitHub Actions runs Node tests and Chromium/WebKit browser checks.
 
 ## Offline map areas and editing
 
-Use the download arrow on the map to save the **current visible map area**. Choose a zoom range (5–18) and a name. Each user-started OpenFreeMap download includes its vector tiles plus the light/dark styles, sprites and common Latin/Vietnamese glyph ranges. OpenStreetMap's public raster tile service is not used for area downloads because its policy prohibits prefetching/offline-area features.
+Use the download arrow on the map to save the **current visible map area**. Choose a zoom range (5–18) and a name. Each user-started OpenFreeMap download includes its vector tiles plus the light/dark styles, sprites and common Latin/Vietnamese glyph ranges. The browser downloader sends a Map Canvas `X-Requested-With` app identifier; browsers do not allow JavaScript to override the built-in User-Agent, so strict provider-side User-Agent enforcement may require a separate proxy. OpenStreetMap's public raster tile service is not used for area downloads because its policy prohibits prefetching/offline-area features.
 
 - **Provider limits per area:** 3,000 vector tiles, 50 MB total downloaded resources, and at most 4 parallel requests. The app enforces the limits and stops/cleans up an incomplete download if it exceeds the byte cap or the browser runs out of storage.
 - **Cached locally:** app shell, OpenFreeMap styles and their required assets, downloaded vector tiles, previously viewed OpenFreeMap tiles, and up to 120 CORS-readable Map Canvas photo responses encountered while browsing. Pin data and offline edits are stored separately on this browser. External photos that do not allow CORS-readable caching may still need a connection.

@@ -216,25 +216,39 @@ async function downloadOfflineArea(area, port) {
     const cache = await caches.open(cacheName);
     const jobs = [...assets.entries()];
     let next = 0, completed = 0, totalBytes = 0;
+    let failure = null;
     const workers = Array.from({ length: MAX_PARALLEL }, async () => {
-      while (true) {
-        if (cancelledAreas.has(id)) throw new Error("Offline area download cancelled.");
+      while (!failure) {
+        if (cancelledAreas.has(id)) {
+          failure = failure || new Error("Offline area download cancelled.");
+          return;
+        }
         const index = next++;
         if (index >= jobs.length) return;
         const [url, kind] = jobs[index];
-        const response = await fetchProvider(url);
-        const bytes = await response.clone().arrayBuffer();
-        totalBytes += bytes.byteLength;
-        if (totalBytes > MAX_BYTES) throw new Error("This download reached the 50 MB limit. Choose a smaller area or zoom range.");
-        await cache.put(url, response.clone());
-        completed++;
-        send(port, {
-          type: "OFFLINE_AREA_PROGRESS", id, completed, total: jobs.length,
-          tileCount, bytes: totalBytes, currentKind: kind
-        });
+        try {
+          const response = await fetchProvider(url);
+          const bytes = await response.clone().arrayBuffer();
+          totalBytes += bytes.byteLength;
+          if (totalBytes > MAX_BYTES) {
+            failure = failure || new Error("This download reached the 50 MB limit. Choose a smaller area or zoom range.");
+            return;
+          }
+          if (failure) return;
+          await cache.put(url, response.clone());
+          completed++;
+          send(port, {
+            type: "OFFLINE_AREA_PROGRESS", id, completed, total: jobs.length,
+            tileCount, bytes: totalBytes, currentKind: kind
+          });
+        } catch (error) {
+          failure = failure || error;
+          return;
+        }
       }
     });
     await Promise.all(workers);
+    if (failure) throw failure;
     if (cancelledAreas.has(id)) throw new Error("Offline area download cancelled.");
 
     const saved = {
