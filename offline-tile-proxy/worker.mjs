@@ -46,8 +46,11 @@ export default {
           "Referer": APP_REFERER,
           "Accept": request.headers.get("Accept") || "*/*"
         },
-        redirect: "error"
+        redirect: "manual"
       });
+      if (upstream.status >= 300 && upstream.status < 400) {
+        return new Response("OpenFreeMap returned an unexpected redirect.", { status: 502, headers });
+      }
       for (const name of ["Content-Type", "Cache-Control", "ETag", "Last-Modified", "Expires", "Content-Length"]) {
         const value = upstream.headers.get(name);
         if (value) headers.set(name, value);

@@ -25,7 +25,7 @@ test("proxies only OpenFreeMap URLs with an app-specific User-Agent and Referer"
     assert.equal(captured.url, target);
     assert.match(captured.headers.get("User-Agent"), /^MapCanvas\/1\.0/);
     assert.equal(captured.headers.get("Referer"), origin + "/map-canvas/");
-    assert.equal(captured.redirect, "error");
+    assert.equal(captured.redirect, "manual");
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
     assert.equal(response.headers.get("ETag"), '"tile-v1"');
   } finally { globalThis.fetch = originalFetch; }
@@ -50,4 +50,21 @@ test("supports CORS preflight for the Map Canvas web origin", async () => {
   }));
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+});
+
+
+test("does not follow upstream redirects to unapproved hosts", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(null, {
+    status: 302, headers: { Location: "https://example.com/redirect" }
+  });
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.example/proxy?url=" + encodeURIComponent(target),
+      { headers: { Origin: origin } }
+    ));
+    assert.equal(response.status, 502);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
