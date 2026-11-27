@@ -19,7 +19,20 @@ async function request(call, url, options) {
   return response;
 }
 
-async function resolvePhoto(photo, { base, root, call }) {
+async function storeVerifiedImage(bytes, name, mime, {base,call}) {
+  if (!bytes.length || bytes.length > 5*1024*1024) throw new Error("Photo must be an image up to 5 MiB.");
+  const hash=digest(bytes), url=base+"/photo/"+hash;
+  let response=await call(url);
+  if(response.status===404){
+    const body=new FormData();
+    body.append("photo",new Blob([bytes],{type:mime}),name);
+    await request(call,base+"/photo",{method:"POST",body});
+    response=await request(call,url);
+  }
+  if(!response.ok || digest(Buffer.from(await response.arrayBuffer()))!==hash)throw new Error("Stored photo verification failed.");
+  return url;
+}
+async function resolvePhoto(photo, { base, root, call, mirrorPhoto=false }) {
   if (photo === "") return photo;
   if (typeof photo === "string" && photoFile.test(photo)) {
     const file = resolve(root, photo);
@@ -43,7 +56,17 @@ async function resolvePhoto(photo, { base, root, call }) {
     return url;
   }
   const url = typeof photo === "string" ? URL.parse(photo) : null;
-  if (url?.protocol === "https:" && !url.username && !url.password) return photo;
+  if (url?.protocol === "https:" && !url.username && !url.password) {
+    if(!mirrorPhoto)return photo;
+    // Only mirror explicitly licensed Wikimedia originals; attribution belongs in the pin notes.
+    if(url.hostname!=="upload.wikimedia.org")throw new Error("Mirrored photos must use a licensed Wikimedia upload URL.");
+    const response=await request(call,photo,{redirect:"error",signal:AbortSignal.timeout(20000)});
+    const mime=(response.headers.get("content-type")||"").split(";")[0];
+    if(!/^image\/(jpeg|png|webp|gif)$/.test(mime))throw new Error("Photo URL did not return a supported image.");
+    const size=Number(response.headers.get("content-length"));
+    if(size>5*1024*1024)throw new Error("Photo exceeds 5 MiB.");
+    return storeVerifiedImage(Buffer.from(await response.arrayBuffer()),"photo."+({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif"}[mime]),mime,{base,call});
+  }
   throw new Error("Use an HTTPS photo URL or an image committed under publish/photos/.");
 }
 
@@ -68,7 +91,7 @@ export async function publishPin(manifest, { base = production, root = process.c
     if (existing) { console.log("Existing matching pin: " + existing.title + " (" + existing.id + ")"); return existing; }
   }
   const changes = { ...entry };
-  if ("photo" in entry) changes.photo = await resolvePhoto(entry.photo, { base, root, call });
+  if ("photo" in entry) changes.photo = await resolvePhoto(entry.photo, { base, root, call, mirrorPhoto:manifest.mirrorPhoto===true });
   if ("gallery" in entry) {
     changes.gallery = [];
     for (const photo of entry.gallery) changes.gallery.push(await resolvePhoto(photo, { base, root, call }));

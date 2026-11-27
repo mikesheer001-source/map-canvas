@@ -465,3 +465,6 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 .recent-card .pin-label{border-color:#3b82f6;box-shadow:0 0 0 2px #60a5fa70}
 .recent-pin-label{color:#2563eb!important;font-weight:700}
 :root[data-theme="dark"] .recent-pin-label{color:#93c5fd!important}
+
+/* Keep the rating readable on the light-blue recent-pin background in both themes. */
+.emoji-pin.recent-pin .pin-rating,.emoji-pin-inner.recent-pin .pin-rating{color:#172554!important;text-shadow:none}

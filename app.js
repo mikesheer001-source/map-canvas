@@ -145,7 +145,13 @@ function makeEmojiPin(entry,className){
   if(isRecentPin(entry)){pin.classList.add("recent-pin");pin.title+=" · Added within 24hrs";}
   if(!state.features.pinRatings)return pin;
   const rating=String(entry.rating??"").trim().match(/^([0-5](?:\.\d+)?)(?:\s*\(([\d,]+) reviews?\))?$/i);
-  if(!rating || Number(rating[1])>5)return pin;
+  if(!rating || Number(rating[1])>5){
+    pin.classList.add("has-rating");
+    pin.textContent="";
+    pin.append(text("span",emoji),text("span","N/A","pin-rating"));
+    pin.title+=" · Google rating unavailable";
+    return pin;
+  }
   const count=(rating[2]||String(entry.notes??"").match(/^Listed rating: [\d.]+ \(([\d,]+) reviews?\)$/im)?.[1]||"").replaceAll(",","");
   const score=Number(rating[1]).toFixed(1);
   pin.className+=" has-rating";
