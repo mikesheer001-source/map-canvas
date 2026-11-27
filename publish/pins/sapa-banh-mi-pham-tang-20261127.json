@@ -1,0 +1,17 @@
+{
+  "expectedVersion": null,
+  "entry": {
+    "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53001",
+    "kind": "place",
+    "category": "Restaurant",
+    "title": "Bánh mì Phạm Tăng",
+    "lat": 22.339131,
+    "lng": 103.850454,
+    "price": "30–40k VND (reported)",
+    "rating": "4.5 (119 reviews)",
+    "link": "https://www.google.com/maps/search/?api=1&query=B%C3%A1nh%20m%C3%AC%20Ph%E1%BA%A1m%20T%C4%83ng%20Sa%20Pa&query_place_id=ChIJYwV7Tn9BzTYRjYRJ2-mxauU",
+    "notes": "418 Điện Biên Phủ. Fresh bread baked on site; generous fillings, chicken + egg around 35k. Best for takeaway breakfast; few seats. 05:00–18:00 daily.",
+    "photo": "https://dulich9.com/wp-content/uploads/2024/03/Dia-chi-cac-quan-an-sang-ngon-re-o-Sapa-noi-tieng-dong-khach-banh-mi-Pham-Tang.png",
+    "source": "Google Maps / public reviews"
+  }
+}
