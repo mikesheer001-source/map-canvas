@@ -8,11 +8,15 @@ const server=createServer(async(req,res)=>{try{const pathname=new URL(req.url,"h
 await new Promise(ready=>server.listen(0,"127.0.0.1",ready));const base="http://127.0.0.1:"+server.address().port;let browser;
 try{
  browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.goto(base+"/tests/transport-options-harness.html");
- await page.getByText("2 researched option(s)").waitFor();assert.equal(await page.locator(".transport-research-option").count(),2);
- const picks=await page.locator(".transport-research-picks").textContent();assert.ok(picks.includes("Cheapest")&&picks.includes("Fastest")&&picks.includes("Best value"));
- const first=await page.locator(".transport-research-option").first().textContent();assert.ok(first.includes("UNVERIFIED")&&first.includes("Vietnam Transfers"));
- assert.ok((await page.locator(".transport-research-sources").textContent()).includes("Research sources and dates"));
- assert.equal(await page.locator('a[href="https://operator.example/tickets"]').count(),1);
+ await page.getByText("Live Transitous timetable search is disabled. Use the external provider links below.").waitFor();
+ assert.equal(await page.locator(".transport-research-option").count(),0,"cached timetable results must stay hidden");
+ assert.equal(await page.locator(".transport-research-picks").count(),0);
+ assert.equal(await page.locator(".transport-research-sources").count(),0);
+ const popup=await page.locator("#popup").textContent();
+ assert.ok(!popup.includes("Vietnam Transfers")&&!popup.includes("2 researched option(s)"));
  assert.equal(await page.locator('a[href="https://12go.asia/en/travel/hanoi/da-nang"]').count(),1);
- process.stdout.write("PASS: popup renders researched operators, fare warnings, schedules, picks, booking links and dated sources\n");
+ assert.equal(await page.locator('a[href^="https://www.google.com/travel/flights"]').count(),1);
+ assert.equal(await page.locator('a[href^="https://www.google.com/maps/dir/"]').count(),1);
+ assert.equal(await page.locator("#popup a").count(),3,"only the three external provider links should be shown");
+ process.stdout.write("PASS: popup suppresses cached Transitous results and shows only 12Go, Google Flights and Google Maps links\n");
 }finally{await browser?.close();await new Promise(done=>server.close(done));}

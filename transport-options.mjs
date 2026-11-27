@@ -1,3 +1,4 @@
+export const TRANSITOUS_ENABLED = false;
 export const TRANSITOUS_PLAN_ENDPOINT = "https://api.transitous.org/api/v6/plan";
 export const TRANSITOUS_SOURCES_URL = "https://transitous.org/sources/";
 export const TRANSITOUS_API_DOCS_URL = "https://transitous.org/api/";
@@ -258,6 +259,7 @@ export function isResearchStale(research, now = Date.now()) {
 }
 
 export async function searchTransportOptions(route, departureDateTime, options = {}) {
+  if (!TRANSITOUS_ENABLED) throw new Error("Live Transitous timetable research is disabled.");
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== "function") throw new Error("This browser does not support transport research.");
   const url = buildTransitousPlanUrl(route, departureDateTime);
@@ -303,6 +305,17 @@ function appendExternalLink(container, link) {
 export function renderTransportOptions(container, route, research, state = {}) {
   if (!container) return;
   container.replaceChildren();
+  if (!TRANSITOUS_ENABLED) {
+    const status = makeElement("p", "Live Transitous timetable search is disabled. Use the external provider links below.", "transport-research-status");
+    container.append(status);
+    const external = buildExternalTransportLinks(route, "");
+    const externalLinks = makeElement("div", undefined, "transport-research-external");
+    appendExternalLink(externalLinks, { label: "Search this route on 12Go", url: external.twelveGo });
+    appendExternalLink(externalLinks, { label: "Compare flights", url: external.flights });
+    appendExternalLink(externalLinks, { label: "Driving directions", url: external.driving });
+    container.append(externalLinks);
+    return;
+  }
   const now = Number.isFinite(Number(state.now)) ? Number(state.now) : Date.now();
   const stale = isResearchStale(research, now);
   const status = makeElement("p", "", "transport-research-status");

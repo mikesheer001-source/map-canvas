@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildTransitousPlanUrl, extractFareSummary, normalizeTransitousResponse,
   rankTransportOptions, isResearchStale, buildExternalTransportLinks,
-  searchTransportOptions, toLocalDateTimeISO, PRICE_STALE_AFTER_MS
+  searchTransportOptions, toLocalDateTimeISO, PRICE_STALE_AFTER_MS, TRANSITOUS_ENABLED
 } from "../transport-options.mjs";
 
 const route = { id:"route-1", from:{id:"a",title:"Hanoi",lat:21.0285,lng:105.8542}, to:{id:"b",title:"Da Nang",lat:16.0544,lng:108.2022} };
@@ -80,17 +80,17 @@ test("builds external provider search links without treating them as researched 
  assert.match(links.flights,/google\.com\/travel\/flights/);assert.match(links.driving,/google\.com\/maps\/dir/);
  assert.equal(buildExternalTransportLinks({from:{title:"Hotel 17, District 1"},to:{title:"Terminal 3"}}).twelveGo,"https://12go.asia/en");
 });
-test("uses mock API response and records research timestamp and source links",async()=>{
- let requested="";
- const result=await searchTransportOptions(route,date,{now:"2026-11-27T02:00:00Z",fetchImpl:async url=>{
-  requested=url;return {ok:true,status:200,json:async()=>({itineraries:[itinerary("one")],direct:[]})};
- }});
- assert.match(requested,/withFares=true/);assert.equal(result.researchedAt,"2026-11-27T02:00:00.000Z");
- assert.equal(result.options[0].fare.amount,210000);assert.ok(result.sources.some(source=>source.url==="https://transitous.org/sources/"));
+test("keeps Transitous disabled and blocks live timetable requests",async()=>{
+ assert.equal(TRANSITOUS_ENABLED,false);
+ let requests=0;
+ await assert.rejects(()=>searchTransportOptions(route,date,{fetchImpl:async()=>{
+  requests++;return {ok:true,status:200,json:async()=>({itineraries:[itinerary("one")],direct:[]})};
+ }}),/Live Transitous timetable research is disabled/);
+ assert.equal(requests,0);
 });
-test("surfaces provider failures instead of fabricating options",async()=>{
- await assert.rejects(()=>searchTransportOptions(route,date,{fetchImpl:async()=>({ok:false,status:503,json:async()=>({})})}),/HTTP 503/);
- await assert.rejects(()=>searchTransportOptions({from:{},to:{}},date),/valid start and destination coordinates/);
+test("retains Transitous URL validation while live searches are disabled",async()=>{
+ assert.throws(()=>buildTransitousPlanUrl({from:{},to:{}},date),/valid start and destination coordinates/);
+ await assert.rejects(()=>searchTransportOptions(route,date,{fetchImpl:async()=>({ok:false,status:503,json:async()=>({})})}),/Live Transitous timetable research is disabled/);
 });
 test("formats a selected departure as ISO date-time with local offset",()=>{
  assert.match(toLocalDateTimeISO("2026-11-28","08:15"),/^2026-11-28T08:15:00[+-]\d{2}:\d{2}$/);

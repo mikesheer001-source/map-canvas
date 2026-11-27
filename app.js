@@ -410,7 +410,10 @@ function showTransportInfo(routeOrId){
   $("transportInfoGeometry").textContent=route.geometryLabel||"Route geometry";
   $("transportInfoBasis").textContent=route.timeBasis||"Estimated travel time";
   $("transportInfo").classList.remove("hidden");
-  openTransportResearch(route);
+  state.transportResearchRouteId=route.id;
+  state.transportResearchBusy=false;
+  state.transportResearchError=null;
+  renderTransportOptions($("transportResearchResults"),route,null);
 }
 function closeTransportInfo(){
   state.transportResearchRequestId++;
@@ -1921,7 +1924,6 @@ function wire() {
   $("transportAddRoute").addEventListener("click",startTransportRoute);
   $("transportClearRoutes").addEventListener("click",clearTransportRoutes);
   $("transportInfoClose").addEventListener("click",closeTransportInfo);
-  $("transportResearchRefresh").addEventListener("click",()=>{const route=state.transportRoutes.find(item=>item.id===state.transportInfoRouteId);if(route)openTransportResearch(route,true);});
   $("transportMode").addEventListener("change",()=>{if(state.transportSelecting)state.transportDraft={mode:$("transportMode").value,from:null};renderTransportRoutes();});
   $("offlineClose").addEventListener("click",()=>$("offlineDialog").close());
   $("offlineDownload").addEventListener("click",downloadCurrentOfflineArea);
