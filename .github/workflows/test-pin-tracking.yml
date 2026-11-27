@@ -11,6 +11,7 @@ on:
       - '.github/workflows/test-map-canvas-database.yml'
       - '.github/workflows/test-pin-tracking.yml'
       - 'app.js'
+      - 'enhancements.js'
       - 'index.html'
       - 'style.css'
       - 'sw.js'

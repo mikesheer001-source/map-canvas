@@ -41,7 +41,7 @@ class Marker {
 }
 Marker.created=[];
 const fakeWindow={maplibregl:{Marker},L:null};
-const appForTest=app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
+const appForTest=app.replace(/^import .*;\s*/gm,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"");
 assert.notEqual(appForTest.length,app.length,"test runner must suppress the startup sequence");
 const api=new Function("document","window","location","FEATURE_DEFAULTS","pinThemeVisible",appForTest+
   "\nreturn {state,renderMarkers,pinGeoJSON,updateLabels,changeProvider,filterEntries};")(dom,fakeWindow,{hostname:"test.invalid"},FEATURE_DEFAULTS,pinThemeVisible);

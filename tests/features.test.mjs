@@ -26,7 +26,7 @@ assert.match(sw,/public-map\.json/);
 assert.match(sw,/keys\.length>180/);
 assert.ok(!sw.includes("tile.openstreetmap.org"));
 const api=new Function("document","window","location","navigator","FEATURE_DEFAULTS","pinThemeVisible",
- app.replace(/^import .*;\s*/,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
+ app.replace(/^import .*;\s*/gm,"").replace(/main\(\)\.catch\([^;]*;\s*$/,"")+
  "\nreturn {pinGeoJSON,pinEmoji,validColor,pinUrl,state,filterEntries};")(
  {},{},{href:"https://example.com/map/?x=1",search:"?x=1",hostname:"example.com"},
  {onLine:true},FEATURE_DEFAULTS,pinThemeVisible);

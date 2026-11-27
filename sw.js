@@ -306,7 +306,7 @@ self.addEventListener("fetch", event => {
         await cache.put(request, response.clone());
         if (cacheName === TILES) {
           const keys = await cache.keys();
-          if (keys.length > 180) await Promise.all(keys.slice(0, keys.length - 180).map(key => cache.delete(key)));
+          if(keys.length>180) await Promise.all(keys.slice(0, keys.length - 180).map(key => cache.delete(key)));
         }
       }
       return response;
