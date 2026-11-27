@@ -52,3 +52,12 @@ Routing uses the public OSRM Trip service and OpenStreetMap road data. OSRM brut
 Open **Multimodal transport routes**, choose bus, train, flight, ferry, or driving, select **Add route**, then click two map pins (or their sidebar entries) as origin and destination. Mode-coloured and patterned routes can be clicked for details. Routes are saved in this browser.
 
 Driving geometry uses the public OSRM road router. Bus, train, and ferry use matching OpenStreetMap route relations when available; otherwise a straight-line approximation is explicitly labelled. Flights use an approximate great-circle path, not a live airline path. Transit and flight times use typical-speed estimates, not live timetables or schedules.
+
+
+### Researched transport options
+
+Click a saved multimodal route to open its comparison panel. The panel queries the public Transitous MOTIS 2 journey-planning API for scheduled public transport and direct driving options around the selected departure time. It displays operators, departures/arrivals, duration, stops, transfers and fare products when the underlying feed supplies them. It also links to operator fare/route pages when supplied, plus external 12Go, flight-search and driving-direction pages.
+
+Fare amounts are never estimated: a missing fare stays blank/unpriced. Feed fares are marked **unverified** because they are not a live checkout quote; saved research older than 24 hours is marked stale and is not used for cheapest/best-value rankings. Cheapest and best-value picks are withheld when any option lacks a comparable fare or currencies differ. Best value means the lowest fare among options within 25% of the fastest itinerary. The selected departure date/time, research timestamp, source links and normalized options are saved with the route in this browser.
+
+Transitous is a best-effort community service. Its API policy permits open-source, non-commercial use only, asks clients to keep requests light, and requires source attribution. Map Canvas links to its source and API documentation in the popup. Transitous coverage depends on regional timetable feeds; no results do not prove that a service does not exist. 12Go and Google links are external search pages, not prices imported into Map Canvas.

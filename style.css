@@ -370,3 +370,51 @@ dialog{border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
 :root[data-theme="dark"] .transport-route-item,:root[data-theme="dark"] .transport-info-metrics>div{background:#243b2f}
 :root[data-theme="dark"] .transport-info-metrics strong{color:#b5dfc3}
 @media(max-width:750px){.transport-info{top:62px;left:10px;width:min(290px,calc(100% - 20px))}}
+
+
+/* Researched transport comparison popup */
+.transport-info{width:min(640px,calc(100% - 34px));max-height:calc(100% - 105px);overflow:auto;overscroll-behavior:contain}
+.transport-research-controls{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;margin:12px 0 8px;padding:9px;background:var(--paper);border:1px solid var(--line);border-radius:9px}
+.transport-research-controls label{display:grid;gap:4px;font-size:10px;font-weight:700;color:var(--muted)}
+.transport-research-controls input{min-width:0;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:7px;background:var(--white);color:var(--ink);font:inherit;font-size:12px}
+.transport-research-controls button{min-height:34px;padding:5px 10px;font-size:11px;white-space:nowrap}
+.transport-research-status{font-size:11px;line-height:1.4;color:var(--muted);margin:8px 0}
+.transport-research-external{display:flex;flex-wrap:wrap;gap:8px 14px;margin:8px 0}
+.transport-research-external a,.transport-research-booking a{font-size:10px;color:var(--green);text-decoration:underline;text-underline-offset:2px}
+.transport-research-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0}
+.transport-research-pick{display:grid;align-content:start;gap:4px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.transport-research-pick strong{font-size:10px}
+.transport-research-pick-value,.transport-research-pick-muted{font-size:10px;line-height:1.35;overflow-wrap:anywhere}
+.transport-research-pick-muted{color:var(--muted)}
+.transport-research-options{display:grid;gap:8px;margin:9px 0}
+.transport-research-option{padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--white)}
+.transport-research-option-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.transport-research-option-head>strong{font-size:12px}
+.transport-research-operator{font-size:10px;color:var(--muted);text-align:right}
+.transport-research-fare{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+.transport-research-fare>strong{font-size:14px}
+.transport-research-fare>span{font-size:9px;font-weight:700;color:#946a17;text-align:right}
+.transport-research-times{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:10px}
+.transport-research-meta,.transport-research-fare-products,.transport-research-source-date{display:block;font-size:9px;line-height:1.4;color:var(--muted);margin:6px 0}
+.transport-research-legs{margin:6px 0;padding-left:17px;font-size:10px;line-height:1.45}
+.transport-research-booking{display:flex;flex-wrap:wrap;gap:7px 12px;margin:8px 0}
+.transport-research-booking>span{font-size:9px;color:var(--muted)}
+.transport-research-empty{font-size:11px;line-height:1.45;color:var(--muted);padding:9px;background:var(--paper);border-radius:8px}
+.transport-research-sources{margin:9px 0;font-size:10px}
+.transport-research-sources summary{cursor:pointer;font-weight:700}
+.transport-research-sources ul{margin:7px 0;padding-left:17px}
+.transport-research-sources li{margin:5px 0;line-height:1.4}
+.transport-research-sources li small{font-size:9px;color:var(--muted)}
+.transport-research-sources a{color:var(--green);text-decoration:underline;text-underline-offset:2px}
+.transport-research-disclaimer{font-size:9px;line-height:1.45;color:var(--muted);margin:9px 0 2px}
+:root[data-theme="dark"] .transport-research-controls,:root[data-theme="dark"] .transport-research-pick{background:#243b2f;border-color:#385343}
+:root[data-theme="dark"] .transport-research-option{background:#1b3027;border-color:#385343}
+:root[data-theme="dark"] .transport-research-controls input{background:#12241b;color:#e8f0e9;border-color:#385343}
+:root[data-theme="dark"] .transport-research-external a,:root[data-theme="dark"] .transport-research-booking a,:root[data-theme="dark"] .transport-research-sources a{color:#a8d7b8}
+@media(max-width:750px){
+ .transport-info{top:62px;left:10px;width:calc(100% - 20px);max-height:calc(100% - 80px)}
+ .transport-research-controls{grid-template-columns:1fr 1fr}
+ .transport-research-controls button{grid-column:1/-1}
+ .transport-research-picks{grid-template-columns:1fr 1fr}
+ .transport-research-pick:last-child{grid-column:1/-1}
+}

@@ -12,6 +12,10 @@ on:
       - 'tests/multimodal-routes.test.mjs'
       - 'tests/multimodal-route-harness.html'
       - 'tests/multimodal-routes.browser.test.mjs'
+      - 'transport-options.mjs'
+      - 'tests/transport-options.test.mjs'
+      - 'tests/transport-options-harness.html'
+      - 'tests/transport-options.browser.test.mjs'
       - 'tests/route-optimizer.test.mjs'
       - 'tests/route-harness.html'
       - 'tests/route-optimizer.browser.test.mjs'
@@ -54,3 +58,5 @@ jobs:
         run: npm run test:route:browser
       - name: Run targeted multimodal route browser tests
         run: npm run test:multimodal:browser
+      - name: Run targeted transport-options popup browser tests
+        run: npm run test:transport-options:browser

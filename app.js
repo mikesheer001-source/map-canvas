@@ -1,6 +1,7 @@
 import { createEnhancements, createSettingsControls, FEATURE_DEFAULTS, FEATURE_STORAGE_KEY, PIN_PHOTO_MIN_ZOOM, readFeatureSettings, saveFeatureSettings, PIN_VISIBILITY_KEY, pinThemeVisible, readPinVisibility, savePinVisibility } from "./enhancements.js?v=settings-layout-20261119";
 import { enqueueOfflineChange, getQueuedChange, listQueuedChanges, removeQueuedChange, markQueuedConflict, listOfflineAreas, mergePendingChanges, stripOfflineFlags, formatOfflineBytes } from "./offline-store.mjs?v=offline-areas-20261127";
 import { countOfflineTiles, OFFLINE_TILE_LIMITS } from "./offline-tiles.mjs?v=offline-areas-20261127";
+import { searchTransportOptions, renderTransportOptions, toLocalDateTimeISO, RESEARCH_CACHE_MS } from "./transport-options.mjs?v=transport-options-20261127";
 const $ = (id) => document.getElementById(id);
 const LOCAL_MAP_KEY = "map-canvas:manual-map-v1";
 const SHARED_MAP_URL = "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map";
@@ -62,7 +63,9 @@ const state = {
   routeSelectedIds: [], routeSelecting: false, routeOptimizing: false, routeError: null,
   routeProgress: null, optimizedRoute: null, routeLayer: null, routeRequestId: 0, routeAbortController: null,
   transportRoutes: [], transportSelecting: false, transportDraft: null, transportBusy: false,
-  transportError: null, transportLayer: null, transportInfoRouteId: null
+  transportError: null, transportLayer: null, transportInfoRouteId: null,
+  transportResearchRequestId: 0, transportResearchAbortController: null, transportResearchRouteId: null,
+  transportResearchBusy: false, transportResearchError: null
 };
 const attr = (el, name, value) => el.setAttribute(name, String(value));
 const text = (tag, value, className) => {
@@ -404,10 +407,72 @@ function showTransportInfo(routeOrId){
   $("transportInfoGeometry").textContent=route.geometryLabel||"Route geometry";
   $("transportInfoBasis").textContent=route.timeBasis||"Estimated travel time";
   $("transportInfo").classList.remove("hidden");
+  openTransportResearch(route);
 }
 function closeTransportInfo(){
+  state.transportResearchRequestId++;
+  state.transportResearchAbortController?.abort();
+  state.transportResearchAbortController=null;
+  state.transportResearchRouteId=null;
+  state.transportResearchBusy=false;
+  state.transportResearchError=null;
   state.transportInfoRouteId=null;
   $("transportInfo")?.classList.add("hidden");
+}
+function renderTransportResearch(route){
+  if(!route||state.transportResearchRouteId!==route.id)return;
+  renderTransportOptions($("transportResearchResults"),route,route.research,{
+    busy:state.transportResearchBusy,error:state.transportResearchError
+  });
+  const refresh=$("transportResearchRefresh");
+  if(refresh){refresh.disabled=state.transportResearchBusy;refresh.textContent=state.transportResearchBusy?"Researching…":"Refresh options";}
+}
+function setTransportResearchDefaults(){
+  const dateInput=$("transportResearchDate"),timeInput=$("transportResearchTime");
+  if(dateInput.value&&timeInput.value)return;
+  const now=new Date(),pad=value=>String(value).padStart(2,"0");
+  if(!dateInput.value)dateInput.value=now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
+  if(!timeInput.value)timeInput.value=pad(now.getHours())+":"+pad(now.getMinutes());
+}
+async function openTransportResearch(route,force=false){
+  if(!route||!state.transportInfoRouteId)return;
+  const requestId=++state.transportResearchRequestId;
+  state.transportResearchAbortController?.abort();
+  state.transportResearchAbortController=null;
+  state.transportResearchRouteId=route.id;
+  setTransportResearchDefaults();
+  let departureDateTime;
+  try{
+    departureDateTime=toLocalDateTimeISO($("transportResearchDate").value,$("transportResearchTime").value);
+  }catch(error){
+    state.transportResearchError=error.message||"Choose a valid departure date and time.";
+    renderTransportResearch(route);return;
+  }
+  const savedAt=Date.parse(route.research?.researchedAt||"");
+  if(!force&&route.research?.requestedFor===departureDateTime&&Number.isFinite(savedAt)&&Date.now()-savedAt<RESEARCH_CACHE_MS){
+    state.transportResearchBusy=false;state.transportResearchError=null;renderTransportResearch(route);return;
+  }
+  const controller=new AbortController();
+  state.transportResearchAbortController=controller;
+  state.transportResearchBusy=true;state.transportResearchError=null;
+  renderTransportResearch(route);
+  try{
+    const research=await searchTransportOptions(route,departureDateTime,{signal:controller.signal});
+    if(requestId!==state.transportResearchRequestId||state.transportInfoRouteId!==route.id)return;
+    route.research=research;
+    state.transportResearchError=null;
+    saveTransportRoutes();
+  }catch(error){
+    if(controller.signal.aborted||error?.name==="AbortError")return;
+    if(requestId!==state.transportResearchRequestId||state.transportInfoRouteId!==route.id)return;
+    state.transportResearchError=error.message||"Transport research is temporarily unavailable.";
+  }finally{
+    if(requestId===state.transportResearchRequestId){
+      state.transportResearchAbortController=null;
+      state.transportResearchBusy=false;
+      renderTransportResearch(route);
+    }
+  }
 }
 function fitTransportRoute(route){
   const coords=route?.geometry?.coordinates;
@@ -1785,6 +1850,7 @@ function wire() {
   $("transportAddRoute").addEventListener("click",startTransportRoute);
   $("transportClearRoutes").addEventListener("click",clearTransportRoutes);
   $("transportInfoClose").addEventListener("click",closeTransportInfo);
+  $("transportResearchRefresh").addEventListener("click",()=>{const route=state.transportRoutes.find(item=>item.id===state.transportInfoRouteId);if(route)openTransportResearch(route,true);});
   $("transportMode").addEventListener("change",()=>{if(state.transportSelecting)state.transportDraft={mode:$("transportMode").value,from:null};renderTransportRoutes();});
   $("offlineClose").addEventListener("click",()=>$("offlineDialog").close());
   $("offlineDownload").addEventListener("click",downloadCurrentOfflineArea);
