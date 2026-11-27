@@ -85,6 +85,8 @@ try {
     const keys = await cache.keys();
     const tile = keys.find(request => new URL(request.url).pathname.endsWith(".pbf"));
     if (!tile) throw new Error("Offline area did not cache a vector tile.");
+    const cachedTile = await cache.match(tile);
+    const cachedTileBytes = await cachedTile.clone().arrayBuffer();
     await window.offlineHarness.enqueueOfflineChange({
       pinId: "browser-offline-pin", action: "save", expectedVersion: null,
       entry: { id: "browser-offline-pin", title: "Created offline", version: 0 }, createdAt: 1
@@ -93,10 +95,12 @@ try {
       pinId: "browser-offline-pin", action: "save", expectedVersion: 0,
       entry: { id: "browser-offline-pin", title: "Edited again offline", version: 0 }, createdAt: 2
     });
-    return { area, areas, tileUrl: tile.url, queue: await window.offlineHarness.listQueuedChanges() };
+    return { area, areas, tileUrl: tile.url, cachedTileBytes: cachedTileBytes.byteLength,
+      cachedTileType: cachedTile.type, queue: await window.offlineHarness.listQueuedChanges() };
   }, proxyOrigin);
 
   assert.ok(beforeOffline.area.tileCount > 0);
+  assert.ok(beforeOffline.cachedTileBytes > 0, "downloaded CacheStorage response is empty: " + beforeOffline.cachedTileType);
   assert.equal(beforeOffline.areas.some(area => area.id === "browser-proxy-test"), true);
   assert.equal(beforeOffline.queue.length, 1);
   assert.equal(beforeOffline.queue[0].expectedVersion, null);
@@ -108,13 +112,14 @@ try {
   const offlineResult = await page.evaluate(async tileUrl => {
     const queue = await window.offlineHarness.listQueuedChanges();
     const response = await fetch(tileUrl);
-    return { title: document.title, queue, status: response.status, tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
+    return { title: document.title, queue, status: response.status, type: response.type,
+      tile: await response.arrayBuffer(), controller: !!navigator.serviceWorker.controller };
   }, beforeOffline.tileUrl);
   assert.match(offlineResult.title, /offline browser test/i);
   assert.equal(offlineResult.queue.length, 1);
   assert.equal(offlineResult.queue[0].entry.title, "Edited again offline");
   assert.equal(offlineResult.status, 200);
-  assert.ok(offlineResult.tile.byteLength > 0);
+  assert.ok(offlineResult.tile.byteLength > 0, "offline response was empty: " + offlineResult.type + " " + offlineResult.status);
   assert.equal(offlineResult.controller, true);
 
   await context.setOffline(false);
