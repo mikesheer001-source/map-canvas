@@ -1,0 +1,879 @@
+{
+  "schemaVersion": 1,
+  "source": "https://map-canvas-api.mikesheer001.workers.dev/api/shared-map/pins",
+  "capturedAt": "2026-11-28T12:18:24.165Z",
+  "revision": 118,
+  "pinCount": 87,
+  "pins": [
+    {
+      "id": "01ea6ca6-f746-4d9c-8f46-e75d40da0ee0",
+      "title": "Tranquil Books & Coffee",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.03244,
+      "lng": 105.84568,
+      "version": 40,
+      "path": "pins/01ea6ca6-f746-4d9c-8f46-e75d40da0ee0.json"
+    },
+    {
+      "id": "028ecc70-5456-4be5-81dd-77d98fc09500",
+      "title": "Đồng Xuân Market",
+      "category": "Market",
+      "kind": "place",
+      "lat": 21.038164,
+      "lng": 105.850031,
+      "version": 40,
+      "path": "pins/028ecc70-5456-4be5-81dd-77d98fc09500.json"
+    },
+    {
+      "id": "07e93cdd-7b97-54f2-9f68-5e545e8d750e",
+      "title": "Lotte Observation Deck",
+      "category": "Observation",
+      "kind": "place",
+      "lat": 21.032202,
+      "lng": 105.812329,
+      "version": 40,
+      "path": "pins/07e93cdd-7b97-54f2-9f68-5e545e8d750e.json"
+    },
+    {
+      "id": "119dcea2-ba0e-5524-8727-c942ec886fcd",
+      "title": "Gym Hoàn Kiếm – Whey Gym 2",
+      "category": "Gym",
+      "kind": "place",
+      "lat": 21.0285734,
+      "lng": 105.8587721,
+      "version": 40,
+      "path": "pins/119dcea2-ba0e-5524-8727-c942ec886fcd.json"
+    },
+    {
+      "id": "1247e912-3465-5015-8bd4-a76e2d6a73b4",
+      "title": "Nola Cafe & Bar",
+      "category": "Art café & light food",
+      "kind": "place",
+      "lat": 21.0343596,
+      "lng": 105.8534812,
+      "version": 40,
+      "path": "pins/1247e912-3465-5015-8bd4-a76e2d6a73b4.json"
+    },
+    {
+      "id": "1fe0783f-c07d-4299-beed-ff4b88df92bf",
+      "title": "St. Joseph’s Cathedral",
+      "category": "Cathedral",
+      "kind": "place",
+      "lat": 21.02861,
+      "lng": 105.84889,
+      "version": 40,
+      "path": "pins/1fe0783f-c07d-4299-beed-ff4b88df92bf.json"
+    },
+    {
+      "id": "232ecedc-c152-5ea1-9c89-c9cedb982970",
+      "title": "La Habanera — Wednesday Salsa/Bachata",
+      "category": "Latin dancing",
+      "kind": "place",
+      "lat": 21.0676142,
+      "lng": 105.8260132,
+      "version": 40,
+      "path": "pins/232ecedc-c152-5ea1-9c89-c9cedb982970.json"
+    },
+    {
+      "id": "27733dc5-31df-5ac2-a0ce-d0931a01096f",
+      "title": "Taurus Pickleball",
+      "category": "Pickleball",
+      "kind": "place",
+      "lat": 21.04005432,
+      "lng": 105.85280224,
+      "version": 40,
+      "path": "pins/27733dc5-31df-5ac2-a0ce-d0931a01096f.json"
+    },
+    {
+      "id": "2945daae-047c-40e2-a8c8-f909180bcdbb",
+      "title": "Bancông Cafe & Restaurant",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.03328731687182,
+      "lng": 105.85205667145158,
+      "version": 40,
+      "path": "pins/2945daae-047c-40e2-a8c8-f909180bcdbb.json"
+    },
+    {
+      "id": "2d92b949-c308-5d49-9a6e-be0a9469d581",
+      "title": "X-Men Gym",
+      "category": "Gym",
+      "kind": "place",
+      "lat": 21.036035,
+      "lng": 105.846132,
+      "version": 40,
+      "path": "pins/2d92b949-c308-5d49-9a6e-be0a9469d581.json"
+    },
+    {
+      "id": "30b529fb-5cd7-45f5-bce9-8b43d04ab574",
+      "title": "Hội An",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 15.8796,
+      "lng": 108.3319,
+      "version": 39,
+      "path": "pins/30b529fb-5cd7-45f5-bce9-8b43d04ab574.json"
+    },
+    {
+      "id": "349fd047-2fef-5774-86fa-2426500aa152",
+      "title": "Beefy Boulders — Tây Hồ",
+      "category": "Bouldering",
+      "kind": "place",
+      "lat": 21.064611,
+      "lng": 105.833872,
+      "version": 40,
+      "path": "pins/349fd047-2fef-5774-86fa-2426500aa152.json"
+    },
+    {
+      "id": "3888084b-7d5b-4363-af79-7f97d3fcc09f",
+      "title": "Café Phố Cổ",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.0322129,
+      "lng": 105.8510511,
+      "version": 40,
+      "path": "pins/3888084b-7d5b-4363-af79-7f97d3fcc09f.json"
+    },
+    {
+      "id": "3f25b469-568a-51f8-bdf1-2d228563bbe1",
+      "title": "Go Kart Vietnam — Long Biên",
+      "category": "Go-karting",
+      "kind": "place",
+      "lat": 21.018053,
+      "lng": 105.901699,
+      "version": 40,
+      "path": "pins/3f25b469-568a-51f8-bdf1-2d228563bbe1.json"
+    },
+    {
+      "id": "54291b35-211a-595d-b9dc-ae264a801fe1",
+      "title": "Quan An Ngon",
+      "category": "Vietnamese restaurant",
+      "kind": "place",
+      "lat": 21.0263017,
+      "lng": 105.8433763,
+      "version": 40,
+      "path": "pins/54291b35-211a-595d-b9dc-ae264a801fe1.json"
+    },
+    {
+      "id": "5f1236a8-cc29-503b-8efd-ab1c7703ecf5",
+      "title": "Làng hương Quảng Phú Cầu",
+      "category": "Incense village",
+      "kind": "place",
+      "lat": 20.779619,
+      "lng": 105.784835,
+      "version": 40,
+      "path": "pins/5f1236a8-cc29-503b-8efd-ab1c7703ecf5.json"
+    },
+    {
+      "id": "613a9e67-692c-4434-b56e-2f1f5e6f3707",
+      "title": "Bát Tràng Pottery Village",
+      "category": "Arts & crafts",
+      "kind": "place",
+      "lat": 20.9765,
+      "lng": 105.9139,
+      "version": 36,
+      "path": "pins/613a9e67-692c-4434-b56e-2f1f5e6f3707.json"
+    },
+    {
+      "id": "732bf84c-1e9d-5fe5-9652-35a4006224b5",
+      "title": "Xofa Cafe",
+      "category": "Bistro & brunch",
+      "kind": "place",
+      "lat": 21.0293867,
+      "lng": 105.8435994,
+      "version": 40,
+      "path": "pins/732bf84c-1e9d-5fe5-9652-35a4006224b5.json"
+    },
+    {
+      "id": "7d8dff86-0b8d-4642-a9bc-d2e1f1830069",
+      "title": "Always Cafe",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.0311667,
+      "lng": 105.8546,
+      "version": 40,
+      "path": "pins/7d8dff86-0b8d-4642-a9bc-d2e1f1830069.json"
+    },
+    {
+      "id": "7e44cea2-4e88-478c-b2a3-b82373133de8",
+      "title": "The Note Coffee",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.031556423936717,
+      "lng": 105.85104922353563,
+      "version": 44,
+      "path": "pins/7e44cea2-4e88-478c-b2a3-b82373133de8.json"
+    },
+    {
+      "id": "804f77de-18c8-470d-b6be-5542a7ce60fa",
+      "title": "Sa Pa",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 22.33556,
+      "lng": 103.84194,
+      "version": 39,
+      "path": "pins/804f77de-18c8-470d-b6be-5542a7ce60fa.json"
+    },
+    {
+      "id": "8b4c68a5-2439-4c8e-b3f9-97c51eac0231",
+      "title": "Gym Xuân Trường Sa Pa",
+      "category": "Gym",
+      "kind": "place",
+      "lat": 22.3384375,
+      "lng": 103.8504875,
+      "version": 111,
+      "path": "pins/8b4c68a5-2439-4c8e-b3f9-97c51eac0231.json"
+    },
+    {
+      "id": "8cb00a90-549d-50b8-8aa3-0384137d9201",
+      "title": "Binh Minh Jazz Club",
+      "category": "Live music",
+      "kind": "place",
+      "lat": 21.024021,
+      "lng": 105.85818,
+      "version": 40,
+      "path": "pins/8cb00a90-549d-50b8-8aa3-0384137d9201.json"
+    },
+    {
+      "id": "969ef0ed-c5b6-536f-a5de-90585cb7d47c",
+      "title": "Hanoi Climbing Hub",
+      "category": "Gym",
+      "kind": "place",
+      "lat": 21.0336986,
+      "lng": 105.8699718,
+      "version": 40,
+      "path": "pins/969ef0ed-c5b6-536f-a5de-90585cb7d47c.json"
+    },
+    {
+      "id": "99b3a786-a54d-4dbb-bf05-81fd1d37a965",
+      "title": "Hidden Gem Cafe Hanoi",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.033804,
+      "lng": 105.855187,
+      "version": 40,
+      "path": "pins/99b3a786-a54d-4dbb-bf05-81fd1d37a965.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53001",
+      "title": "Bánh mì Phạm Tăng",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.339131,
+      "lng": 103.850454,
+      "version": 45,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53001.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53002",
+      "title": "Bún bò Huế Chú Vui Sapa",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.3379415,
+      "lng": 103.8509892,
+      "version": 46,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53002.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53003",
+      "title": "Đức Đạt Quán – Bánh Cuốn Nóng",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.33666,
+      "lng": 103.84513,
+      "version": 48,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53003.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53004",
+      "title": "Bánh Cuốn Nóng – Bún Chả Đông Nhung",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.335906,
+      "lng": 103.844562,
+      "version": 47,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53004.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53101",
+      "title": "Quán 24/7 Cơm Suất Tự Chọn",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.33913,
+      "lng": 103.85045,
+      "version": 49,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53101.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53102",
+      "title": "Silver Waterfall (Thác Bạc)",
+      "category": "Attraction",
+      "kind": "place",
+      "lat": 22.361626,
+      "lng": 103.778912,
+      "version": 103,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53102.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53103",
+      "title": "Love Waterfall (Thác Tình Yêu)",
+      "category": "Attraction",
+      "kind": "place",
+      "lat": 22.34734,
+      "lng": 103.77243,
+      "version": 104,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53103.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53104",
+      "title": "Y Linh Ho Village",
+      "category": "Trekking",
+      "kind": "place",
+      "lat": 22.31307,
+      "lng": 103.84701,
+      "version": 105,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53104.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53105",
+      "title": "Lao Chai Village",
+      "category": "Trekking",
+      "kind": "place",
+      "lat": 22.31002,
+      "lng": 103.87623,
+      "version": 106,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53105.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53106",
+      "title": "Ta Van Village",
+      "category": "Trekking",
+      "kind": "place",
+      "lat": 22.30266,
+      "lng": 103.88858,
+      "version": 107,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53106.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53107",
+      "title": "Ham Rong Mountain",
+      "category": "Attraction",
+      "kind": "place",
+      "lat": 22.33258,
+      "lng": 103.86243,
+      "version": 108,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53107.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53108",
+      "title": "Fansipan Summit",
+      "category": "Trekking",
+      "kind": "place",
+      "lat": 22.30308,
+      "lng": 103.77544,
+      "version": 109,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53108.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53109",
+      "title": "Green Sapa Homestay",
+      "category": "Hotel / Tour operator",
+      "kind": "place",
+      "lat": 22.3339183,
+      "lng": 103.8430776,
+      "version": 51,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53109.json"
+    },
+    {
+      "id": "9a5d92d1-03df-4dc0-bb1d-8a4639b53110",
+      "title": "Tram Ton Pass (Fansipan trailhead)",
+      "category": "Trekking",
+      "kind": "place",
+      "lat": 22.353008,
+      "lng": 103.774747,
+      "version": 110,
+      "path": "pins/9a5d92d1-03df-4dc0-bb1d-8a4639b53110.json"
+    },
+    {
+      "id": "9e0cf69c-5c48-4c66-84b6-6fcb38c8c406",
+      "title": "Đà Nẵng",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 16.06778,
+      "lng": 108.22083,
+      "version": 39,
+      "path": "pins/9e0cf69c-5c48-4c66-84b6-6fcb38c8c406.json"
+    },
+    {
+      "id": "a6093549-76ec-4535-a1c8-c6a82830f6e0",
+      "title": "Long Biên Bridge",
+      "category": "Historic landmark",
+      "kind": "place",
+      "lat": 21.04309,
+      "lng": 105.85803,
+      "version": 40,
+      "path": "pins/a6093549-76ec-4535-a1c8-c6a82830f6e0.json"
+    },
+    {
+      "id": "abf5798d-5071-569e-a06e-72cef74149e8",
+      "title": "MK Fitness",
+      "category": "Weights",
+      "kind": "place",
+      "lat": 21.0357889,
+      "lng": 105.8511646,
+      "version": 40,
+      "path": "pins/abf5798d-5071-569e-a06e-72cef74149e8.json"
+    },
+    {
+      "id": "b4fb3c16-5fc7-4439-b512-6e328c569924",
+      "title": "Loading T Café",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.03053,
+      "lng": 105.84859,
+      "version": 40,
+      "path": "pins/b4fb3c16-5fc7-4439-b512-6e328c569924.json"
+    },
+    {
+      "id": "b4ff3a21-1128-4c00-9a00-000000000001",
+      "title": "Chi Pâu Buffet Hotpot & BBQ",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.3385351,
+      "lng": 103.836752,
+      "version": 112,
+      "path": "pins/b4ff3a21-1128-4c00-9a00-000000000001.json"
+    },
+    {
+      "id": "b4ff3a21-1128-4c00-9a00-000000000002",
+      "title": "Fin House SaPa",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.3372632,
+      "lng": 103.8498459,
+      "version": 114,
+      "path": "pins/b4ff3a21-1128-4c00-9a00-000000000002.json"
+    },
+    {
+      "id": "b4ff3a21-1128-4c00-9a00-000000000003",
+      "title": "Hải Yến 1 Hotpot & BBQ Buffet",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.33597,
+      "lng": 103.84349,
+      "version": 118,
+      "path": "pins/b4ff3a21-1128-4c00-9a00-000000000003.json"
+    },
+    {
+      "id": "b4ff3a21-1128-4c00-9a00-000000000004",
+      "title": "Sapa Rasa Sayang Halal Buffet",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.3411661,
+      "lng": 103.830499,
+      "version": 116,
+      "path": "pins/b4ff3a21-1128-4c00-9a00-000000000004.json"
+    },
+    {
+      "id": "b4ff3a21-1128-4c00-9a00-000000000005",
+      "title": "Chợ Phiên Quán",
+      "category": "Restaurant",
+      "kind": "place",
+      "lat": 22.3376875,
+      "lng": 103.8475415,
+      "version": 117,
+      "path": "pins/b4ff3a21-1128-4c00-9a00-000000000005.json"
+    },
+    {
+      "id": "b5100123-6600-57ac-b057-c886555b2e31",
+      "title": "Hanoi Coffee Culture",
+      "category": "Coffee & brunch",
+      "kind": "place",
+      "lat": 21.0333014,
+      "lng": 105.8545476,
+      "version": 40,
+      "path": "pins/b5100123-6600-57ac-b057-c886555b2e31.json"
+    },
+    {
+      "id": "b6b78339-f078-5798-b5b9-aeed9e2206b7",
+      "title": "Umove SUP — Paddle Station Café",
+      "category": "Paddleboarding",
+      "kind": "place",
+      "lat": 21.0422109,
+      "lng": 105.8258493,
+      "version": 36,
+      "path": "pins/b6b78339-f078-5798-b5b9-aeed9e2206b7.json"
+    },
+    {
+      "id": "bcc2fc18-5d6b-5db1-ad84-501dd08d2279",
+      "title": "YADA Board Games — The Root-2",
+      "category": "Board games",
+      "kind": "place",
+      "lat": 21.0352067,
+      "lng": 105.8311336,
+      "version": 40,
+      "path": "pins/bcc2fc18-5d6b-5db1-ad84-501dd08d2279.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000001",
+      "title": "Cát Cát Village",
+      "category": "Village",
+      "kind": "place",
+      "lat": 22.33,
+      "lng": 103.83,
+      "version": 94,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000001.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000002",
+      "title": "Tả Phìn Ancient Monastery",
+      "category": "History",
+      "kind": "place",
+      "lat": 22.377313,
+      "lng": 103.851547,
+      "version": 95,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000002.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000003",
+      "title": "Sín Chải Village",
+      "category": "Village",
+      "kind": "place",
+      "lat": 22.331163,
+      "lng": 103.829391,
+      "version": 96,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000003.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000004",
+      "title": "Sa Pa Stone Church",
+      "category": "History",
+      "kind": "place",
+      "lat": 22.3352,
+      "lng": 103.8412,
+      "version": 83,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000004.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000005",
+      "title": "Séo Mý Tỷ Lake",
+      "category": "Nature",
+      "kind": "place",
+      "lat": 22.250587,
+      "lng": 103.891828,
+      "version": 97,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000005.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000006",
+      "title": "Giàng Tả Chải Waterfall",
+      "category": "Waterfall",
+      "kind": "place",
+      "lat": 22.29772,
+      "lng": 103.90994,
+      "version": 85,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000006.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000007",
+      "title": "Bản Hồ Hot Springs",
+      "category": "Nature",
+      "kind": "place",
+      "lat": 22.264063,
+      "lng": 103.964328,
+      "version": 86,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000007.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000008",
+      "title": "Tả Phìn Cave",
+      "category": "Cave",
+      "kind": "place",
+      "lat": 22.39529,
+      "lng": 103.84303,
+      "version": 72,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000008.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000009",
+      "title": "Sa Pa Lake",
+      "category": "Nature",
+      "kind": "place",
+      "lat": 22.3375,
+      "lng": 103.8468,
+      "version": 75,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000009.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000010",
+      "title": "Rồng Mây Glass Bridge",
+      "category": "Adventure",
+      "kind": "place",
+      "lat": 22.3727,
+      "lng": 103.75729,
+      "version": 98,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000010.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000011",
+      "title": "Moana Sa Pa",
+      "category": "Viewpoint",
+      "kind": "place",
+      "lat": 22.3275,
+      "lng": 103.8448,
+      "version": 99,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000011.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000012",
+      "title": "Sa Pa Ancient Stone Field",
+      "category": "History",
+      "kind": "place",
+      "lat": 22.303888,
+      "lng": 103.898797,
+      "version": 100,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000012.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000013",
+      "title": "Sa Pa Night Market",
+      "category": "Market",
+      "kind": "place",
+      "lat": 22.33829,
+      "lng": 103.85199,
+      "version": 90,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000013.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000014",
+      "title": "Best View Sa Pa",
+      "category": "Viewpoint",
+      "kind": "place",
+      "lat": 22.317,
+      "lng": 103.879,
+      "version": 101,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000014.json"
+    },
+    {
+      "id": "c1a52628-1128-4c00-9a00-000000000015",
+      "title": "Sun Plaza",
+      "category": "Landmark",
+      "kind": "place",
+      "lat": 22.335,
+      "lng": 103.8407,
+      "version": 102,
+      "path": "pins/c1a52628-1128-4c00-9a00-000000000015.json"
+    },
+    {
+      "id": "c54818f1-d2f9-482e-89e3-61f4cca8d5b8",
+      "title": "Philo Garden",
+      "category": "Café",
+      "kind": "place",
+      "lat": 21.0577175,
+      "lng": 105.8326445,
+      "version": 40,
+      "path": "pins/c54818f1-d2f9-482e-89e3-61f4cca8d5b8.json"
+    },
+    {
+      "id": "cd0020d1-a059-42b3-9c20-5e6f73168642",
+      "title": "Đà Lạt",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 11.9402,
+      "lng": 108.4376,
+      "version": 39,
+      "path": "pins/cd0020d1-a059-42b3-9c20-5e6f73168642.json"
+    },
+    {
+      "id": "d49f27c5-ef9d-4ae8-81bb-c1a738e3705c",
+      "title": "Hanoi Train Street",
+      "category": "Railway attraction",
+      "kind": "place",
+      "lat": 21.029478,
+      "lng": 105.843149,
+      "version": 40,
+      "path": "pins/d49f27c5-ef9d-4ae8-81bb-c1a738e3705c.json"
+    },
+    {
+      "id": "d93c51d2-17a6-55a0-82b2-d436e01b3f05",
+      "title": "The Hanoi Social Club",
+      "category": "Brunch & international",
+      "kind": "place",
+      "lat": 21.029152,
+      "lng": 105.846191,
+      "version": 40,
+      "path": "pins/d93c51d2-17a6-55a0-82b2-d436e01b3f05.json"
+    },
+    {
+      "id": "e5e26128-1128-4c00-9a00-000000000002",
+      "title": "Hanoi → Sa Pa",
+      "category": "Route",
+      "kind": "place",
+      "lat": 21.74626174028637,
+      "lng": 104.81645782464203,
+      "version": 93,
+      "path": "pins/e5e26128-1128-4c00-9a00-000000000002.json"
+    },
+    {
+      "id": "ea5cca0d-519a-5fa4-8cf1-e5089f6edfaa",
+      "title": "Trấn Quốc Pagoda",
+      "category": "Pagoda",
+      "kind": "place",
+      "lat": 21.047871,
+      "lng": 105.8368738,
+      "version": 40,
+      "path": "pins/ea5cca0d-519a-5fa4-8cf1-e5089f6edfaa.json"
+    },
+    {
+      "id": "f8878f5f-46e0-4206-b814-9d504df8bf48",
+      "title": "Ho Chi Minh City",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 10.7766,
+      "lng": 106.70096,
+      "version": 39,
+      "path": "pins/f8878f5f-46e0-4206-b814-9d504df8bf48.json"
+    },
+    {
+      "id": "f9bae84a-e11b-4a98-8c88-4002ef8fee66",
+      "title": "Hà Giang Loop",
+      "category": "Scenic route",
+      "kind": "place",
+      "lat": 22.82733,
+      "lng": 104.98417,
+      "version": 37,
+      "path": "pins/f9bae84a-e11b-4a98-8c88-4002ef8fee66.json"
+    },
+    {
+      "id": "fc02e655-db52-4592-b715-8a6f6ecb2cd4",
+      "title": "Ninh Bình",
+      "category": "Destination",
+      "kind": "place",
+      "lat": 20.25255,
+      "lng": 105.974998,
+      "version": 37,
+      "path": "pins/fc02e655-db52-4592-b715-8a6f6ecb2cd4.json"
+    },
+    {
+      "id": "hostel-1",
+      "title": "Viet Vintage Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.03434113944887,
+      "lng": 105.85210899691265,
+      "version": 36,
+      "path": "pins/hostel-1.json"
+    },
+    {
+      "id": "hostel-10",
+      "title": "Ja Costa Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.03104,
+      "lng": 105.855742,
+      "version": 36,
+      "path": "pins/hostel-10.json"
+    },
+    {
+      "id": "hostel-11",
+      "title": "Green Hostel Hanoi",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.030172,
+      "lng": 105.845189,
+      "version": 36,
+      "path": "pins/hostel-11.json"
+    },
+    {
+      "id": "hostel-12",
+      "title": "Hanoi City Backpackers Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0341718,
+      "lng": 105.8473719,
+      "version": 36,
+      "path": "pins/hostel-12.json"
+    },
+    {
+      "id": "hostel-13",
+      "title": "Hanoi Capsule Station Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0390032,
+      "lng": 105.8513101,
+      "version": 36,
+      "path": "pins/hostel-13.json"
+    },
+    {
+      "id": "hostel-2",
+      "title": "AprilBox Trackside Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0329587,
+      "lng": 105.8442971,
+      "version": 36,
+      "path": "pins/hostel-2.json"
+    },
+    {
+      "id": "hostel-3",
+      "title": "Lotuz Hanoi Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0369192,
+      "lng": 105.8500837,
+      "version": 36,
+      "path": "pins/hostel-3.json"
+    },
+    {
+      "id": "hostel-5",
+      "title": "Hanoi Traveller House",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0360605,
+      "lng": 105.8532502,
+      "version": 36,
+      "path": "pins/hostel-5.json"
+    },
+    {
+      "id": "hostel-6",
+      "title": "Hanoi High Five Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0334282,
+      "lng": 105.8549409,
+      "version": 36,
+      "path": "pins/hostel-6.json"
+    },
+    {
+      "id": "hostel-7",
+      "title": "Hanoi Backpackers Lodge",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0378181,
+      "lng": 105.8522915,
+      "version": 36,
+      "path": "pins/hostel-7.json"
+    },
+    {
+      "id": "hostel-8",
+      "title": "Hanoi Solo Hostel",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0356108,
+      "lng": 105.853418,
+      "version": 36,
+      "path": "pins/hostel-8.json"
+    },
+    {
+      "id": "hostel-9",
+      "title": "Old Quarter Lake House",
+      "category": "Hostel",
+      "kind": "place",
+      "lat": 21.0327628,
+      "lng": 105.8511429,
+      "version": 36,
+      "path": "pins/hostel-9.json"
+    }
+  ]
+}
